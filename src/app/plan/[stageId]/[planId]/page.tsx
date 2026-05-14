@@ -11,9 +11,9 @@ import { notFound } from 'next/navigation'
 
 export const revalidate = 0
 
-export default async function PlanSchedulePage({ params }: { params: Promise<{ stageId: string; planId: string }> }) {
+export default async function PlanSchedulePage(props: { params: Promise<{ stageId: string; planId: string }> }) {
+  const { stageId, planId } = await props.params
   const supabase = await createClient()
-  const { stageId, planId } = await params
 
   const [stageRes, planRes, schedRes] = await Promise.all([
     supabase.from('stages').select('id, name, tag_color').eq('id', stageId).single(),
@@ -38,6 +38,8 @@ export default async function PlanSchedulePage({ params }: { params: Promise<{ s
         .meal-badge { display:inline-block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; padding:3px 10px; border-radius:50px; margin-bottom:4px; }
         .back-btn { display:inline-flex; align-items:center; gap:6px; font-size:14px; color:#7A7068; text-decoration:none; font-weight:500; transition:color 0.2s; }
         .back-btn:hover { color:#1C1C1A; }
+        .subscribe-btn { background:#E8834A; color:white; border:none; padding:15px 32px; border-radius:50px; font-size:14px; font-weight:600; cursor:pointer; transition:background 0.2s, transform 0.2s; }
+        .subscribe-btn:hover { background:#D06A32; transform:translateY(-2px); }
         @media(max-width:768px) { .schedule-grid { grid-template-columns:1fr!important; } }
       `}</style>
 
@@ -85,14 +87,17 @@ export default async function PlanSchedulePage({ params }: { params: Promise<{ s
               </div>
             ))}
           </div>
+          {schedule.length === 0 && (
+            <div style={{ textAlign:'center', padding:'60px', color:'#C9A98A', fontSize:'14px' }}>
+              No schedule available yet.
+            </div>
+          )}
         </div>
 
         {/* Subscribe CTA */}
         <div style={{ textAlign:'center', padding:'0 6%' }}>
           <p style={{ fontSize:'15px', color:'#7A7068', marginBottom:'18px' }}>Ready to subscribe to this plan?</p>
-          <button style={{ background:'#E8834A', color:'white', border:'none', padding:'15px 32px', borderRadius:'50px', fontSize:'14px', fontWeight:600, cursor:'pointer' }}>
-            Subscribe to {plan.name} →
-          </button>
+          <button className="subscribe-btn">Subscribe to {plan.name} →</button>
         </div>
       </main>
     </>

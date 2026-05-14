@@ -29,7 +29,7 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Protected routes — redirect to login if not logged in
-  const protectedPaths = ['/dashboard', '/meals', '/subscription', '/profile', '/admin']
+const protectedPaths = ['/admin']
   const isProtected = protectedPaths.some(path =>
     request.nextUrl.pathname.startsWith(path)
   )
@@ -48,7 +48,7 @@ export async function proxy(request: NextRequest) {
   )
   if (isAuthPage && user) {
     const dashUrl = request.nextUrl.clone()
-    dashUrl.pathname = '/dashboard'
+dashUrl.pathname = '/'
     return NextResponse.redirect(dashUrl)
   }
 

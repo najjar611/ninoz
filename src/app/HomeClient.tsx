@@ -65,11 +65,9 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
         .stage-card { background:white; border-radius:16px; padding:20px 24px; border:1px solid rgba(44,26,14,0.08); transition:transform 0.3s, box-shadow 0.3s; cursor:pointer; text-decoration:none; display:block; color:inherit; height:100%; box-sizing:border-box; }
         .stage-card:hover { transform:translateY(-4px); box-shadow:0 16px 40px rgba(44,26,14,0.12); }
 
-        /* ── HOW CARDS ── */
         .step-card { background:white; border-radius:20px; border:1px solid rgba(44,26,14,0.08); transition:transform 0.3s, box-shadow 0.3s; }
         .step-card:hover { transform:translateY(-4px); box-shadow:0 16px 40px rgba(44,26,14,0.08); }
 
-        /* ── TESTI CARDS ── */
         .testi-card { background:white; border-radius:20px; border:1px solid rgba(44,26,14,0.08); display:flex; flex-direction:column; transition:box-shadow 0.3s, transform 0.3s; }
         .testi-card:hover { box-shadow:0 12px 30px rgba(44,26,14,0.08); transform:translateY(-3px); }
 
@@ -94,20 +92,16 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
         @keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         .marquee-track { animation:marquee 28s linear infinite; }
 
-        /* ── HORIZONTAL SCROLL ── */
-        .h-scroll { display:flex; gap:16px; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding-bottom:4px; }
-        .h-scroll::-webkit-scrollbar { display:none; }
-        .h-item { flex:0 0 82vw; max-width:320px; scroll-snap-align:start; }
-
         /* ══ DESKTOP ══ */
         @media(min-width:769px) {
-          .stages-cards { display:flex !important; flex-direction:column !important; gap:16px !important; overflow-x:visible !important; }
-          .stages-cards .h-item { flex:none !important; max-width:none !important; width:100% !important; }
+          .stages-cards { flex-direction:column !important; overflow-x:visible !important; }
+          .stages-cards .s-item { flex:none !important; max-width:none !important; width:100% !important; }
           .testi-wrap { display:grid !important; grid-template-columns:repeat(3,1fr) !important; }
           .testi-wrap .h-item { flex:none !important; max-width:none !important; }
           .how-wrap { display:grid !important; grid-template-columns:repeat(3,1fr) !important; }
           .how-wrap .h-item { flex:none !important; max-width:none !important; }
           .blog-grid { grid-template-columns:repeat(3,1fr) !important; }
+          /* Contact always horizontal */
           .contact-grid { grid-template-columns:1fr 1fr !important; }
         }
 
@@ -118,27 +112,44 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
           .hero-badges { gap:14px !important; flex-wrap:wrap !important; }
           .hero-btns { flex-direction:column !important; gap:10px !important; }
           .hero-btns button { width:100% !important; }
-          /* Stats — scroll horizontally on mobile */
-          .stats-bar { overflow-x:auto !important; justify-content:flex-start !important; }
-          /* Stages — horizontal swipe on mobile */
-          .stages-cards { display:flex !important; overflow-x:auto !important; scroll-snap-type:x mandatory !important; -webkit-overflow-scrolling:touch !important; scrollbar-width:none !important; gap:14px !important; }
-          .stages-cards .h-item { flex:0 0 82vw !important; max-width:320px !important; scroll-snap-align:start !important; width:auto !important; }
+
+          /* Stats — single row, scroll horizontally */
+          .stats-bar { overflow-x:auto !important; justify-content:flex-start !important; scrollbar-width:none !important; }
+          .stats-bar::-webkit-scrollbar { display:none !important; }
+          .stat-item { flex-shrink:0 !important; }
+
+          /* Stages — horizontal swipe */
+          .stages-cards { flex-direction:row !important; overflow-x:auto !important; scroll-snap-type:x mandatory !important; -webkit-overflow-scrolling:touch !important; scrollbar-width:none !important; gap:14px !important; }
+          .stages-cards::-webkit-scrollbar { display:none !important; }
+          .stages-cards .s-item { flex:0 0 78vw !important; max-width:300px !important; scroll-snap-align:start !important; width:auto !important; }
+
+          /* Stages photo hidden on mobile */
           .stages-photo { display:none !important; }
-          /* Testi + how — horizontal swipe */
-          .testi-wrap { display:flex !important; overflow-x:auto !important; scroll-snap-type:x mandatory !important; }
+
+          /* Testimonials — horizontal swipe */
+          .testi-wrap { display:flex !important; overflow-x:auto !important; scroll-snap-type:x mandatory !important; -webkit-overflow-scrolling:touch !important; scrollbar-width:none !important; }
+          .testi-wrap::-webkit-scrollbar { display:none !important; }
           .testi-wrap .h-item { flex:0 0 82vw !important; max-width:320px !important; scroll-snap-align:start !important; }
-          .how-wrap { display:flex !important; overflow-x:auto !important; scroll-snap-type:x mandatory !important; }
+
+          /* How it works — horizontal swipe */
+          .how-wrap { display:flex !important; overflow-x:auto !important; scroll-snap-type:x mandatory !important; -webkit-overflow-scrolling:touch !important; scrollbar-width:none !important; }
+          .how-wrap::-webkit-scrollbar { display:none !important; }
           .how-wrap .h-item { flex:0 0 82vw !important; max-width:320px !important; scroll-snap-align:start !important; }
+
           .why-grid { grid-template-columns:1fr !important; gap:32px !important; }
           .blog-grid { grid-template-columns:1fr !important; }
-          .contact-grid { grid-template-columns:1fr !important; }
+
+          /* Contact — ALWAYS horizontal even on mobile */
+          .contact-grid { grid-template-columns:1fr 1fr !important; gap:10px !important; }
+          .contact-card { padding:20px 14px !important; }
+
           .footer-top { flex-direction:column !important; }
         }
       `}</style>
 
       <main style={{ background:'var(--cream)' }}>
 
-        {/* ══ HERO — Full screen background ══ */}
+        {/* ══ HERO ══ */}
         <section style={{ position:'relative', minHeight:'100vh', display:'flex', flexDirection:'column' }}>
           <div style={{ position:'absolute', inset:0, zIndex:0, background: heroBg ? `url(${heroBg}) center/cover no-repeat` : 'linear-gradient(135deg,#C84B0F 0%,#8B3210 50%,#2C1A0E 100%)' }}>
             <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.45)' }} />
@@ -146,7 +157,6 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
 
           {/* NAVBAR */}
           <nav style={{ position:'fixed', top:0, left:0, right:0, zIndex:100, background:'rgba(0,0,0,0.2)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 6%', height:'68px' }}>
-            {/* Logo — always goes to homepage */}
             {logo?.url
               ? <a href="/"><img src={logo.url} alt={logo.alt_text||'Ninoz'} style={{ height:'40px', width:'auto', objectFit:'contain', cursor:'pointer' }} /></a>
               : <a href="/" style={{ fontFamily:'var(--font-hero)', fontSize:'28px', color:'white', fontWeight:900, textDecoration:'none', letterSpacing:'-0.5px', textShadow:'0 2px 8px rgba(0,0,0,0.3)' }}>Ninoz</a>
@@ -161,7 +171,6 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
             </button>
           </nav>
 
-          {/* Hero text */}
           <div className="hero-content" style={{ position:'relative', zIndex:1, flex:1, display:'flex', flexDirection:'column', justifyContent:'center', padding:'120px 6% 80px', maxWidth:'700px' }}>
             <h1 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(48px,7vw,84px)', fontWeight:900, lineHeight:1.0, marginBottom:'20px', color:'var(--orange)', letterSpacing:'-1px', textShadow:'0 2px 20px rgba(0,0,0,0.3)' }}>
               <span style={{ display:'block' }}>{c(content,'hero_headline_1','You Care.')}</span>
@@ -179,22 +188,22 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
               ))}
             </div>
             <div className="hero-btns" style={{ display:'flex', gap:'14px', flexWrap:'wrap' }}>
-              <button className="btn-primary" onClick={() => scrollTo('offers')}>{c(content,'hero_btn_primary',"Start Your Plan")}</button>
+              <button className="btn-primary" onClick={() => scrollTo('offers')}>{c(content,'hero_btn_primary','Start Your Plan')}</button>
               <button className="btn-outline" onClick={() => scrollTo('offers')}>{c(content,'hero_btn_secondary','Explore Meals')}</button>
             </div>
           </div>
         </section>
 
-        {/* ══ STATS BAR — single row, no wrap ══ */}
-        <div style={{ background:'var(--orange-bg)', padding:'0' }}>
-          <div className="stats-bar" style={{ display:'flex', justifyContent:'center', alignItems:'stretch', maxWidth:'1200px', margin:'0 auto', overflowX:'auto', scrollbarWidth:'none' }}>
+        {/* ══ STATS BAR — single row, no wrap, scrollable on mobile ══ */}
+        <div style={{ background:'var(--orange-bg)', overflowX:'auto', scrollbarWidth:'none' }}>
+          <div className="stats-bar" style={{ display:'flex', alignItems:'stretch', minWidth:'max-content', margin:'0 auto', padding:'0 6%' }}>
             {[
               { num: c(content,'stat_3_number','100%'), label: c(content,'stat_3_label','Fresh Ingredients') },
               { num: c(content,'stat_1_number','0%'),   label: c(content,'stat_1_label','Sugar Added') },
               { num: c(content,'stat_2_number','0%'),   label: c(content,'stat_2_label','Preservatives') },
               { num: c(content,'stat_4_number','0%'),   label: c(content,'stat_4_label','Frozen Food') },
             ].map((stat, i, arr) => (
-              <div key={i} style={{ display:'flex', alignItems:'center', gap:'6px', padding:'16px 24px', borderRight: i < arr.length-1 ? '1px solid rgba(255,255,255,0.2)' : 'none', whiteSpace:'nowrap', flexShrink:0 }}>
+              <div key={i} className="stat-item" style={{ display:'flex', alignItems:'center', gap:'6px', padding:'16px 28px', borderRight: i < arr.length-1 ? '1px solid rgba(255,255,255,0.2)' : 'none', whiteSpace:'nowrap' }}>
                 <span style={{ fontFamily:'var(--font-hero)', fontSize:'20px', color: i === 0 ? '#FFD166' : 'white', fontWeight:900 }}>{stat.num}</span>
                 <span style={{ fontSize:'13px', color:'rgba(255,255,255,0.85)', fontWeight:600 }}>{stat.label}</span>
               </div>
@@ -202,20 +211,17 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
           </div>
         </div>
 
-        {/* ══ STAGES — left text + swipeable cards, right photo ══ */}
+        {/* ══ STAGES — horizontal swipe on mobile, stacked on desktop ══ */}
         <section id="offers" style={{ padding:'80px 6%', background:'var(--cream)' }}>
           <div style={{ display:'flex', gap:'60px', maxWidth:'1200px', margin:'0 auto', alignItems:'flex-start' }}>
-
-            {/* Left: headline + stage cards */}
             <div style={{ flex:'1 1 500px', minWidth:0 }}>
               <h2 className="reveal" style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(32px,4vw,52px)', fontWeight:900, color:'var(--orange)', lineHeight:1.1, marginBottom:'40px' }}>
                 Fresh Meals Built for Their Stage
               </h2>
-
-              {/* Cards — stack on desktop, swipe on mobile */}
+              {/* Horizontal on mobile, column on desktop */}
               <div className="stages-cards" style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
                 {stages.map((stage, i) => (
-                  <div key={stage.id} className="h-item">
+                  <div key={stage.id} className="s-item">
                     <Link href={`/menu/${stage.id}`} className="stage-card">
                       <div style={{ fontSize:'11px', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--text-muted)', marginBottom:'6px' }}>
                         {stage.name}: {stage.age_range}
@@ -231,13 +237,10 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
                   </div>
                 ))}
               </div>
-
               <div style={{ marginTop:'32px' }}>
                 <button className="btn-primary" onClick={() => scrollTo('offers')}>Start Your Plan</button>
               </div>
             </div>
-
-            {/* Right: product photo */}
             <div className="stages-photo reveal delay-2" style={{ flex:'0 0 440px', height:'540px', borderRadius:'24px', overflow:'hidden', position:'sticky', top:'80px' }}>
               {slideshowImages.length > 1
                 ? <img src={slideshowImages[1].url} alt="Ninoz meals" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
@@ -377,9 +380,9 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
           </section>
         )}
 
-        {/* ══ CONTACT ══ */}
+        {/* ══ CONTACT — always horizontal ══ */}
         <section id="contact" style={{ background:'var(--brown)', padding:'80px 6%' }}>
-          <div style={{ maxWidth:'640px', margin:'0 auto', textAlign:'center' }}>
+          <div style={{ maxWidth:'700px', margin:'0 auto', textAlign:'center' }}>
             <div className="reveal">
               <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,44px)', color:'white', fontWeight:900, marginBottom:'12px' }}>
                 {c(content,'contact_title',"We'd love to hear from you")}
@@ -388,25 +391,26 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
                 {c(content,'contact_subtitle','Questions, custom plans, or allergies — reach us directly.')}
               </p>
             </div>
-            <div className="contact-grid reveal delay-1" style={{ display:'grid', gap:'14px' }}>
+            {/* Always 2 columns — horizontal on both mobile and desktop */}
+            <div className="contact-grid reveal delay-1" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px' }}>
               <a href={`https://wa.me/${settings.whatsapp_number||'966XXXXXXXXX'}`} target="_blank" className="contact-card cc-wa">
                 <div style={{ width:'54px', height:'54px', borderRadius:'14px', background:'rgba(37,211,102,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                 </div>
-                <div style={{ fontSize:'16px', fontWeight:700, color:'white' }}>WhatsApp Us</div>
-                <div style={{ fontSize:'13px', color:'rgba(255,255,255,0.45)' }}>Fastest response</div>
-                <div style={{ background:'rgba(37,211,102,0.15)', color:'#25D366', fontSize:'12px', fontWeight:700, padding:'5px 16px', borderRadius:'50px' }}>Message us →</div>
+                <div style={{ fontSize:'15px', fontWeight:700, color:'white' }}>WhatsApp Us</div>
+                <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.45)' }}>Fastest response</div>
+                <div style={{ background:'rgba(37,211,102,0.15)', color:'#25D366', fontSize:'11px', fontWeight:700, padding:'4px 14px', borderRadius:'50px' }}>Message us →</div>
               </a>
               <a href={`https://instagram.com/${settings.instagram_handle||'ninoz.sa'}`} target="_blank" className="contact-card cc-ig">
                 <div style={{ width:'54px', height:'54px', borderRadius:'14px', background:'rgba(225,48,108,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="url(#ig9)">
-                    <defs><linearGradient id="ig9" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#f09433"/><stop offset="50%" stopColor="#dc2743"/><stop offset="100%" stopColor="#bc1888"/></linearGradient></defs>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="url(#ig10)">
+                    <defs><linearGradient id="ig10" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#f09433"/><stop offset="50%" stopColor="#dc2743"/><stop offset="100%" stopColor="#bc1888"/></linearGradient></defs>
                     <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
                   </svg>
                 </div>
-                <div style={{ fontSize:'16px', fontWeight:700, color:'white' }}>Follow on Instagram</div>
-                <div style={{ fontSize:'13px', color:'rgba(255,255,255,0.45)' }}>Daily content & behind the scenes</div>
-                <div style={{ background:'rgba(225,48,108,0.15)', color:'#E1306C', fontSize:'12px', fontWeight:700, padding:'5px 16px', borderRadius:'50px' }}>@{settings.instagram_handle||'ninoz.sa'} →</div>
+                <div style={{ fontSize:'15px', fontWeight:700, color:'white' }}>Instagram</div>
+                <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.45)' }}>Daily content</div>
+                <div style={{ background:'rgba(225,48,108,0.15)', color:'#E1306C', fontSize:'11px', fontWeight:700, padding:'4px 14px', borderRadius:'50px' }}>@{settings.instagram_handle||'ninoz.sa'} →</div>
               </a>
             </div>
           </div>

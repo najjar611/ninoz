@@ -42,7 +42,6 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
 
-  // Slideshow
   const fallbackSlides = [
     { emoji: '🍱', bg: '#F2EAE0' },
     { emoji: '🥕', bg: '#F5EDE3' },
@@ -58,16 +57,10 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
   }, [totalSlides])
 
   const [openFaq, setOpenFaq] = useState<string | null>(null)
-  const [activeCard, setActiveCard] = useState(0)
-  let touchStartX = 0
 
   return (
     <>
       <style>{`
-        /* ══════════════════════════════════
-           NINOZ BRAND THEME
-        ══════════════════════════════════ */
-
         .reveal { opacity:0; transform:translateY(24px); transition:opacity 0.7s cubic-bezier(0.22,1,0.36,1), transform 0.7s cubic-bezier(0.22,1,0.36,1); }
         .reveal.visible { opacity:1; transform:none; }
         .reveal.delay-1 { transition-delay:0.1s; }
@@ -75,161 +68,124 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
         .reveal.delay-3 { transition-delay:0.3s; }
         .reveal.delay-4 { transition-delay:0.4s; }
 
-        /* ── BUTTONS ── */
-        .btn-primary {
-          background: var(--orange); color: white; border: none;
-          padding: 14px 32px; border-radius: 50px;
-          font-size: 14px; font-weight: 700; cursor: pointer;
-          transition: background 0.2s, transform 0.2s;
-          white-space: nowrap; font-family: var(--font-body);
+        .btn-primary { background:var(--orange); color:white; border:none; padding:14px 32px; border-radius:50px; font-size:14px; font-weight:700; cursor:pointer; transition:background 0.2s, transform 0.2s; white-space:nowrap; }
+        .btn-primary:hover { background:var(--orange-light); transform:translateY(-2px); }
+        .btn-outline { background:transparent; color:var(--brown-soft); border:2px solid rgba(44,26,14,0.2); padding:13px 30px; border-radius:50px; font-size:14px; font-weight:600; cursor:pointer; transition:border-color 0.2s, color 0.2s, transform 0.2s; }
+        .btn-outline:hover { border-color:var(--orange); color:var(--orange); transform:translateY(-2px); }
+
+        .nav-link { font-size:14px; color:var(--brown-soft); background:none; border:none; cursor:pointer; font-weight:600; position:relative; padding-bottom:2px; transition:color 0.2s; }
+        .nav-link::after { content:''; position:absolute; bottom:0; left:0; width:0; height:2px; background:var(--orange); transition:width 0.3s; border-radius:2px; }
+        .nav-link:hover { color:var(--orange); }
+        .nav-link:hover::after { width:100%; }
+
+        .slide { position:absolute; inset:0; transition:opacity 0.8s ease; display:flex; align-items:center; justify-content:center; }
+        .slide.active { opacity:1; }
+        .slide.hidden { opacity:0; pointer-events:none; }
+
+        /* ── STAGE CARDS — equal height ── */
+        .stages-wrap { display:flex; gap:20px; }
+        .stage-card-wrap { display:flex; flex-direction:column; }
+        .stage-card {
+          border-radius:20px; overflow:hidden;
+          transition:transform 0.3s, box-shadow 0.3s;
+          text-decoration:none; color:inherit; cursor:pointer;
+          background:white; border:1px solid var(--border);
+          display:flex; flex-direction:column; height:100%;
         }
-        .btn-primary:hover { background: var(--orange-light); transform: translateY(-2px); }
+        .stage-card:hover { transform:translateY(-6px); box-shadow:0 20px 50px rgba(44,26,14,0.12); }
+        .stage-card-body { padding:22px 24px 26px; display:flex; flex-direction:column; flex:1; }
+        .stage-card-desc { flex:1; }
 
-        .btn-outline {
-          background: transparent; color: var(--brown-soft);
-          border: 2px solid rgba(44,26,14,0.2);
-          padding: 13px 30px; border-radius: 50px;
-          font-size: 14px; font-weight: 600; cursor: pointer;
-          transition: border-color 0.2s, color 0.2s, transform 0.2s;
-          font-family: var(--font-body);
-        }
-        .btn-outline:hover { border-color: var(--orange); color: var(--orange); transform: translateY(-2px); }
+        /* ── HOW CARDS ── */
+        .step-card { background:white; border-radius:20px; border:1px solid var(--border); transition:transform 0.3s, box-shadow 0.3s; display:flex; flex-direction:column; }
+        .step-card:hover { transform:translateY(-4px); box-shadow:0 16px 40px rgba(44,26,14,0.08); }
 
-        /* ── NAV ── */
-        .nav-link { font-size: 14px; color: var(--brown-soft); background: none; border: none; cursor: pointer; font-weight: 600; position: relative; padding-bottom: 2px; transition: color 0.2s; }
-        .nav-link::after { content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 2px; background: var(--orange); transition: width 0.3s; border-radius: 2px; }
-        .nav-link:hover { color: var(--orange); }
-        .nav-link:hover::after { width: 100%; }
+        /* ── TESTI CARDS ── */
+        .testi-card { background:white; border-radius:20px; border:1px solid var(--border); transition:box-shadow 0.3s, transform 0.3s; display:flex; flex-direction:column; }
+        .testi-card:hover { box-shadow:0 12px 30px rgba(44,26,14,0.08); transform:translateY(-3px); }
 
-        /* ── SLIDESHOW ── */
-        .slide { position: absolute; inset: 0; transition: opacity 0.8s ease; display: flex; align-items: center; justify-content: center; }
-        .slide.active { opacity: 1; }
-        .slide.hidden { opacity: 0; pointer-events: none; }
+        .why-item { transition:background 0.25s, transform 0.25s; border-radius:14px; padding:14px; }
+        .why-item:hover { background:rgba(200,75,15,0.06); transform:translateX(4px); }
 
-        /* ── STAGE CARDS ── */
-        .stage-card { border-radius: 20px; overflow: hidden; transition: transform 0.3s, box-shadow 0.3s; display: block; text-decoration: none; color: inherit; cursor: pointer; background: white; border: 1px solid var(--border); }
-        .stage-card:hover { transform: translateY(-6px); box-shadow: 0 20px 50px rgba(44,26,14,0.12); }
+        .blog-card { background:white; border-radius:20px; overflow:hidden; border:1px solid var(--border); transition:transform 0.3s, box-shadow 0.3s; text-decoration:none; color:inherit; display:block; }
+        .blog-card:hover { transform:translateY(-4px); box-shadow:0 16px 40px rgba(44,26,14,0.1); }
 
-        /* ── HOW IT WORKS CARDS ── */
-        .step-card { background: white; border-radius: 20px; border: 1px solid var(--border); transition: transform 0.3s, box-shadow 0.3s; }
-        .step-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(44,26,14,0.08); }
+        .faq-item { background:white; border-radius:14px; margin-bottom:10px; overflow:hidden; border:1px solid var(--border); }
+        .faq-question { width:100%; display:flex; align-items:center; justify-content:space-between; padding:18px 22px; border:none; background:none; cursor:pointer; text-align:left; font-size:15px; font-weight:700; color:var(--text); transition:background 0.2s; gap:12px; font-family:var(--font-body); }
+        .faq-question:hover { background:rgba(200,75,15,0.04); }
+        .faq-answer { padding:0 22px; max-height:0; overflow:hidden; transition:max-height 0.4s cubic-bezier(0.22,1,0.36,1), padding 0.3s; }
+        .faq-answer.open { max-height:300px; padding:0 22px 20px; }
+        .faq-chevron { width:20px; height:20px; flex-shrink:0; transition:transform 0.3s; color:var(--orange); }
+        .faq-chevron.open { transform:rotate(180deg); }
 
-        /* ── TESTIMONIAL CARDS ── */
-        .testi-card { background: white; border-radius: 20px; border: 1px solid var(--border); transition: box-shadow 0.3s, transform 0.3s; }
-        .testi-card:hover { box-shadow: 0 12px 30px rgba(44,26,14,0.08); transform: translateY(-3px); }
+        .contact-card { text-decoration:none; display:flex; flex-direction:column; align-items:center; gap:12px; text-align:center; border-radius:20px; padding:28px 22px; border:2px solid transparent; transition:transform 0.3s, border-color 0.3s; cursor:pointer; }
+        .cc-wa { background:#1A2E22; }
+        .cc-wa:hover { border-color:#25D366; transform:translateY(-4px); }
+        .cc-ig { background:#2A1A2A; }
+        .cc-ig:hover { border-color:#E1306C; transform:translateY(-4px); }
 
-        /* ── WHY ITEMS ── */
-        .why-item { transition: background 0.25s, transform 0.25s; border-radius: 14px; padding: 14px; }
-        .why-item:hover { background: rgba(200,75,15,0.06); transform: translateX(4px); }
-
-        /* ── BLOG CARDS ── */
-        .blog-card { background: white; border-radius: 20px; overflow: hidden; border: 1px solid var(--border); transition: transform 0.3s, box-shadow 0.3s; text-decoration: none; color: inherit; display: block; }
-        .blog-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(44,26,14,0.1); }
-
-        /* ── FAQ ── */
-        .faq-item { background: white; border-radius: 14px; margin-bottom: 10px; overflow: hidden; border: 1px solid var(--border); }
-        .faq-question { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border: none; background: none; cursor: pointer; text-align: left; font-size: 15px; font-weight: 700; color: var(--text); transition: background 0.2s; gap: 12px; font-family: var(--font-body); }
-        .faq-question:hover { background: rgba(200,75,15,0.04); }
-        .faq-answer { padding: 0 22px; max-height: 0; overflow: hidden; transition: max-height 0.4s cubic-bezier(0.22,1,0.36,1), padding 0.3s; }
-        .faq-answer.open { max-height: 300px; padding: 0 22px 20px; }
-        .faq-chevron { width: 20px; height: 20px; flex-shrink: 0; transition: transform 0.3s; color: var(--orange); }
-        .faq-chevron.open { transform: rotate(180deg); }
-
-        /* ── CONTACT ── */
-        .contact-card { text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; border-radius: 20px; padding: 28px 22px; border: 2px solid transparent; transition: transform 0.3s, border-color 0.3s; cursor: pointer; }
-        .cc-wa { background: #1A2E22; }
-        .cc-wa:hover { border-color: #25D366; transform: translateY(-4px); }
-        .cc-ig { background: #2A1A2A; }
-        .cc-ig:hover { border-color: #E1306C; transform: translateY(-4px); }
-
-        /* ── MARQUEE ── */
         @keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-        .marquee-track { animation: marquee 28s linear infinite; }
+        .marquee-track { animation:marquee 28s linear infinite; }
 
-        /* ── HORIZONTAL SWIPE (mobile) ── */
-        .h-scroll {
-          display: flex; gap: 16px;
-          overflow-x: auto; scroll-snap-type: x mandatory;
-          -webkit-overflow-scrolling: touch; scrollbar-width: none;
-          padding-bottom: 4px;
-        }
-        .h-scroll::-webkit-scrollbar { display: none; }
-        .h-scroll-item { flex: 0 0 82vw; max-width: 320px; scroll-snap-align: start; }
-
-        /* ══════════════════════════════════
-           DESKTOP — override to grid
-        ══════════════════════════════════ */
-        @media(min-width: 769px) {
-          .stages-wrap { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; }
-          .stages-wrap .h-scroll-item { flex: none !important; max-width: none !important; }
-          .how-wrap { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; }
-          .how-wrap .h-scroll-item { flex: none !important; max-width: none !important; }
-          .testi-wrap { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; }
-          .testi-wrap .h-scroll-item { flex: none !important; max-width: none !important; }
+        /* ══════════════════ DESKTOP GRID ══════════════════ */
+        @media(min-width:769px) {
+          .stages-wrap { display:grid !important; grid-template-columns:repeat(3,1fr) !important; align-items:stretch !important; }
+          .how-wrap { display:grid !important; grid-template-columns:repeat(3,1fr) !important; align-items:stretch !important; }
+          .testi-wrap { display:grid !important; grid-template-columns:repeat(3,1fr) !important; align-items:stretch !important; }
+          .h-scroll-item { flex:none !important; max-width:none !important; }
         }
 
-        /* ══════════════════════════════════
-           MOBILE
-        ══════════════════════════════════ */
-        @media(max-width: 768px) {
-          .nav-links-wrap { display: none !important; }
-          .hero-inner { flex-direction: column !important; gap: 28px !important; padding-top: 88px !important; }
-          .hero-img-wrap { width: 100% !important; flex: none !important; height: 300px !important; border-radius: 20px !important; }
-          .hero-badges { gap: 12px !important; flex-wrap: wrap !important; }
-          .hero-btns { flex-direction: column !important; gap: 10px !important; }
-          .hero-btns button { width: 100% !important; }
-          .stats-wrap { flex-wrap: wrap !important; }
-          .stat-item { width: 50% !important; padding: 20px 12px !important; border-right: none !important; border-bottom: 1px solid rgba(255,255,255,0.1) !important; }
-          .why-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
-          .blog-grid { grid-template-columns: 1fr !important; }
-          .contact-grid { grid-template-columns: 1fr !important; }
-          .footer-top { flex-direction: column !important; }
-          /* Mobile: horizontal scroll for stages, how, testi */
-          .stages-wrap { display: flex !important; overflow-x: auto !important; scroll-snap-type: x mandatory !important; }
-          .how-wrap { display: flex !important; overflow-x: auto !important; scroll-snap-type: x mandatory !important; }
-          .testi-wrap { display: flex !important; overflow-x: auto !important; scroll-snap-type: x mandatory !important; }
-          .stages-wrap .h-scroll-item, .how-wrap .h-scroll-item, .testi-wrap .h-scroll-item { flex: 0 0 82vw !important; max-width: 320px !important; scroll-snap-align: start !important; }
+        /* ══════════════════ MOBILE ══════════════════ */
+        @media(max-width:768px) {
+          .nav-links-wrap { display:none !important; }
+          .hero-inner { flex-direction:column !important; gap:28px !important; padding-top:88px !important; }
+          .hero-img-wrap { width:100% !important; flex:none !important; height:300px !important; border-radius:20px !important; }
+          .hero-badges { gap:14px !important; flex-wrap:wrap !important; }
+          .hero-btns { flex-direction:column !important; gap:10px !important; }
+          .hero-btns button { width:100% !important; }
+          .stats-wrap { flex-wrap:wrap !important; }
+          .stat-item { width:50% !important; padding:20px 12px !important; border-right:none !important; border-bottom:1px solid rgba(255,255,255,0.1) !important; }
+          .why-grid { grid-template-columns:1fr !important; gap:32px !important; }
+          .blog-grid { grid-template-columns:1fr !important; }
+          .contact-grid { grid-template-columns:1fr !important; }
+          .footer-top { flex-direction:column !important; }
+          /* Horizontal swipe */
+          .stages-wrap { display:flex !important; overflow-x:auto !important; scroll-snap-type:x mandatory !important; -webkit-overflow-scrolling:touch !important; scrollbar-width:none !important; }
+          .how-wrap { display:flex !important; overflow-x:auto !important; scroll-snap-type:x mandatory !important; -webkit-overflow-scrolling:touch !important; scrollbar-width:none !important; }
+          .testi-wrap { display:flex !important; overflow-x:auto !important; scroll-snap-type:x mandatory !important; -webkit-overflow-scrolling:touch !important; scrollbar-width:none !important; }
+          .h-scroll-item { flex:0 0 82vw !important; max-width:320px !important; scroll-snap-align:start !important; }
         }
       `}</style>
 
-      <main style={{ background: 'var(--cream)' }}>
+      <main style={{ background:'var(--cream)' }}>
 
-        {/* ══════════════════ NAVBAR ══════════════════ */}
+        {/* NAVBAR */}
         <nav style={{ position:'fixed', top:0, left:0, right:0, zIndex:100, background:'rgba(250,245,238,0.97)', backdropFilter:'blur(12px)', borderBottom:'1px solid rgba(44,26,14,0.08)', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0 6%', height:'68px' }}>
-
-          {/* Logo — shows uploaded image or "Ninoz" text */}
           {logo?.url
-            ? <a href="/"><img src={logo.url} alt={logo.alt_text || 'Ninoz'} style={{ height:'40px', width:'auto', objectFit:'contain', cursor:'pointer' }} /></a>
+            ? <a href="/"><img src={logo.url} alt={logo.alt_text||'Ninoz'} style={{ height:'40px', width:'auto', objectFit:'contain', cursor:'pointer' }} /></a>
             : <a href="/" style={{ fontFamily:'var(--font-hero)', fontSize:'28px', color:'var(--orange)', fontWeight:900, textDecoration:'none', letterSpacing:'-0.5px' }}>Ninoz</a>
           }
-
           <div className="nav-links-wrap" style={{ display:'flex', gap:'36px' }}>
             {[{ label:'How It Works', id:'how' },{ label:'Menu', id:'offers' },{ label:'Reviews', id:'testimonials' },{ label:'FAQ', id:'faq' }].map(item => (
               <button key={item.id} onClick={() => scrollTo(item.id)} className="nav-link">{item.label}</button>
             ))}
           </div>
-
           <button className="btn-primary" style={{ fontSize:'13px', padding:'11px 22px' }} onClick={() => scrollTo('offers')}>
-            {c(content, 'hero_btn_primary', 'Your Kid\'s Plan')}
+            {c(content, 'hero_btn_primary', "Your Kid's Plan")}
           </button>
         </nav>
 
-        {/* ══════════════════ HERO ══════════════════ */}
+        {/* HERO */}
         <section style={{ minHeight:'100vh', display:'flex', alignItems:'center', background:'var(--cream)', padding:'0 6%' }}>
           <div className="hero-inner" style={{ display:'flex', alignItems:'center', gap:'60px', maxWidth:'1200px', width:'100%', margin:'0 auto', paddingTop:'80px', paddingBottom:'60px' }}>
-
-            {/* Left: text */}
             <div style={{ flex:1 }}>
               <h1 className="reveal" style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(42px,6vw,76px)', fontWeight:900, lineHeight:1.0, marginBottom:'20px', color:'var(--orange)', letterSpacing:'-1px' }}>
                 <span style={{ display:'block' }}>{c(content, 'hero_headline_1', 'You Care.')}</span>
                 <span style={{ display:'block' }}>{c(content, 'hero_headline_2', 'We Prepare.')}</span>
               </h1>
-
               <p className="reveal delay-1" style={{ fontSize:'17px', lineHeight:1.7, color:'var(--brown-soft)', maxWidth:'420px', marginBottom:'32px', fontWeight:500 }}>
                 {c(content, 'hero_description', 'Fresh, Healthy & Yumi daily meals for your little ones. Cooked today, delivered to your door.')}
               </p>
-
-              {/* 4 badges row */}
               <div className="hero-badges reveal delay-2" style={{ display:'flex', gap:'20px', marginBottom:'36px', flexWrap:'wrap' }}>
                 {[
                   { icon:'🌿', label:'Fresh Ingredients' },
@@ -243,14 +199,13 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
                   </div>
                 ))}
               </div>
-
               <div className="hero-btns reveal delay-3" style={{ display:'flex', gap:'12px', flexWrap:'wrap' }}>
                 <button className="btn-primary" onClick={() => scrollTo('offers')}>{c(content, 'hero_btn_primary', "Your Kid's Plan")}</button>
                 <button className="btn-outline" onClick={() => scrollTo('offers')}>{c(content, 'hero_btn_secondary', 'Explore Meals')}</button>
               </div>
             </div>
 
-            {/* Right: slideshow */}
+            {/* Slideshow */}
             <div className="hero-img-wrap reveal delay-2" style={{ flex:'0 0 480px', height:'520px', borderRadius:'28px', overflow:'hidden', position:'relative', boxShadow:'0 30px 80px rgba(44,26,14,0.15)' }}>
               {hasRealSlides
                 ? slideshowImages.map((slide, i) => (
@@ -264,7 +219,6 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
                     </div>
                   ))
               }
-              {/* Dots */}
               <div style={{ position:'absolute', bottom:'16px', left:'50%', transform:'translateX(-50%)', display:'flex', gap:'6px', zIndex:2 }}>
                 {Array.from({ length: totalSlides }).map((_, i) => (
                   <div key={i} onClick={() => setSlideIndex(i)} style={{ width: i === slideIndex ? '22px' : '7px', height:'7px', borderRadius:'4px', background: i === slideIndex ? 'var(--orange)' : 'rgba(44,26,14,0.2)', cursor:'pointer', transition:'all 0.3s' }} />
@@ -274,28 +228,25 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
           </div>
         </section>
 
-        {/* ══════════════════ STATS BAR ══════════════════ */}
-        {/* Dark orange/brown background — matches PDF */}
+        {/* STATS — no divider line */}
         <div style={{ background:'var(--orange-bg)' }}>
           <div className="stats-wrap" style={{ display:'flex', justifyContent:'center', maxWidth:'1100px', margin:'0 auto' }}>
             {[
-              { num: c(content,'stat_1_number','0%'),  label: c(content,'stat_1_label','Artificial Flavors') },
-              { num: c(content,'stat_2_number','0%'),  label: c(content,'stat_2_label','Preservatives') },
-              { num: c(content,'stat_3_number','0%'),  label: c(content,'stat_3_label','Sugar Added') },
-              { num: c(content,'stat_4_number','100%'),label: c(content,'stat_4_label','Fresh Meals') },
+              { num: c(content,'stat_1_number','0%'),   label: c(content,'stat_1_label','Artificial Flavors') },
+              { num: c(content,'stat_2_number','0%'),   label: c(content,'stat_2_label','Preservatives') },
+              { num: c(content,'stat_3_number','0%'),   label: c(content,'stat_3_label','Sugar Added') },
+              { num: c(content,'stat_4_number','100%'), label: c(content,'stat_4_label','Fresh Meals') },
             ].map((stat, i, arr) => (
               <div key={i} className="stat-item" style={{ textAlign:'center', padding:'32px 40px', borderRight: i < arr.length-1 ? '1px solid rgba(255,255,255,0.15)' : 'none', flex:1 }}>
-                <div style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,48px)', color: i === arr.length-1 ? '#FFD166' : 'white', fontWeight:900, marginBottom:'6px' }}>
-                  {stat.num}
-                </div>
-                <div style={{ fontSize:'13px', color:'rgba(255,255,255,0.8)', fontWeight:600, letterSpacing:'0.02em' }}>{stat.label}</div>
+                <div style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,48px)', color: i === arr.length-1 ? '#FFD166' : 'white', fontWeight:900, marginBottom:'6px' }}>{stat.num}</div>
+                <div style={{ fontSize:'13px', color:'rgba(255,255,255,0.8)', fontWeight:600 }}>{stat.label}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* ══════════════════ MARQUEE ══════════════════ */}
-        <div style={{ background:'#F2EAE0', overflow:'hidden', padding:'12px 0', borderTop:'1px solid rgba(44,26,14,0.06)', borderBottom:'1px solid rgba(44,26,14,0.06)' }}>
+        {/* MARQUEE — no top border, seamlessly after stats */}
+        <div style={{ background:'#F2EAE0', overflow:'hidden', padding:'12px 0', borderBottom:'1px solid rgba(44,26,14,0.06)' }}>
           <div className="marquee-track" style={{ display:'flex', gap:'48px', width:'max-content' }}>
             {['🥕 100% Organic','🍼 Ages 3mo–3yr','🚚 Daily Delivery','👩‍⚕️ Pediatrician Approved','🏅 Certified Kitchen','⚡ Pause Anytime','🌿 No Preservatives',"❤️ Riyadh's Favourite",
               '🥕 100% Organic','🍼 Ages 3mo–3yr','🚚 Daily Delivery','👩‍⚕️ Pediatrician Approved','🏅 Certified Kitchen','⚡ Pause Anytime','🌿 No Preservatives',"❤️ Riyadh's Favourite",
@@ -305,7 +256,7 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
           </div>
         </div>
 
-        {/* ══════════════════ STAGES / MENU ══════════════════ */}
+        {/* STAGES — equal height cards */}
         <section id="offers" style={{ padding:'80px 6%', background:'var(--cream)' }}>
           <div className="reveal" style={{ textAlign:'center', marginBottom:'48px' }}>
             <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,44px)', fontWeight:900, color:'var(--orange)', marginBottom:'10px' }}>
@@ -316,26 +267,27 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
             </p>
           </div>
 
-          <div className="stages-wrap" style={{ display:'flex', overflowX:'auto', gap:'20px', maxWidth:'1100px', margin:'0 auto', scrollSnapType:'x mandatory', WebkitOverflowScrolling:'touch', scrollbarWidth:'none' }}>
+          {/* Equal height — using CSS grid stretch */}
+          <div className="stages-wrap" style={{ gap:'20px', maxWidth:'1100px', margin:'0 auto', alignItems:'stretch' }}>
             {stages.map((stage, i) => (
-              <div key={stage.id} className="h-scroll-item">
-                <Link href={`/menu/${stage.id}`} className="stage-card" style={{ display:'block' }}>
-                  <div style={{ width:'100%', height:'200px', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'72px', background:'#F2EAE0' }}>
+              <div key={stage.id} className="h-scroll-item" style={{ display:'flex' }}>
+                <Link href={`/menu/${stage.id}`} className="stage-card" style={{ width:'100%' }}>
+                  <div style={{ width:'100%', height:'200px', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'72px', background:'#F2EAE0', flexShrink:0 }}>
                     {stage.image_url
                       ? <img src={stage.image_url} alt={stage.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                       : stage.emoji
                     }
                   </div>
-                  <div style={{ padding:'22px 24px 26px' }}>
+                  <div className="stage-card-body">
                     <div style={{ fontSize:'11px', textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--text-muted)', marginBottom:'6px', fontWeight:600 }}>{stage.age_range}</div>
                     <div style={{ fontFamily:'var(--font-hero)', fontSize:'22px', fontWeight:900, marginBottom:'8px', color:'var(--text)' }}>{stage.name}</div>
-                    <p style={{ fontSize:'13px', color:'var(--text-muted)', lineHeight:1.65, marginBottom:'18px' }}>{stage.description}</p>
+                    <p className="stage-card-desc" style={{ fontSize:'13px', color:'var(--text-muted)', lineHeight:1.65, marginBottom:'18px' }}>{stage.description}</p>
                     {stage.tag && (
                       <div style={{ marginBottom:'14px' }}>
-                        <span style={{ background:`${stage.tag_color}15`, color:stage.tag_color, fontSize:'11px', fontWeight:700, padding:'4px 12px', borderRadius:'50px', letterSpacing:'0.04em' }}>{stage.tag}</span>
+                        <span style={{ background:`${stage.tag_color}15`, color:stage.tag_color, fontSize:'11px', fontWeight:700, padding:'4px 12px', borderRadius:'50px' }}>{stage.tag}</span>
                       </div>
                     )}
-                    <div style={{ display:'inline-block', background:'var(--orange)', color:'white', fontSize:'13px', fontWeight:700, padding:'10px 22px', borderRadius:'50px' }}>
+                    <div style={{ display:'inline-block', background:'var(--orange)', color:'white', fontSize:'13px', fontWeight:700, padding:'10px 22px', borderRadius:'50px', marginTop:'auto' }}>
                       Explore Meals →
                     </div>
                   </div>
@@ -345,7 +297,7 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
           </div>
         </section>
 
-        {/* ══════════════════ HOW IT WORKS ══════════════════ */}
+        {/* HOW IT WORKS */}
         <section id="how" style={{ background:'var(--cream-dark)', padding:'80px 6%' }}>
           <div className="reveal" style={{ textAlign:'center', marginBottom:'48px' }}>
             <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,44px)', fontWeight:900, color:'var(--orange)', marginBottom:'10px' }}>
@@ -353,34 +305,26 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
             </h2>
             <p style={{ fontSize:'16px', color:'var(--text-muted)' }}>Three steps to peace of mind — and a well-fed baby.</p>
           </div>
-
-          <div className="how-wrap" style={{ display:'flex', overflowX:'auto', gap:'20px', maxWidth:'1100px', margin:'0 auto 40px', scrollSnapType:'x mandatory', WebkitOverflowScrolling:'touch', scrollbarWidth:'none' }}>
+          <div className="how-wrap" style={{ gap:'20px', maxWidth:'1100px', margin:'0 auto 40px', alignItems:'stretch' }}>
             {howSteps.map((step, i) => (
               <div key={step.id} className={`h-scroll-item step-card reveal delay-${Math.min(i+1,4)}`} style={{ padding:'32px 28px' }}>
-                {/* Big number */}
                 <div style={{ fontFamily:'var(--font-hero)', fontSize:'52px', color:'var(--orange)', fontWeight:900, lineHeight:1, marginBottom:'20px' }}>{step.number}</div>
-                {/* Icon box */}
-                <div style={{ width:'80px', height:'80px', borderRadius:'18px', background:'rgba(200,75,15,0.08)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'36px', marginBottom:'20px' }}>
-                  {step.icon}
-                </div>
+                <div style={{ width:'80px', height:'80px', borderRadius:'18px', background:'rgba(200,75,15,0.08)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'36px', marginBottom:'20px' }}>{step.icon}</div>
                 <div style={{ fontSize:'17px', fontWeight:800, color:'var(--text)', marginBottom:'10px', fontFamily:'var(--font-hero)' }}>{step.title}</div>
                 <p style={{ fontSize:'14px', color:'var(--text-muted)', lineHeight:1.7 }}>{step.description}</p>
               </div>
             ))}
           </div>
-
           <div style={{ textAlign:'center' }}>
             <button className="btn-primary" onClick={() => scrollTo('offers')}>Get Started</button>
           </div>
         </section>
 
-        {/* ══════════════════ WHY NINOZ ══════════════════ */}
+        {/* WHY NINOZ */}
         <section id="why" style={{ padding:'80px 6%', background:'var(--cream)' }}>
           <div className="why-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'60px', alignItems:'center', maxWidth:'1100px', margin:'0 auto' }}>
             <div className="reveal" style={{ position:'relative' }}>
-              <div style={{ height:'440px', borderRadius:'24px', overflow:'hidden', background:'#F2EAE0', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'80px' }}>
-                🌿
-              </div>
+              <div style={{ height:'440px', borderRadius:'24px', overflow:'hidden', background:'#F2EAE0', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'80px' }}>🌿</div>
               <div style={{ position:'absolute', bottom:'-16px', left:'-16px', background:'white', borderRadius:'16px', padding:'14px 18px', boxShadow:'0 8px 30px rgba(44,26,14,0.1)' }}>
                 <div style={{ fontFamily:'var(--font-hero)', fontSize:'26px', color:'var(--orange)', fontWeight:900 }}>{c(content,'stat_1_number','200+')}</div>
                 <div style={{ fontSize:'12px', color:'var(--text-muted)', marginTop:'2px', fontWeight:600 }}>{c(content,'stat_1_label','Happy Families')}</div>
@@ -409,31 +353,35 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
           </div>
         </section>
 
-        {/* ══════════════════ TESTIMONIALS ══════════════════ */}
+        {/* TESTIMONIALS */}
         <section id="testimonials" style={{ background:'var(--cream-dark)', padding:'80px 6%' }}>
           <div className="reveal" style={{ textAlign:'center', marginBottom:'48px' }}>
             <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,44px)', fontWeight:900, color:'var(--orange)', marginBottom:'10px' }}>
               {c(content, 'testi_title', 'What mums say')}
             </h2>
           </div>
-          <div className="testi-wrap" style={{ display:'flex', overflowX:'auto', gap:'16px', maxWidth:'1100px', margin:'0 auto', scrollSnapType:'x mandatory', WebkitOverflowScrolling:'touch', scrollbarWidth:'none' }}>
-            {testimonials.map((t, i) => (
-              <div key={t.id} className={`h-scroll-item testi-card reveal delay-${Math.min(i+1,4)}`} style={{ padding:'26px 24px' }}>
-                <div style={{ color:'var(--orange)', fontSize:'18px', letterSpacing:'3px', marginBottom:'14px' }}>{'★'.repeat(t.rating || 5)}</div>
-                <p style={{ fontSize:'14px', color:'var(--brown-soft)', lineHeight:1.8, marginBottom:'20px', fontStyle:'italic' }}>&ldquo;{t.review}&rdquo;</p>
-                <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-                  <div style={{ width:'40px', height:'40px', borderRadius:'50%', background:t.avatar_bg||'#FFDDD2', color:t.avatar_color||'#993D20', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'13px', fontWeight:700, flexShrink:0 }}>{t.avatar_text||t.name.slice(0,2)}</div>
-                  <div>
-                    <div style={{ fontSize:'14px', fontWeight:700, color:'var(--text)' }}>{t.name}</div>
-                    <div style={{ fontSize:'12px', color:'var(--text-muted)' }}>{t.location}</div>
+          {testimonials.length > 0 ? (
+            <div className="testi-wrap" style={{ gap:'16px', maxWidth:'1100px', margin:'0 auto', alignItems:'stretch' }}>
+              {testimonials.map((t, i) => (
+                <div key={t.id} className={`h-scroll-item testi-card reveal delay-${Math.min(i+1,4)}`} style={{ padding:'26px 24px' }}>
+                  <div style={{ color:'var(--orange)', fontSize:'18px', letterSpacing:'3px', marginBottom:'14px' }}>{'★'.repeat(t.rating || 5)}</div>
+                  <p style={{ fontSize:'14px', color:'var(--brown-soft)', lineHeight:1.8, marginBottom:'20px', fontStyle:'italic', flex:1 }}>&ldquo;{t.review}&rdquo;</p>
+                  <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+                    <div style={{ width:'40px', height:'40px', borderRadius:'50%', background:t.avatar_bg||'#FFDDD2', color:t.avatar_color||'#993D20', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'13px', fontWeight:700, flexShrink:0 }}>{t.avatar_text||t.name.slice(0,2)}</div>
+                    <div>
+                      <div style={{ fontSize:'14px', fontWeight:700, color:'var(--text)' }}>{t.name}</div>
+                      <div style={{ fontSize:'12px', color:'var(--text-muted)' }}>{t.location}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ textAlign:'center', color:'var(--text-muted)', fontSize:'14px' }}>No reviews yet. Add them from the admin portal.</p>
+          )}
         </section>
 
-        {/* ══════════════════ BLOG ══════════════════ */}
+        {/* BLOG */}
         {blogPosts.length > 0 && (
           <section id="blog" style={{ padding:'80px 6%', background:'var(--cream)' }}>
             <div className="reveal" style={{ textAlign:'center', marginBottom:'48px' }}>
@@ -459,7 +407,7 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
           </section>
         )}
 
-        {/* ══════════════════ FAQ ══════════════════ */}
+        {/* FAQ */}
         {faqItems.length > 0 && (
           <section id="faq" style={{ padding:'80px 6%', background:'var(--cream-dark)' }}>
             <div className="reveal" style={{ textAlign:'center', marginBottom:'48px' }}>
@@ -485,7 +433,7 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
           </section>
         )}
 
-        {/* ══════════════════ CONTACT ══════════════════ */}
+        {/* CONTACT */}
         <section id="contact" style={{ background:'var(--brown)', padding:'80px 6%' }}>
           <div style={{ maxWidth:'640px', margin:'0 auto', textAlign:'center' }}>
             <div className="reveal">
@@ -507,8 +455,8 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
               </a>
               <a href={`https://instagram.com/${settings.instagram_handle||'ninoz.sa'}`} target="_blank" className="contact-card cc-ig">
                 <div style={{ width:'54px', height:'54px', borderRadius:'14px', background:'rgba(225,48,108,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="url(#ig6)">
-                    <defs><linearGradient id="ig6" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#f09433"/><stop offset="50%" stopColor="#dc2743"/><stop offset="100%" stopColor="#bc1888"/></linearGradient></defs>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="url(#ig7)">
+                    <defs><linearGradient id="ig7" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#f09433"/><stop offset="50%" stopColor="#dc2743"/><stop offset="100%" stopColor="#bc1888"/></linearGradient></defs>
                     <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
                   </svg>
                 </div>
@@ -520,7 +468,7 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
           </div>
         </section>
 
-        {/* ══════════════════ FOOTER ══════════════════ */}
+        {/* FOOTER */}
         <footer style={{ background:'#1A0E07', padding:'48px 6% 28px' }}>
           <div className="footer-top" style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', paddingBottom:'32px', borderBottom:'1px solid rgba(255,255,255,0.06)', flexWrap:'wrap', gap:'28px' }}>
             <div>

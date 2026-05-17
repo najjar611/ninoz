@@ -1,7 +1,3 @@
-// ════════════════════════════════════════════════════════════
-// NINOZ HOMEPAGE — pulls ALL content from Supabase
-// ════════════════════════════════════════════════════════════
-
 import { createClient } from '@/lib/supabase/server'
 import HomeClient from './HomeClient'
 
@@ -19,22 +15,20 @@ export default async function HomePage() {
     supabase.from('stages').select('*').eq('is_active', true).order('position'),
     supabase.from('how_steps').select('*').eq('is_active', true).order('position'),
     supabase.from('why_points').select('*').eq('is_active', true).order('position'),
-    supabase.from('faq_items').select('*').eq('is_active', true).order('position'),
-    supabase.from('testimonials').select('*').eq('is_active', true).order('position'),
+    supabase.from('faq_items').select('*').order('position'),
+    supabase.from('testimonials').select('*').order('position'),
     supabase.from('blog_posts').select('*').eq('is_published', true).order('created_at', { ascending: false }).limit(3),
     supabase.from('site_settings').select('*'),
     supabase.from('logo').select('*').limit(1).single(),
     supabase.storage.from('slideshow').list('', { sortBy: { column: 'created_at', order: 'asc' } }),
   ])
 
-  // Convert to key-value objects
   const content: Record<string, string> = {}
   contentRes.data?.forEach(item => { content[item.key] = item.value })
 
   const settings: Record<string, string> = {}
   settingsRes.data?.forEach(item => { settings[item.key] = item.value })
 
-  // Build slideshow image URLs from storage
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const slideshowImages = (slideshowRes.data || [])
     .filter(f => f.name !== '.emptyFolderPlaceholder')

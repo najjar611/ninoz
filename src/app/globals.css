@@ -1,4 +1,33 @@
+/* ════════════════════════════════════════════════════════════
+   NINOZ — BRAND THEME
+   All brand colors defined here as CSS variables
+   Change a color here → changes everywhere on the site
+   ════════════════════════════════════════════════════════════ */
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font-body), sans-serif; -webkit-font-smoothing: antialiased; background: #FAF9F6; }
+
+:root {
+  /* ── BRAND COLORS ── */
+  --cream:        #FAF5EE;   /* Page background — warm cream */
+  --cream-dark:   #F2EAE0;   /* Slightly darker cream for sections */
+  --orange:       #C84B0F;   /* Primary orange — buttons, accents */
+  --orange-light: #E8834A;   /* Lighter orange — hover, badges */
+  --orange-bg:    #B8400D;   /* Stats bar background */
+  --brown:        #2C1A0E;   /* Dark brown — headlines, dark sections */
+  --brown-soft:   #4A3728;   /* Softer brown — body text */
+  --green:        #2D5016;   /* Green accent — kept for nature feel */
+  --text:         #2C1A0E;   /* Main text color */
+  --text-muted:   #7A6055;   /* Muted text */
+  --border:       rgba(44,26,14,0.1); /* Subtle borders */
+  --white:        #FFFFFF;
+}
+
+body {
+  font-family: var(--font-body), sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: var(--cream);
+  color: var(--text);
+}
+
 input, textarea, button, select { font-family: inherit; }
 img { max-width: 100%; display: block; }

@@ -1,21 +1,30 @@
 import type { Metadata } from 'next'
-import { Fascinate, Changa_One, Love_Ya_Like_A_Sister, Plus_Jakarta_Sans } from 'next/font/google'
+import { Nunito, Nunito_Sans } from 'next/font/google'
 import './globals.css'
 
-const fontLogo = Fascinate({ subsets: ['latin'], weight: '400', variable: '--font-logo' })
-const fontHero = Changa_One({ subsets: ['latin'], weight: '400', variable: '--font-hero' })
-const fontDesc = Love_Ya_Like_A_Sister({ subsets: ['latin'], weight: '400', variable: '--font-desc' })
-const fontBody = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-body' })
+// ── FONTS ──
+// Nunito — rounded, friendly, not childish — perfect for Ninoz
+const fontDisplay = Nunito({
+  subsets: ['latin'],
+  weight: ['700', '800', '900'],
+  variable: '--font-hero',
+})
+
+const fontBody = Nunito_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-body',
+})
 
 export const metadata: Metadata = {
   title: 'Ninoz — Fresh Daily Baby Meals',
-  description: 'Fresh organic meals for babies 3 months to 3 years. Delivered daily across Riyadh.',
+  description: 'Fresh, healthy & yumi daily meals for your little ones. Cooked today, delivered to your door.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${fontLogo.variable} ${fontHero.variable} ${fontDesc.variable} ${fontBody.variable}`}>
+      <body className={`${fontDisplay.variable} ${fontBody.variable}`}>
         {children}
       </body>
     </html>

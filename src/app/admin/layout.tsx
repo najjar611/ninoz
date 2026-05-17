@@ -7,22 +7,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles').select('role, full_name, email').eq('id', user.id).single()
-
+  const { data: profile } = await supabase.from('profiles').select('role, full_name, email').eq('id', user.id).single()
   if (!profile || profile.role !== 'admin') redirect('/')
 
-  const initials = profile.full_name
-    ?.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || 'A'
+  const initials = profile.full_name?.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || 'A'
 
   const nav = [
-    { href: '/admin/dashboard', icon: '📊', label: 'Dashboard' },
-    { href: '/admin/content',   icon: '📝', label: 'Content' },
-    { href: '/admin/stages',    icon: '🥄', label: 'Stages & Plans' },
-    { href: '/admin/meals',     icon: '🍽️', label: 'Meals' },
-    { href: '/admin/images',    icon: '🖼️', label: 'Images' },
-    { href: '/admin/settings',  icon: '⚙️', label: 'Settings' },
-    { href: '/',               icon: '🌐', label: 'View Site' },
+    { href: '/admin/dashboard',   icon: '📊', label: 'Dashboard' },
+    { href: '/admin/subscribers', icon: '👥', label: 'Subscribers' },
+    { href: '/admin/form',        icon: '📋', label: 'Form Fields' },
+    { href: '/admin/content',     icon: '📝', label: 'Content' },
+    { href: '/admin/stages',      icon: '🥄', label: 'Stages & Plans' },
+    { href: '/admin/meals',       icon: '🍽️', label: 'Meals' },
+    { href: '/admin/images',      icon: '🖼️', label: 'Images' },
+    { href: '/admin/settings',    icon: '⚙️', label: 'Settings' },
+    { href: '/',                  icon: '🌐', label: 'View Site' },
   ]
 
   return (
@@ -46,9 +45,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       <aside className="admin-sidebar">
         <div style={{ padding:'20px 16px 14px', borderBottom:'1px solid rgba(0,0,0,0.06)' }}>
-          <Link href="/" style={{ fontFamily:'serif', fontSize:'20px', fontWeight:700, color:'#1C1C1A', textDecoration:'none' }}>
-            Ninoz <span style={{ color:'#E8834A', fontSize:'11px', fontWeight:500 }}>admin</span>
-          </Link>
+          <a href="/" style={{ fontFamily:'serif', fontSize:'20px', fontWeight:700, color:'#C84B0F', textDecoration:'none' }}>
+            Ninoz <span style={{ color:'#7A7068', fontSize:'11px', fontWeight:500 }}>admin</span>
+          </a>
         </div>
         <nav style={{ flex:1, padding:'10px' }}>
           {nav.map(item => (
@@ -59,9 +58,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </nav>
         <div style={{ padding:'12px 10px', borderTop:'1px solid rgba(0,0,0,0.06)' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'10px', padding:'10px 12px', marginBottom:'4px' }}>
-            <div style={{ width:'34px', height:'34px', borderRadius:'50%', background:'#FFF0EA', color:'#E8834A', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', fontWeight:700, flexShrink:0 }}>
-              {initials}
-            </div>
+            <div style={{ width:'34px', height:'34px', borderRadius:'50%', background:'#FFF0EA', color:'#E8834A', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px', fontWeight:700, flexShrink:0 }}>{initials}</div>
             <div style={{ minWidth:0 }}>
               <div style={{ fontSize:'13px', fontWeight:600, color:'#1C1C1A', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{profile.full_name || 'Admin'}</div>
               <div style={{ fontSize:'11px', color:'#C9A98A', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{profile.email}</div>

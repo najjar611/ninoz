@@ -9,10 +9,10 @@ export default async function HomePage() {
   const [
     contentRes, stagesRes, howRes, whyRes,
     faqRes, testiRes, blogRes, settingsRes,
-    logoRes, slideshowRes,
+    logoRes, slideshowRes, formFieldsRes,
   ] = await Promise.all([
     supabase.from('site_content').select('*'),
-    supabase.from('stages').select('*').eq('is_active', true).order('position'),
+    supabase.from('stages').select('*, plan_details(id, name, price, is_active)').eq('is_active', true).order('position'),
     supabase.from('how_steps').select('*').eq('is_active', true).order('position'),
     supabase.from('why_points').select('*').eq('is_active', true).order('position'),
     supabase.from('faq_items').select('*').order('position'),
@@ -21,6 +21,7 @@ export default async function HomePage() {
     supabase.from('site_settings').select('*'),
     supabase.from('logo').select('*').limit(1).single(),
     supabase.storage.from('slideshow').list('', { sortBy: { column: 'created_at', order: 'asc' } }),
+    supabase.from('form_fields').select('*').eq('is_active', true).order('position'),
   ])
 
   const content: Record<string, string> = {}
@@ -32,10 +33,7 @@ export default async function HomePage() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const slideshowImages = (slideshowRes.data || [])
     .filter(f => f.name !== '.emptyFolderPlaceholder')
-    .map(f => ({
-      name: f.name,
-      url: `${supabaseUrl}/storage/v1/object/public/slideshow/${f.name}`,
-    }))
+    .map(f => ({ name: f.name, url: `${supabaseUrl}/storage/v1/object/public/slideshow/${f.name}` }))
 
   return (
     <HomeClient
@@ -49,6 +47,7 @@ export default async function HomePage() {
       settings={settings}
       logo={logoRes.data}
       slideshowImages={slideshowImages}
+      formFields={formFieldsRes.data || []}
     />
   )
 }

@@ -9,7 +9,7 @@ export default async function HomePage() {
   const [
     contentRes, stagesRes, howRes, whyRes,
     faqRes, testiRes, blogRes, settingsRes,
-    logoRes, slideshowRes, formFieldsRes,
+    logoRes, slideshowRes, formFieldsRes, ingredientsRes,
   ] = await Promise.all([
     supabase.from('site_content').select('*'),
     supabase.from('stages').select('*, plan_details(id, name, price, is_active)').eq('is_active', true).order('position'),
@@ -22,6 +22,7 @@ export default async function HomePage() {
     supabase.from('logo').select('*').limit(1).single(),
     supabase.storage.from('slideshow').list('', { sortBy: { column: 'created_at', order: 'asc' } }),
     supabase.from('form_fields').select('*').eq('is_active', true).order('position'),
+    supabase.from('ingredients').select('*').eq('is_active', true).order('position'),
   ])
 
   const content: Record<string, string> = {}
@@ -48,6 +49,7 @@ export default async function HomePage() {
       logo={logoRes.data}
       slideshowImages={slideshowImages}
       formFields={formFieldsRes.data || []}
+      ingredients={ingredientsRes.data || []}
     />
   )
 }

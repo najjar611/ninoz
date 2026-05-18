@@ -13,6 +13,7 @@ type BlogPost = { id: string; tag: string; title: string; excerpt: string; image
 type Logo = { url: string | null; alt_text: string }
 type SlideshowImage = { name: string; url: string }
 type FormField = { id: string; field_key: string; label: string; field_type: string; placeholder: string; is_required: boolean; options: string }
+type Ingredient = { id: string; name: string; benefit: string; image_url: string | null }
 
 type Props = {
   content: Record<string, string>
@@ -26,13 +27,15 @@ type Props = {
   logo: Logo | null
   slideshowImages: SlideshowImage[]
   formFields: FormField[]
+  ingredients: Ingredient[]
 }
 
-function c(content: Record<string, string>, key: string, fallback = '') {
-  return content[key] || fallback
-}
+function c(content: Record<string, string>, key: string, fallback = '') { return content[key] || fallback }
 
-export default function HomeClient({ content, stages, howSteps, whyPoints, faqItems, testimonials, blogPosts, settings, logo, slideshowImages, formFields }: Props) {
+// ── MULTI-STEP SUBSCRIPTION POPUP ──
+type SubStep = 'email' | 'personal' | 'stage' | 'cycle' | 'done'
+
+export default function HomeClient({ content, stages, howSteps, whyPoints, faqItems, testimonials, blogPosts, settings, logo, slideshowImages, formFields, ingredients }: Props) {
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -47,53 +50,58 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
   const heroBg = slideshowImages.length > 0 ? slideshowImages[0].url : null
   const [openFaq, setOpenFaq] = useState<string | null>(null)
 
-  // ── SUBSCRIPTION POPUP ──
-  const [showSubscribe, setShowSubscribe] = useState(false)
-  const [formData, setFormData] = useState<Record<string, string>>({})
+  // ── SUBSCRIPTION MULTI-STEP ──
+  const [showSub, setShowSub] = useState(false)
+  const [subStep, setSubStep] = useState<SubStep>('email')
+  const [subData, setSubData] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
-  const [formError, setFormError] = useState('')
+  const [subError, setSubError] = useState('')
 
-  async function handleSubmit() {
-    // Validate required fields
-    for (const field of formFields) {
-      if (field.is_required && !formData[field.field_key]) {
-        setFormError(`${field.label} is required`)
-        return
-      }
+  function openSub() { setSubData({}); setSubStep('email'); setSubError(''); setShowSub(true) }
+
+  function nextStep(currentStep: SubStep) {
+    setSubError('')
+    if (currentStep === 'email') {
+      if (!subData.email) { setSubError('Email is required'); return }
+      setSubStep('personal')
+    } else if (currentStep === 'personal') {
+      if (!subData.parent_name) { setSubError('Your name is required'); return }
+      setSubStep('stage')
+    } else if (currentStep === 'stage') {
+      if (!subData.stage_id) { setSubError('Please select a stage'); return }
+      setSubStep('cycle')
+    } else if (currentStep === 'cycle') {
+      if (!subData.payment_cycle) { setSubError('Please select a payment cycle'); return }
+      submitForm()
     }
-    setFormError('')
+  }
+
+  async function submitForm() {
     setSubmitting(true)
+    const selectedStage = stages.find(s => s.id === subData.stage_id)
     const supabase = createClient()
-    const { error } = await supabase.from('subscriptions').insert({
-      parent_name:   formData.parent_name || '',
-      phone:         formData.phone || '',
-      plan:          formData.plan || '',
-      kid_name:      formData.kid_name || '',
-      allergies:     formData.allergies || '',
-      address:       formData.address || '',
-      street_number: formData.street_number || '',
-      status:        'new',
+    await supabase.from('subscriptions').insert({
+      email:          subData.email || '',
+      parent_name:    subData.parent_name || '',
+      phone:          subData.phone || '',
+      kid_name:       subData.kid_name || '',
+      kid_birthday:   subData.kid_birthday || '',
+      allergies:      subData.allergies || '',
+      address:        subData.address || '',
+      street_number:  subData.street_number || '',
+      plan:           selectedStage ? `${selectedStage.name} (${selectedStage.age_range})` : '',
+      payment_cycle:  subData.payment_cycle || '',
+      status:         'new',
     })
     setSubmitting(false)
-    if (error) { setFormError('Something went wrong. Please try again.'); return }
-    setSubmitted(true)
+    setSubStep('done')
   }
 
-  function openSubscribe() {
-    setFormData({})
-    setSubmitted(false)
-    setFormError('')
-    setShowSubscribe(true)
-  }
-
-  // Build plan options from stages
-  const planOptions: string[] = []
-  stages.forEach(stage => {
-    stage.plan_details?.filter(p => p.is_active).forEach(plan => {
-      planOptions.push(`${stage.name} — ${plan.name} (${plan.price})`)
-    })
-  })
+  const cycleOptions = [
+    { key: 'weekly',   label: 'Weekly',   desc: '6 days / 18 meals total',    price: '377 SAR' },
+    { key: 'monthly',  label: 'Monthly',  desc: '24 days / 72 meals total',   price: '1,499 SAR' },
+    { key: '3months',  label: '3-months', desc: '72 days / 216 meals total',  price: '2,699 SAR' },
+  ]
 
   return (
     <>
@@ -121,9 +129,7 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
         .testi-card { background:white; border-radius:20px; border:1px solid rgba(44,26,14,0.08); display:flex; flex-direction:column; transition:box-shadow 0.3s, transform 0.3s; }
         .testi-card:hover { box-shadow:0 12px 30px rgba(44,26,14,0.08); transform:translateY(-3px); }
 
-        .why-item { transition:background 0.25s, transform 0.25s; border-radius:14px; padding:14px; }
-        .why-item:hover { background:rgba(200,75,15,0.06); transform:translateX(4px); }
-
+        .why-item { border-radius:14px; padding:14px; }
         .blog-card { background:white; border-radius:20px; overflow:hidden; border:1px solid rgba(44,26,14,0.08); transition:transform 0.3s, box-shadow 0.3s; text-decoration:none; color:inherit; display:block; }
         .blog-card:hover { transform:translateY(-4px); box-shadow:0 16px 40px rgba(44,26,14,0.1); }
 
@@ -135,29 +141,36 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
         .faq-chevron { width:20px; height:20px; flex-shrink:0; transition:transform 0.3s; color:var(--orange); }
         .faq-chevron.open { transform:rotate(180deg); }
 
-        /* ── CONTACT SWIPE CAROUSEL ── */
-        .contact-carousel { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; gap:0; }
+        .contact-carousel { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
         .contact-carousel::-webkit-scrollbar { display:none; }
         .contact-slide { flex:0 0 100%; scroll-snap-align:start; }
         .contact-card { text-decoration:none; display:flex; flex-direction:column; align-items:center; gap:14px; text-align:center; border-radius:20px; padding:40px 28px; border:2px solid transparent; transition:border-color 0.3s; cursor:pointer; width:100%; }
         .cc-wa { background:#1A2E22; } .cc-wa:hover { border-color:#25D366; }
         .cc-ig { background:#2A1A2A; } .cc-ig:hover { border-color:#E1306C; }
 
-        /* ── SUBSCRIPTION POPUP ── */
+        /* ── SUBSCRIPTION MULTI-STEP POPUP ── */
         .sub-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:200; display:flex; align-items:flex-end; justify-content:center; backdrop-filter:blur(4px); animation:fadeIn 0.2s ease; }
-        .sub-sheet { background:white; border-radius:24px 24px 0 0; width:100%; max-width:560px; max-height:92vh; overflow-y:auto; animation:slideUpSheet 0.35s cubic-bezier(0.22,1,0.36,1); padding:28px 24px 40px; }
-        .sub-input { width:100%; padding:13px 16px; border-radius:12px; border:1.5px solid rgba(44,26,14,0.15); font-size:15px; outline:none; box-sizing:border-box; font-family:var(--font-body); transition:border-color 0.2s; background:white; }
+        .sub-sheet { background:white; border-radius:24px 24px 0 0; width:100%; max-width:540px; max-height:94vh; overflow-y:auto; animation:slideUpSheet 0.35s cubic-bezier(0.22,1,0.36,1); padding:0 0 40px; }
+        .sub-hero { height:200px; position:relative; overflow:hidden; border-radius:24px 24px 0 0; }
+        .sub-body { padding:24px 24px 0; }
+        .sub-input { width:100%; padding:14px 16px; border-radius:12px; border:1.5px solid rgba(44,26,14,0.15); font-size:15px; outline:none; box-sizing:border-box; font-family:var(--font-body); transition:border-color 0.2s; background:white; }
         .sub-input:focus { border-color:var(--orange); }
+        .stage-select-card { border:2px solid rgba(44,26,14,0.1); border-radius:14px; padding:16px; cursor:pointer; transition:all 0.2s; }
+        .stage-select-card:hover { border-color:var(--orange); }
+        .stage-select-card.selected { border-color:var(--orange); background:rgba(200,75,15,0.05); }
+        .cycle-card { border:2px solid rgba(44,26,14,0.1); border-radius:14px; padding:16px 18px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:space-between; }
+        .cycle-card:hover { border-color:var(--orange); }
+        .cycle-card.selected { border-color:var(--orange); background:rgba(200,75,15,0.05); }
+
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
         @keyframes slideUpSheet { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:none} }
-
         @keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         .marquee-track { animation:marquee 28s linear infinite; }
 
         /* ══ DESKTOP ══ */
         @media(min-width:769px) {
           .sub-overlay { align-items:center; }
-          .sub-sheet { border-radius:24px; max-height:88vh; }
+          .sub-sheet { border-radius:24px; max-height:90vh; }
           .stages-cards { flex-direction:column !important; overflow-x:visible !important; }
           .stages-cards .s-item { flex:none !important; max-width:none !important; width:100% !important; }
           .testi-wrap { display:grid !important; grid-template-columns:repeat(3,1fr) !important; }
@@ -165,7 +178,6 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
           .how-wrap { display:grid !important; grid-template-columns:repeat(3,1fr) !important; }
           .how-wrap .h-item { flex:none !important; max-width:none !important; }
           .blog-grid { grid-template-columns:repeat(3,1fr) !important; }
-          /* Contact: side by side on desktop */
           .contact-carousel { display:grid !important; grid-template-columns:1fr 1fr !important; gap:14px !important; }
           .contact-slide { flex:none !important; scroll-snap-align:unset !important; }
         }
@@ -190,7 +202,6 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
           .why-grid { grid-template-columns:1fr !important; gap:32px !important; }
           .blog-grid { grid-template-columns:1fr !important; }
           .footer-top { flex-direction:column !important; }
-          /* Stats: 2x2 grid on mobile */
           .stats-bar { display:grid !important; grid-template-columns:1fr 1fr !important; }
           .stat-item { border-right:none !important; border-bottom:1px solid rgba(255,255,255,0.1) !important; }
           .stat-item:nth-child(odd) { border-right:1px solid rgba(255,255,255,0.1) !important; }
@@ -216,9 +227,7 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
                 <button key={item.label} onClick={() => scrollTo(item.id)} className="nav-link">{item.label}</button>
               ))}
             </div>
-            <button className="btn-primary" style={{ fontSize:'13px', padding:'11px 22px' }} onClick={openSubscribe}>
-              Subscribe Now
-            </button>
+            <button className="btn-primary" style={{ fontSize:'13px', padding:'11px 22px' }} onClick={openSub}>Start Your Plan</button>
           </nav>
 
           <div className="hero-content" style={{ position:'relative', zIndex:1, flex:1, display:'flex', flexDirection:'column', justifyContent:'center', padding:'120px 6% 80px', maxWidth:'700px' }}>
@@ -238,13 +247,13 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
               ))}
             </div>
             <div className="hero-btns" style={{ display:'flex', gap:'14px', flexWrap:'wrap' }}>
-              <button className="btn-primary" onClick={openSubscribe}>Subscribe Now</button>
+              <button className="btn-primary" onClick={openSub}>Start Your Plan</button>
               <button className="btn-outline" onClick={() => scrollTo('offers')}>Explore Meals</button>
             </div>
           </div>
         </section>
 
-        {/* ══ STATS BAR — 2x2 on mobile, 4 in a row on desktop ══ */}
+        {/* ══ STATS BAR ══ */}
         <div style={{ background:'var(--orange-bg)' }}>
           <div className="stats-bar" style={{ display:'flex', maxWidth:'1200px', margin:'0 auto', padding:'0 6%' }}>
             {[
@@ -253,7 +262,7 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
               { num: c(content,'stat_2_number','0%'),   label: c(content,'stat_2_label','Preservatives') },
               { num: c(content,'stat_4_number','0%'),   label: c(content,'stat_4_label','Frozen Food') },
             ].map((stat, i, arr) => (
-              <div key={i} className="stat-item" style={{ display:'flex', alignItems:'center', gap:'6px', padding:'16px 20px', borderRight: i < arr.length-1 ? '1px solid rgba(255,255,255,0.2)' : 'none', flex:1, whiteSpace:'nowrap' }}>
+              <div key={i} className="stat-item" style={{ display:'flex', alignItems:'center', gap:'6px', padding:'16px 20px', borderRight: i < arr.length-1 ? '1px solid rgba(255,255,255,0.2)' : 'none', flex:1 }}>
                 <span style={{ fontFamily:'var(--font-hero)', fontSize:'20px', color: i === 0 ? '#FFD166' : 'white', fontWeight:900 }}>{stat.num}</span>
                 <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.85)', fontWeight:600 }}>{stat.label}</span>
               </div>
@@ -269,17 +278,11 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
                 Fresh Meals Built for Their Stage
               </h2>
               <div className="stages-cards" style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
-                {stages.map((stage) => (
+                {stages.map(stage => (
                   <div key={stage.id} className="s-item">
                     <Link href={`/menu/${stage.id}`} className="stage-card">
-                      <div style={{ fontSize:'11px', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--text-muted)', marginBottom:'6px' }}>
-                        {stage.name}: {stage.age_range}
-                      </div>
-                      {stage.tag && (
-                        <div style={{ display:'inline-block', background:'var(--orange)', color:'white', fontSize:'11px', fontWeight:700, padding:'3px 12px', borderRadius:'4px', marginBottom:'10px' }}>
-                          {stage.tag}
-                        </div>
-                      )}
+                      <div style={{ fontSize:'11px', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', color:'var(--text-muted)', marginBottom:'6px' }}>{stage.name}: {stage.age_range}</div>
+                      {stage.tag && <div style={{ display:'inline-block', background:'var(--orange)', color:'white', fontSize:'11px', fontWeight:700, padding:'3px 12px', borderRadius:'4px', marginBottom:'10px' }}>{stage.tag}</div>}
                       <p style={{ fontSize:'14px', color:'var(--text-muted)', lineHeight:1.65, marginBottom:'10px' }}>{stage.description}</p>
                       <span style={{ fontSize:'13px', color:'var(--orange)', fontWeight:700 }}>Explore Meals →</span>
                     </Link>
@@ -287,15 +290,13 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
                 ))}
               </div>
               <div style={{ marginTop:'32px' }}>
-                <button className="btn-primary" onClick={openSubscribe}>Subscribe Now</button>
+                <button className="btn-primary" onClick={openSub}>Start Your Plan</button>
               </div>
             </div>
             <div className="stages-photo reveal delay-2" style={{ flex:'0 0 440px', height:'540px', borderRadius:'24px', overflow:'hidden', position:'sticky', top:'80px' }}>
               {slideshowImages.length > 1
                 ? <img src={slideshowImages[1].url} alt="Ninoz meals" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                : slideshowImages.length === 1
-                  ? <img src={slideshowImages[0].url} alt="Ninoz meals" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                  : <div style={{ width:'100%', height:'100%', background:'linear-gradient(145deg,#F2EAE0,#E8D5C4)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'100px' }}>🍱</div>
+                : <div style={{ width:'100%', height:'100%', background:'linear-gradient(145deg,#F2EAE0,#E8D5C4)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'100px' }}>🍱</div>
               }
             </div>
           </div>
@@ -304,9 +305,7 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
         {/* ══ HOW IT WORKS ══ */}
         <section id="how" style={{ background:'var(--cream-dark)', padding:'80px 6%' }}>
           <div className="reveal" style={{ textAlign:'center', marginBottom:'48px' }}>
-            <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,44px)', fontWeight:900, color:'var(--orange)', marginBottom:'10px' }}>
-              {c(content,'how_title','How it Works')}
-            </h2>
+            <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,44px)', fontWeight:900, color:'var(--orange)', marginBottom:'10px' }}>{c(content,'how_title','How it Works')}</h2>
             <p style={{ fontSize:'16px', color:'var(--text-muted)' }}>Three steps to peace of mind — and a well-fed baby.</p>
           </div>
           <div className="how-wrap" style={{ display:'flex', gap:'20px', maxWidth:'1100px', margin:'0 auto 40px' }}>
@@ -319,22 +318,20 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
               </div>
             ))}
           </div>
-          <div style={{ textAlign:'center' }}>
-            <button className="btn-primary" onClick={openSubscribe}>Get Started</button>
-          </div>
+          <div style={{ textAlign:'center' }}><button className="btn-primary" onClick={openSub}>Get Started</button></div>
         </section>
 
-        {/* ══ WHY NINOZ ══ */}
+        {/* ══ WHY NINOZ — with ingredients row ══ */}
         <section id="why" style={{ padding:'80px 6%', background:'var(--cream)' }}>
-          <div className="why-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'80px', alignItems:'center', maxWidth:'1200px', margin:'0 auto' }}>
+          <div className="why-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'80px', alignItems:'center', maxWidth:'1200px', margin:'0 auto 60px' }}>
             <div className="reveal">
               <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(32px,4vw,56px)', fontWeight:900, lineHeight:1.05, marginBottom:'32px', color:'var(--orange)' }}>
                 Only Real<br/>Ingredients
               </h2>
               <div style={{ display:'flex', flexDirection:'column', gap:'20px' }}>
                 {whyPoints.map(point => (
-                  <div key={point.id} className="why-item" style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
-                    <div style={{ fontWeight:800, fontSize:'15px', color:'var(--orange)', fontFamily:'var(--font-hero)' }}>{point.title}</div>
+                  <div key={point.id} className="why-item">
+                    <div style={{ fontWeight:800, fontSize:'15px', color:'var(--orange)', fontFamily:'var(--font-hero)', marginBottom:'4px' }}>{point.title}</div>
                     <div style={{ fontSize:'14px', color:'var(--brown-soft)', lineHeight:1.65 }}>{point.description}</div>
                   </div>
                 ))}
@@ -347,14 +344,32 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
               }
             </div>
           </div>
+
+          {/* Ingredients showcase row */}
+          {ingredients.length > 0 && (
+            <div style={{ maxWidth:'1100px', margin:'0 auto' }}>
+              <div style={{ display:'grid', gridTemplateColumns:`repeat(${Math.min(ingredients.length, 4)}, 1fr)`, gap:'20px' }}>
+                {ingredients.map(ing => (
+                  <div key={ing.id} className="reveal" style={{ textAlign:'center' }}>
+                    <div style={{ width:'100%', aspectRatio:'1', borderRadius:'16px', overflow:'hidden', background:'#F2EAE0', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'40px', marginBottom:'12px' }}>
+                      {ing.image_url
+                        ? <img src={ing.image_url} alt={ing.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                        : '🥕'
+                      }
+                    </div>
+                    <div style={{ fontWeight:800, fontSize:'14px', color:'var(--orange)', marginBottom:'3px', fontFamily:'var(--font-hero)' }}>{ing.name}</div>
+                    <div style={{ fontSize:'12px', color:'var(--text-muted)' }}>{ing.benefit}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* ══ TESTIMONIALS ══ */}
         <section id="testimonials" style={{ background:'var(--cream-dark)', padding:'80px 6%' }}>
           <div className="reveal" style={{ textAlign:'center', marginBottom:'48px' }}>
-            <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,44px)', fontWeight:900, color:'var(--orange)', marginBottom:'10px' }}>
-              {c(content,'testi_title','What mums say')}
-            </h2>
+            <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,44px)', fontWeight:900, color:'var(--orange)', marginBottom:'10px' }}>{c(content,'testi_title','What mums say')}</h2>
           </div>
           {testimonials.length > 0 ? (
             <div className="testi-wrap" style={{ display:'flex', gap:'16px', maxWidth:'1100px', margin:'0 auto' }}>
@@ -372,18 +387,14 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
                 </div>
               ))}
             </div>
-          ) : (
-            <p style={{ textAlign:'center', color:'var(--text-muted)', fontSize:'14px' }}>No reviews yet.</p>
-          )}
+          ) : <p style={{ textAlign:'center', color:'var(--text-muted)', fontSize:'14px' }}>No reviews yet.</p>}
         </section>
 
         {/* ══ BLOG ══ */}
         {blogPosts.length > 0 && (
           <section id="blog" style={{ padding:'80px 6%', background:'var(--cream)' }}>
             <div className="reveal" style={{ textAlign:'center', marginBottom:'48px' }}>
-              <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,44px)', fontWeight:900, color:'var(--orange)', marginBottom:'10px' }}>
-                {c(content,'blog_title','Learn & grow together')}
-              </h2>
+              <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,44px)', fontWeight:900, color:'var(--orange)', marginBottom:'10px' }}>{c(content,'blog_title','Learn & grow together')}</h2>
               <p style={{ fontSize:'16px', color:'var(--text-muted)' }}>{c(content,'blog_subtitle','Tips from nutritionists and fellow mums.')}</p>
             </div>
             <div className="blog-grid" style={{ display:'grid', gap:'20px', maxWidth:'1100px', margin:'0 auto' }}>
@@ -407,18 +418,14 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
         {faqItems.length > 0 && (
           <section id="faq" style={{ padding:'80px 6%', background:'var(--cream-dark)' }}>
             <div className="reveal" style={{ textAlign:'center', marginBottom:'48px' }}>
-              <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,44px)', fontWeight:900, color:'var(--orange)', marginBottom:'10px' }}>
-                {c(content,'faq_title','Common questions')}
-              </h2>
+              <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,44px)', fontWeight:900, color:'var(--orange)', marginBottom:'10px' }}>{c(content,'faq_title','Common questions')}</h2>
             </div>
             <div className="reveal" style={{ maxWidth:'700px', margin:'0 auto' }}>
               {faqItems.map(item => (
                 <div key={item.id} className="faq-item">
                   <button className="faq-question" onClick={() => setOpenFaq(openFaq === item.id ? null : item.id)}>
                     <span>{item.question}</span>
-                    <svg className={`faq-chevron ${openFaq === item.id ? 'open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                    <svg className={`faq-chevron ${openFaq === item.id ? 'open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </button>
                   <div className={`faq-answer ${openFaq === item.id ? 'open' : ''}`}>
                     <p style={{ fontSize:'14px', color:'var(--text-muted)', lineHeight:1.8 }}>{item.answer}</p>
@@ -429,16 +436,12 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
           </section>
         )}
 
-        {/* ══ CONTACT — Carousel swipe on mobile, side by side on desktop ══ */}
+        {/* ══ CONTACT ══ */}
         <section id="contact" style={{ background:'var(--brown)', padding:'80px 6%' }}>
           <div style={{ maxWidth:'700px', margin:'0 auto', textAlign:'center' }}>
             <div className="reveal">
-              <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,44px)', color:'white', fontWeight:900, marginBottom:'12px' }}>
-                {c(content,'contact_title',"We'd love to hear from you")}
-              </h2>
-              <p style={{ fontSize:'15px', color:'rgba(255,255,255,0.5)', marginBottom:'40px' }}>
-                {c(content,'contact_subtitle','Questions, custom plans, or allergies — reach us directly.')}
-              </p>
+              <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(28px,4vw,44px)', color:'white', fontWeight:900, marginBottom:'12px' }}>{c(content,'contact_title',"We'd love to hear from you")}</h2>
+              <p style={{ fontSize:'15px', color:'rgba(255,255,255,0.5)', marginBottom:'40px' }}>{c(content,'contact_subtitle','Questions, custom plans, or allergies — reach us directly.')}</p>
             </div>
             <div className="contact-carousel reveal delay-1">
               <div className="contact-slide">
@@ -454,8 +457,8 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
               <div className="contact-slide">
                 <a href={`https://instagram.com/${settings.instagram_handle||'ninoz.sa'}`} target="_blank" className="contact-card cc-ig">
                   <div style={{ width:'64px', height:'64px', borderRadius:'18px', background:'rgba(225,48,108,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <svg width="34" height="34" viewBox="0 0 24 24" fill="url(#ig11)">
-                      <defs><linearGradient id="ig11" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#f09433"/><stop offset="50%" stopColor="#dc2743"/><stop offset="100%" stopColor="#bc1888"/></linearGradient></defs>
+                    <svg width="34" height="34" viewBox="0 0 24 24" fill="url(#ig12)">
+                      <defs><linearGradient id="ig12" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#f09433"/><stop offset="50%" stopColor="#dc2743"/><stop offset="100%" stopColor="#bc1888"/></linearGradient></defs>
                       <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
                     </svg>
                   </div>
@@ -468,156 +471,176 @@ export default function HomeClient({ content, stages, howSteps, whyPoints, faqIt
           </div>
         </section>
 
-        {/* FOOTER */}
-        <footer style={{ background:'#1A0E07', padding:'48px 6% 28px' }}>
-          <div className="footer-top" style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', paddingBottom:'32px', borderBottom:'1px solid rgba(255,255,255,0.06)', flexWrap:'wrap', gap:'28px' }}>
-            <div>
-              {logo?.url
-                ? <a href="/"><img src={logo.url} alt={logo.alt_text||'Ninoz'} style={{ height:'36px', width:'auto', objectFit:'contain', marginBottom:'10px', cursor:'pointer' }} /></a>
-                : <a href="/" style={{ fontFamily:'var(--font-hero)', fontSize:'26px', color:'var(--orange)', fontWeight:900, textDecoration:'none', display:'block', marginBottom:'10px' }}>Ninoz</a>
-              }
-              <div style={{ fontSize:'13px', color:'rgba(255,255,255,0.3)', maxWidth:'210px', lineHeight:1.65 }}>
-                {c(content,'footer_tagline','Fresh organic meals for babies 3 months – 3 years. Delivered daily across Riyadh.')}
+        {/* ══ FOOTER ══ */}
+        <footer>
+          {/* Big orange header with Ninoz */}
+          <div style={{ background:'var(--orange-bg)', padding:'48px 6%', textAlign:'center', position:'relative', overflow:'hidden' }}>
+            <div style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(60px,10vw,120px)', color:'rgba(255,255,255,0.15)', fontWeight:900, lineHeight:1, userSelect:'none', position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center' }}>Ninoz</div>
+            <a href="/" style={{ fontFamily:'var(--font-hero)', fontSize:'clamp(60px,10vw,120px)', color:'var(--orange)', fontWeight:900, textDecoration:'none', position:'relative', zIndex:1, textShadow:'0 4px 20px rgba(0,0,0,0.2)', display:'block' }}>Ninoz</a>
+          </div>
+
+          {/* Footer columns */}
+          <div style={{ background:'#F2EAE0', padding:'48px 6% 28px' }}>
+            <div className="footer-top" style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'32px', maxWidth:'1200px', margin:'0 auto', paddingBottom:'32px', borderBottom:'1px solid rgba(44,26,14,0.1)', flexWrap:'wrap' }}>
+              {/* About */}
+              <div>
+                <div style={{ fontFamily:'var(--font-hero)', fontSize:'18px', color:'var(--orange)', fontWeight:900, marginBottom:'14px' }}>About Ninoz</div>
+                <p style={{ fontSize:'13px', color:'var(--text-muted)', lineHeight:1.7 }}>
+                  {c(content,'footer_about',"Hi. We're Ninoz.\nWe cook fresh daily meals for babies and toddlers in Riyadh.\n\nEvery meal is cooked the morning of delivery, designed for your baby's stage, approved by a pediatric nutritionist, and free from salt, sugar and preservatives.\n\nYou handle the love. We handle the food.")}
+                </p>
+              </div>
+              {/* Useful Links */}
+              <div>
+                <div style={{ fontFamily:'var(--font-hero)', fontSize:'18px', color:'var(--orange)', fontWeight:900, marginBottom:'14px' }}>Useful Links</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
+                  {['Blog','Allergy Disclaimer','Delivery & Refund','Terms & Conditions','Privacy Policy'].map(link => (
+                    <a key={link} href="#" style={{ fontSize:'13px', color:'var(--text-muted)', textDecoration:'none' }}>{link}</a>
+                  ))}
+                </div>
+              </div>
+              {/* Get in Touch */}
+              <div>
+                <div style={{ fontFamily:'var(--font-hero)', fontSize:'18px', color:'var(--orange)', fontWeight:900, marginBottom:'14px' }}>Get in Touch</div>
+                <p style={{ fontSize:'13px', color:'var(--text-muted)', marginBottom:'10px' }}>{"We'd love to hear from you 😊"}</p>
+                <a href={`https://wa.me/${settings.whatsapp_number||'966XXXXXXXXX'}`} target="_blank" style={{ fontSize:'13px', color:'var(--orange)', fontWeight:600, display:'block', marginBottom:'6px' }}>WhatsApp →</a>
+                <a href={`https://instagram.com/${settings.instagram_handle||'ninoz.sa'}`} target="_blank" style={{ fontSize:'13px', color:'var(--orange)', fontWeight:600, display:'block' }}>Instagram →</a>
+              </div>
+              {/* Subscribe */}
+              <div>
+                <div style={{ fontFamily:'var(--font-hero)', fontSize:'18px', color:'var(--orange)', fontWeight:900, marginBottom:'14px' }}>Subscribe Now</div>
+                <p style={{ fontSize:'13px', color:'var(--text-muted)', lineHeight:1.7, marginBottom:'16px' }}>Ready to give your baby the best meals? Start your plan today.</p>
+                <button onClick={openSub} style={{ background:'var(--orange)', color:'white', border:'none', padding:'12px 24px', borderRadius:'50px', fontSize:'14px', fontWeight:700, cursor:'pointer' }}>Start Your Plan →</button>
               </div>
             </div>
-            <div style={{ display:'flex', gap:'48px', flexWrap:'wrap' }}>
-              {['Company','Meals','Contact'].map(col => (
-                <div key={col}>
-                  <div style={{ fontSize:'11px', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', color:'rgba(255,255,255,0.25)', marginBottom:'14px' }}>{col}</div>
-                  <div style={{ display:'flex', flexDirection:'column', gap:'10px' }}>
-                    {col === 'Meals'
-                      ? stages.map(s => <a key={s.id} href={`/menu/${s.id}`} style={{ fontSize:'13px', color:'rgba(255,255,255,0.4)', textDecoration:'none' }}>{s.name}</a>)
-                      : ['Our Story','Our Kitchen','Careers'].map(link => <a key={link} href="#" style={{ fontSize:'13px', color:'rgba(255,255,255,0.4)', textDecoration:'none' }}>{link}</a>)
-                    }
-                  </div>
-                </div>
-              ))}
+            <div style={{ display:'flex', justifyContent:'center', paddingTop:'20px', fontSize:'12px', color:'var(--text-muted)', maxWidth:'1200px', margin:'0 auto' }}>
+              <span>{c(content,'footer_copyright','© 2025 Ninoz. All rights reserved.')}</span>
             </div>
-          </div>
-          <div style={{ display:'flex', justifyContent:'space-between', paddingTop:'22px', fontSize:'12px', color:'rgba(255,255,255,0.2)', flexWrap:'wrap', gap:'8px' }}>
-            <span>{c(content,'footer_copyright','© 2025 Ninoz. All rights reserved.')}</span>
-            <span>Privacy Policy · Terms of Service</span>
           </div>
         </footer>
       </main>
 
-      {/* ══════════════════════════════════
-          SUBSCRIPTION POPUP
-          Slides up from bottom on mobile
-          Centered on desktop
-      ══════════════════════════════════ */}
-      {showSubscribe && (
-        <div className="sub-overlay" onClick={() => setShowSubscribe(false)}>
+      {/* ══ MULTI-STEP SUBSCRIPTION POPUP ══ */}
+      {showSub && (
+        <div className="sub-overlay" onClick={() => setShowSub(false)}>
           <div className="sub-sheet" onClick={e => e.stopPropagation()}>
 
-            {/* Handle bar */}
-            <div style={{ width:'40px', height:'4px', borderRadius:'2px', background:'rgba(44,26,14,0.15)', margin:'0 auto 20px' }} />
+            {/* Hero image at top */}
+            <div className="sub-hero" style={{ background: heroBg ? `url(${heroBg}) center/cover no-repeat` : 'linear-gradient(135deg,#C84B0F,#8B3210)' }}>
+              <div style={{ position:'absolute', inset:0, background:'rgba(0,0,0,0.4)' }} />
+              <button onClick={() => setShowSub(false)} style={{ position:'absolute', top:'14px', right:'14px', width:'32px', height:'32px', borderRadius:'50%', background:'rgba(255,255,255,0.2)', border:'none', color:'white', fontSize:'18px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2 }}>×</button>
+            </div>
 
-            {submitted ? (
-              /* ── SUCCESS STATE ── */
-              <div style={{ textAlign:'center', padding:'20px 0' }}>
-                <div style={{ fontSize:'56px', marginBottom:'16px' }}>🎉</div>
-                <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'28px', fontWeight:900, color:'var(--text)', marginBottom:'10px' }}>
-                  You're on the list!
-                </h2>
-                <p style={{ fontSize:'15px', color:'var(--text-muted)', lineHeight:1.7, marginBottom:'28px' }}>
-                  We'll contact you shortly on WhatsApp to confirm your subscription.
-                </p>
-                <button onClick={() => setShowSubscribe(false)} style={{ background:'var(--orange)', color:'white', border:'none', padding:'14px 32px', borderRadius:'50px', fontSize:'15px', fontWeight:700, cursor:'pointer', width:'100%' }}>
-                  Close
-                </button>
-              </div>
-            ) : (
-              /* ── FORM ── */
-              <>
-                <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'26px', fontWeight:900, color:'var(--text)', marginBottom:'6px' }}>
-                  Subscribe Now
-                </h2>
-                <p style={{ fontSize:'14px', color:'var(--text-muted)', marginBottom:'24px' }}>
-                  Fill in the details below and we'll be in touch.
-                </p>
-
-                <div style={{ display:'flex', flexDirection:'column', gap:'14px', marginBottom:'20px' }}>
-                  {formFields.map(field => (
-                    <div key={field.id}>
-                      <label style={{ display:'block', fontSize:'13px', fontWeight:600, color:'var(--text)', marginBottom:'6px' }}>
-                        {field.label} {field.is_required && <span style={{ color:'var(--orange)' }}>*</span>}
-                      </label>
-
-                      {field.field_type === 'dropdown' && field.field_key === 'plan' ? (
-                        // Plan dropdown — auto-populated from stages
-                        <select
-                          value={formData[field.field_key] || ''}
-                          onChange={e => setFormData({ ...formData, [field.field_key]: e.target.value })}
-                          className="sub-input"
-                          style={{ width:'100%', padding:'13px 16px', borderRadius:'12px', border:'1.5px solid rgba(44,26,14,0.15)', fontSize:'15px', outline:'none', boxSizing:'border-box' as const, fontFamily:'var(--font-body)', background:'white', transition:'border-color 0.2s', appearance:'none' }}
-                        >
-                          <option value="">Select a plan</option>
-                          {stages.map(stage => (
-                            <optgroup key={stage.id} label={`${stage.name} (${stage.age_range})`}>
-                              {stage.plan_details?.filter(p => p.is_active).map(plan => (
-                                <option key={plan.id} value={`${stage.name} — ${plan.name}`}>
-                                  {plan.name} — {plan.price}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
-                        </select>
-
-                      ) : field.field_type === 'dropdown' ? (
-                        // Custom dropdown
-                        <select
-                          value={formData[field.field_key] || ''}
-                          onChange={e => setFormData({ ...formData, [field.field_key]: e.target.value })}
-                          style={{ width:'100%', padding:'13px 16px', borderRadius:'12px', border:'1.5px solid rgba(44,26,14,0.15)', fontSize:'15px', outline:'none', boxSizing:'border-box' as const, fontFamily:'var(--font-body)', background:'white' }}
-                        >
-                          <option value="">{field.placeholder || `Select ${field.label}`}</option>
-                          {field.options.split(',').map(opt => opt.trim()).filter(Boolean).map(opt => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-
-                      ) : field.field_type === 'textarea' ? (
-                        <textarea
-                          value={formData[field.field_key] || ''}
-                          onChange={e => setFormData({ ...formData, [field.field_key]: e.target.value })}
-                          placeholder={field.placeholder}
-                          rows={3}
-                          style={{ width:'100%', padding:'13px 16px', borderRadius:'12px', border:'1.5px solid rgba(44,26,14,0.15)', fontSize:'15px', outline:'none', boxSizing:'border-box' as const, fontFamily:'var(--font-body)', resize:'vertical' }}
-                        />
-
-                      ) : (
-                        <input
-                          type={field.field_type === 'phone' ? 'tel' : 'text'}
-                          value={formData[field.field_key] || ''}
-                          onChange={e => setFormData({ ...formData, [field.field_key]: e.target.value })}
-                          placeholder={field.placeholder}
-                          style={{ width:'100%', padding:'13px 16px', borderRadius:'12px', border:'1.5px solid rgba(44,26,14,0.15)', fontSize:'15px', outline:'none', boxSizing:'border-box' as const, fontFamily:'var(--font-body)' }}
-                        />
-                      )}
-                    </div>
+            <div className="sub-body">
+              {/* Progress dots */}
+              {subStep !== 'done' && (
+                <div style={{ display:'flex', gap:'6px', justifyContent:'center', margin:'20px 0 24px' }}>
+                  {(['email','personal','stage','cycle'] as SubStep[]).map((step, i) => (
+                    <div key={step} style={{ width: subStep === step ? '24px' : '8px', height:'8px', borderRadius:'4px', background: subStep === step || (['email','personal','stage','cycle'] as SubStep[]).indexOf(subStep) > i ? 'var(--orange)' : 'rgba(44,26,14,0.15)', transition:'all 0.3s' }} />
                   ))}
                 </div>
+              )}
 
-                {formError && (
-                  <div style={{ background:'#FEE2E2', color:'#DC2626', padding:'10px 14px', borderRadius:'10px', fontSize:'13px', fontWeight:500, marginBottom:'14px' }}>
-                    {formError}
+              {/* ── STEP 1: Email ── */}
+              {subStep === 'email' && (
+                <>
+                  <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'28px', fontWeight:900, color:'var(--orange)', marginBottom:'6px' }}>{"Let's get started"}</h2>
+                  <p style={{ fontSize:'14px', color:'var(--text-muted)', marginBottom:'24px' }}>Enter your email to begin your Ninoz journey.</p>
+                  <div style={{ marginBottom:'16px' }}>
+                    <label style={{ display:'block', fontSize:'13px', fontWeight:700, color:'var(--text)', marginBottom:'6px' }}>Email <span style={{ color:'var(--orange)' }}>*</span></label>
+                    <input type="email" className="sub-input" value={subData.email||''} onChange={e => setSubData({...subData, email: e.target.value})} placeholder="your@email.com" />
                   </div>
-                )}
+                  {subError && <div style={{ background:'#FEE2E2', color:'#DC2626', padding:'10px 14px', borderRadius:'10px', fontSize:'13px', marginBottom:'14px' }}>{subError}</div>}
+                  <button onClick={() => nextStep('email')} style={{ width:'100%', padding:'16px', borderRadius:'50px', border:'none', background:'var(--orange)', color:'white', fontSize:'16px', fontWeight:700, cursor:'pointer', marginBottom:'10px' }}>CONTINUE</button>
+                </>
+              )}
 
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  style={{ width:'100%', padding:'16px', borderRadius:'50px', border:'none', background: submitting ? '#C9A98A' : 'var(--orange)', color:'white', fontSize:'16px', fontWeight:700, cursor: submitting ? 'not-allowed' : 'pointer', transition:'background 0.2s' }}
-                >
-                  {submitting ? 'Submitting...' : 'Subscribe Now'}
-                </button>
+              {/* ── STEP 2: Personal details ── */}
+              {subStep === 'personal' && (
+                <>
+                  <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'28px', fontWeight:900, color:'var(--orange)', marginBottom:'6px' }}>Meal Picks, Just for you</h2>
+                  <p style={{ fontSize:'14px', color:'var(--text-muted)', marginBottom:'24px' }}>With a few basic details we will cater your experience to the needs of your family.</p>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'14px', marginBottom:'16px' }}>
+                    {[
+                      { key:'parent_name', label:'Your First Name', placeholder:'Your name', required:true },
+                      { key:'phone',       label:'Phone Number',   placeholder:'e.g. 0512345678', required:false },
+                      { key:'kid_name',    label:'Kid\'s Name',    placeholder:"Your baby's name", required:false },
+                      { key:'kid_birthday',label:'Kid\'s Birthday',placeholder:'e.g. 2023-06-15', required:false },
+                      { key:'allergies',   label:'Allergies (optional)', placeholder:'Any food allergies?', required:false },
+                    ].map(field => (
+                      <div key={field.key}>
+                        <label style={{ display:'block', fontSize:'13px', fontWeight:700, color:'var(--text)', marginBottom:'6px' }}>
+                          {field.label} {field.required && <span style={{ color:'var(--orange)' }}>*</span>}
+                        </label>
+                        <input className="sub-input" value={subData[field.key]||''} onChange={e => setSubData({...subData, [field.key]: e.target.value})} placeholder={field.placeholder} />
+                      </div>
+                    ))}
+                  </div>
+                  {subError && <div style={{ background:'#FEE2E2', color:'#DC2626', padding:'10px 14px', borderRadius:'10px', fontSize:'13px', marginBottom:'14px' }}>{subError}</div>}
+                  <button onClick={() => nextStep('personal')} style={{ width:'100%', padding:'16px', borderRadius:'50px', border:'none', background:'var(--orange)', color:'white', fontSize:'16px', fontWeight:700, cursor:'pointer', marginBottom:'10px' }}>CONTINUE</button>
+                  <button onClick={() => setSubStep('email')} style={{ width:'100%', padding:'12px', borderRadius:'50px', border:'none', background:'transparent', color:'var(--text-muted)', fontSize:'14px', fontWeight:500, cursor:'pointer' }}>← Back</button>
+                </>
+              )}
 
-                <button onClick={() => setShowSubscribe(false)} style={{ width:'100%', padding:'12px', borderRadius:'50px', border:'none', background:'transparent', color:'var(--text-muted)', fontSize:'14px', fontWeight:500, cursor:'pointer', marginTop:'8px' }}>
-                  Cancel
-                </button>
-              </>
-            )}
+              {/* ── STEP 3: Choose stage ── */}
+              {subStep === 'stage' && (
+                <>
+                  <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'28px', fontWeight:900, color:'var(--orange)', marginBottom:'6px' }}>Customized Your Plan</h2>
+                  <p style={{ fontSize:'14px', color:'var(--text-muted)', marginBottom:'24px' }}>+30 Fresh & healthy meals delivered to your doorstep</p>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'12px', marginBottom:'16px' }}>
+                    {stages.map(stage => (
+                      <div key={stage.id} className={`stage-select-card ${subData.stage_id === stage.id ? 'selected' : ''}`}
+                        onClick={() => setSubData({...subData, stage_id: stage.id})}>
+                        <div style={{ fontSize:'12px', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'var(--text-muted)', marginBottom:'4px' }}>{stage.age_range}</div>
+                        <div style={{ fontFamily:'var(--font-hero)', fontSize:'18px', color:'var(--orange)', fontWeight:900, marginBottom:'4px' }}>{stage.name}</div>
+                        <div style={{ fontSize:'13px', color:'var(--text-muted)' }}>{stage.description}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {subError && <div style={{ background:'#FEE2E2', color:'#DC2626', padding:'10px 14px', borderRadius:'10px', fontSize:'13px', marginBottom:'14px' }}>{subError}</div>}
+                  <button onClick={() => nextStep('stage')} style={{ width:'100%', padding:'16px', borderRadius:'50px', border:'none', background:'var(--orange)', color:'white', fontSize:'16px', fontWeight:700, cursor:'pointer', marginBottom:'10px' }}>CONTINUE</button>
+                  <button onClick={() => setSubStep('personal')} style={{ width:'100%', padding:'12px', borderRadius:'50px', border:'none', background:'transparent', color:'var(--text-muted)', fontSize:'14px', fontWeight:500, cursor:'pointer' }}>← Back</button>
+                </>
+              )}
+
+              {/* ── STEP 4: Payment cycle ── */}
+              {subStep === 'cycle' && (
+                <>
+                  <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'28px', fontWeight:900, color:'var(--orange)', marginBottom:'6px' }}>Payment Cycle</h2>
+                  <p style={{ fontSize:'14px', color:'var(--text-muted)', marginBottom:'24px' }}>+30 Fresh & healthy meals delivered to your doorstep</p>
+                  <div style={{ display:'flex', flexDirection:'column', gap:'10px', marginBottom:'16px' }}>
+                    {cycleOptions.map(opt => (
+                      <div key={opt.key} className={`cycle-card ${subData.payment_cycle === opt.key ? 'selected' : ''}`}
+                        onClick={() => setSubData({...subData, payment_cycle: opt.key})}>
+                        <div>
+                          <div style={{ fontFamily:'var(--font-hero)', fontSize:'18px', color:'var(--orange)', fontWeight:900 }}>{opt.label}</div>
+                          <div style={{ fontSize:'13px', color:'var(--text-muted)', marginTop:'2px' }}>{opt.desc}</div>
+                        </div>
+                        <div style={{ fontWeight:700, fontSize:'16px', color:'var(--text)', whiteSpace:'nowrap' }}>{opt.price}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {subError && <div style={{ background:'#FEE2E2', color:'#DC2626', padding:'10px 14px', borderRadius:'10px', fontSize:'13px', marginBottom:'14px' }}>{subError}</div>}
+                  <button onClick={() => nextStep('cycle')} disabled={submitting} style={{ width:'100%', padding:'16px', borderRadius:'50px', border:'none', background: submitting ? '#C9A98A' : 'var(--orange)', color:'white', fontSize:'16px', fontWeight:700, cursor: submitting ? 'not-allowed' : 'pointer', marginBottom:'10px' }}>
+                    {submitting ? 'Submitting...' : 'SUBMIT'}
+                  </button>
+                  <button onClick={() => setSubStep('stage')} style={{ width:'100%', padding:'12px', borderRadius:'50px', border:'none', background:'transparent', color:'var(--text-muted)', fontSize:'14px', fontWeight:500, cursor:'pointer' }}>← Back</button>
+                </>
+              )}
+
+              {/* ── DONE ── */}
+              {subStep === 'done' && (
+                <div style={{ textAlign:'center', padding:'20px 0 10px' }}>
+                  <div style={{ fontSize:'60px', marginBottom:'16px' }}>🎉</div>
+                  <h2 style={{ fontFamily:'var(--font-hero)', fontSize:'28px', fontWeight:900, color:'var(--orange)', marginBottom:'10px' }}>{"You're on the list!"}</h2>
+                  <p style={{ fontSize:'15px', color:'var(--text-muted)', lineHeight:1.7, marginBottom:'28px' }}>
+                    We will contact you shortly on WhatsApp to confirm your subscription and get started.
+                  </p>
+                  <button onClick={() => setShowSub(false)} style={{ background:'var(--orange)', color:'white', border:'none', padding:'14px 32px', borderRadius:'50px', fontSize:'15px', fontWeight:700, cursor:'pointer', width:'100%' }}>
+                    Close
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

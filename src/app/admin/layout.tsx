@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -19,6 +18,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: '/admin/content',     icon: '📝', label: 'Content' },
     { href: '/admin/stages',      icon: '🥄', label: 'Stages & Plans' },
     { href: '/admin/meals',       icon: '🍽️', label: 'Meals' },
+    { href: '/admin/ingredients', icon: '🥕', label: 'Ingredients' },
     { href: '/admin/images',      icon: '🖼️', label: 'Images' },
     { href: '/admin/settings',    icon: '⚙️', label: 'Settings' },
     { href: '/',                  icon: '🌐', label: 'View Site' },

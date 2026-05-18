@@ -1,3 +1,5 @@
+// src/proxy.ts — v6
+// Auth temporarily bypassed — login page coming in next version
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function proxy(request: NextRequest) {

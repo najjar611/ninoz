@@ -1,167 +1,205 @@
-// ════════════════════════════════════════════════════════════
-// ADMIN SUBSCRIBERS PAGE — /admin/subscribers
-// View all subscription submissions
-// Change status: new → contacted → active → cancelled
-// Add notes per subscriber
-// ════════════════════════════════════════════════════════════
-
 'use client'
 
-import { useState, useEffect } from 'react'
+// ══════════════════════════════════════════════════════════
+// /admin/subscribers/page.tsx — v5 (REPLACE existing)
+// Shows lead_subscribers from the multi-step popup
+// Filter by status, stage, payment cycle
+// Export to CSV
+// ══════════════════════════════════════════════════════════
+
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-type Sub = {
-  id: string; parent_name: string; phone: string; plan: string
-  kid_name: string; allergies: string; address: string
-  street_number: string; status: string; notes: string; created_at: string
+type Lead = {
+  id: string
+  email: string
+  parent_name: string | null
+  kid_name: string | null
+  kid_birthday: string | null
+  stage: string | null
+  payment_cycle: string | null
+  status: string
+  created_at: string
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  new: '#E8834A', contacted: '#7B5EA7', active: '#4A7C59', cancelled: '#DC2626'
+const STAGE_LABELS: Record<string, string> = {
+  stage1: 'Baby Blends (3–6m)',
+  stage2: 'Textured (6–12m)',
+  stage3: 'Big Baby (1–3y)',
 }
 
-export default function SubscribersPage() {
+const CYCLE_LABELS: Record<string, string> = {
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+  '3months': '3 Months',
+}
+
+export default function SubscribersAdmin() {
   const supabase = createClient()
-  const [subs, setSubs] = useState<Sub[]>([])
+  const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState<string | null>(null)
-  const [saving, setSaving] = useState<string | null>(null)
-  const [filter, setFilter] = useState<string>('all')
-  const [msg, setMsg] = useState('')
+  const [filter, setFilter] = useState<'all' | 'lead' | 'converted' | 'dropped'>('all')
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { fetchLeads() }, [])
 
-  async function load() {
-    setLoading(true)
-    const { data } = await supabase.from('subscriptions').select('*').order('created_at', { ascending: false })
-    if (data) setSubs(data)
+  async function fetchLeads() {
+    const { data } = await supabase
+      .from('lead_subscribers')
+      .select('*')
+      .order('created_at', { ascending: false })
+    setLeads(data || [])
     setLoading(false)
   }
 
-  function flash(text: string) { setMsg(text); setTimeout(() => setMsg(''), 3000) }
-
-  async function saveNotes(sub: Sub) {
-    setSaving(sub.id)
-    await supabase.from('subscriptions').update({ notes: sub.notes, status: sub.status }).eq('id', sub.id)
-    setSaving(null)
-    flash('Saved ✓')
+  async function updateStatus(id: string, status: string) {
+    await supabase.from('lead_subscribers').update({ status }).eq('id', id)
+    setLeads(prev => prev.map(l => l.id === id ? { ...l, status } : l))
   }
 
-  async function deleteSub(id: string) {
-    if (!confirm('Delete this subscriber?')) return
-    await supabase.from('subscriptions').delete().eq('id', id)
-    setSubs(subs.filter(s => s.id !== id))
-    flash('Deleted')
+  function exportCSV() {
+    const rows = [
+      ['Email', 'Parent', 'Kid', 'Birthday', 'Stage', 'Cycle', 'Status', 'Date'],
+      ...filtered.map(l => [
+        l.email,
+        l.parent_name || '',
+        l.kid_name || '',
+        l.kid_birthday || '',
+        STAGE_LABELS[l.stage || ''] || l.stage || '',
+        CYCLE_LABELS[l.payment_cycle || ''] || l.payment_cycle || '',
+        l.status,
+        new Date(l.created_at).toLocaleDateString('en-SA'),
+      ])
+    ]
+    const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `ninoz-leads-${Date.now()}.csv`
+    a.click()
   }
 
-  const filtered = filter === 'all' ? subs : subs.filter(s => s.status === filter)
-  const counts = { all: subs.length, new: subs.filter(s => s.status === 'new').length, contacted: subs.filter(s => s.status === 'contacted').length, active: subs.filter(s => s.status === 'active').length, cancelled: subs.filter(s => s.status === 'cancelled').length }
+  const filtered = filter === 'all' ? leads : leads.filter(l => l.status === filter)
 
-  const inp = { width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #E8D5C4', fontSize: '13px', outline: 'none', boxSizing: 'border-box' as const }
-  const btn = (color: string, small = false) => ({ padding: small ? '5px 10px' : '8px 16px', borderRadius: '7px', border: 'none', background: color, color: 'white', cursor: 'pointer', fontSize: small ? '11px' : '12px', fontWeight: 600 as const })
+  const statusColor: Record<string, string> = {
+    lead: '#E8834A',
+    converted: '#2D6A4F',
+    dropped: '#DC2626',
+  }
 
-  if (loading) return <div style={{ padding: '40px', color: '#7A7068' }}>Loading subscribers...</div>
+  if (loading) return <div style={{ padding: 40, color: '#7A7068' }}>Loading subscribers...</div>
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1C1C1A', marginBottom: '4px' }}>Subscribers</h1>
-          <p style={{ fontSize: '13px', color: '#7A7068' }}>{subs.length} total submissions</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1C1C1A', marginBottom: 4 }}>Subscribers</h1>
+          <p style={{ fontSize: 13, color: '#7A7068' }}>
+            {leads.length} total · {leads.filter(l => l.status === 'lead').length} pending · {leads.filter(l => l.status === 'converted').length} converted
+          </p>
         </div>
-        {msg && <div style={{ background: '#E8F5EE', color: '#2D6A4F', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 500 }}>{msg}</div>}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={exportCSV}
+            style={{ padding: '9px 16px', background: 'white', color: '#2C1A0E', border: '1.5px solid #EDE8E0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >
+            📥 Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        {Object.entries(counts).map(([key, count]) => (
-          <button key={key} onClick={() => setFilter(key)} style={{
-            padding: '7px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-            fontSize: '12px', fontWeight: 600,
-            background: filter === key ? '#1C1C1A' : 'white',
-            color: filter === key ? 'white' : '#7A7068',
-          }}>
-            {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
+      <div style={{ display: 'flex', gap: 6, marginBottom: 20, background: 'white', padding: 4, borderRadius: 10, border: '1px solid rgba(0,0,0,0.06)', width: 'fit-content' }}>
+        {(['all', 'lead', 'converted', 'dropped'] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            style={{
+              padding: '7px 16px',
+              borderRadius: 7,
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 600,
+              background: filter === f ? '#1C1C1A' : 'transparent',
+              color: filter === f ? 'white' : '#7A7068',
+              textTransform: 'capitalize',
+            }}
+          >
+            {f} {f !== 'all' && `(${leads.filter(l => l.status === f).length})`}
           </button>
         ))}
       </div>
 
-      {/* Subscriber cards */}
-      {filtered.map(sub => (
-        <div key={sub.id} style={{ background: 'white', borderRadius: '14px', border: '1px solid rgba(0,0,0,0.06)', marginBottom: '10px', overflow: 'hidden' }}>
-          {/* Header */}
-          <div onClick={() => setExpanded(expanded === sub.id ? null : sub.id)}
-            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 18px', cursor: 'pointer', userSelect: 'none' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#FFF0EA', color: '#E8834A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 700, flexShrink: 0 }}>
-              {sub.parent_name?.slice(0, 1) || '?'}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: '14px', color: '#1C1C1A' }}>{sub.parent_name || 'Unknown'}</div>
-              <div style={{ fontSize: '12px', color: '#7A7068' }}>{sub.phone} · {sub.plan}</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ background: `${STATUS_COLORS[sub.status]}18`, color: STATUS_COLORS[sub.status], fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '50px' }}>
-                {sub.status}
-              </span>
-              <div style={{ fontSize: '11px', color: '#C9A98A' }}>{new Date(sub.created_at).toLocaleDateString()}</div>
-              <div style={{ color: '#C9A98A' }}>{expanded === sub.id ? '▲' : '▼'}</div>
-            </div>
-          </div>
-
-          {/* Expanded details */}
-          {expanded === sub.id && (
-            <div style={{ padding: '0 18px 18px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
-              <div style={{ paddingTop: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
-                {[
-                  { label: "Kid's Name", value: sub.kid_name },
-                  { label: 'Plan', value: sub.plan },
-                  { label: 'Phone', value: sub.phone },
-                  { label: 'Address', value: sub.address },
-                  { label: 'Street Number', value: sub.street_number },
-                  { label: 'Allergies', value: sub.allergies || 'None' },
-                ].map(item => (
-                  <div key={item.label} style={{ background: '#FAFAF8', borderRadius: '8px', padding: '10px 12px' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#C9A98A', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{item.label}</div>
-                    <div style={{ fontSize: '13px', color: '#1C1C1A', fontWeight: 500 }}>{item.value || '—'}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Status */}
-              <div style={{ marginBottom: '10px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#C9A98A', marginBottom: '6px' }}>STATUS</div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {['new','contacted','active','cancelled'].map(s => (
-                    <button key={s} onClick={() => setSubs(subs.map(x => x.id === sub.id ? { ...x, status: s } : x))} style={{
-                      padding: '5px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                      fontSize: '11px', fontWeight: 600,
-                      background: sub.status === s ? STATUS_COLORS[s] : `${STATUS_COLORS[s]}18`,
-                      color: sub.status === s ? 'white' : STATUS_COLORS[s],
-                    }}>{s}</button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div style={{ marginBottom: '12px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#C9A98A', marginBottom: '6px' }}>NOTES</div>
-                <textarea value={sub.notes || ''} onChange={e => setSubs(subs.map(x => x.id === sub.id ? { ...x, notes: e.target.value } : x))}
-                  rows={2} style={{ ...inp, resize: 'vertical' }} placeholder="Add notes about this subscriber..." />
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => saveNotes(sub)} style={btn('#E8834A')}>{saving === sub.id ? 'Saving...' : 'Save'}</button>
-                <a href={`https://wa.me/${sub.phone}`} target="_blank" style={{ ...btn('#25B560'), textDecoration: 'none' }}>💬 WhatsApp</a>
-                <button onClick={() => deleteSub(sub.id)} style={btn('#DC2626', true)}>🗑 Delete</button>
-              </div>
-            </div>
-          )}
+      {/* Table */}
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#C9A98A' }}>
+          <div style={{ fontSize: 40 }}>📋</div>
+          <p style={{ marginTop: 8 }}>No subscribers yet. Share the site to start collecting leads!</p>
         </div>
-      ))}
-
-      {filtered.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '48px', color: '#C9A98A', background: 'white', borderRadius: '14px', border: '1px solid rgba(0,0,0,0.05)', fontSize: '14px' }}>
-          No subscribers yet.
+      ) : (
+        <div style={{ background: 'white', borderRadius: 14, border: '1px solid rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: '#FAF5EE', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                {['Email', 'Parent', 'Kid', 'Stage', 'Cycle', 'Date', 'Status'].map(h => (
+                  <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 700, color: '#7A7068', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((lead, idx) => (
+                <tr
+                  key={lead.id}
+                  style={{ borderBottom: '1px solid rgba(0,0,0,0.04)', background: idx % 2 === 0 ? 'white' : '#FDFAF7' }}
+                >
+                  <td style={{ padding: '12px 16px', color: '#2C1A0E', fontWeight: 600 }}>{lead.email}</td>
+                  <td style={{ padding: '12px 16px', color: '#7A7068' }}>{lead.parent_name || '—'}</td>
+                  <td style={{ padding: '12px 16px', color: '#7A7068' }}>
+                    {lead.kid_name || '—'}
+                    {lead.kid_birthday && (
+                      <div style={{ fontSize: 11, color: '#C9A98A' }}>
+                        {new Date(lead.kid_birthday).toLocaleDateString('en-SA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ padding: '12px 16px', color: '#7A7068' }}>
+                    {STAGE_LABELS[lead.stage || ''] || lead.stage || '—'}
+                  </td>
+                  <td style={{ padding: '12px 16px', color: '#7A7068' }}>
+                    {CYCLE_LABELS[lead.payment_cycle || ''] || lead.payment_cycle || '—'}
+                  </td>
+                  <td style={{ padding: '12px 16px', color: '#7A7068', whiteSpace: 'nowrap' }}>
+                    {new Date(lead.created_at).toLocaleDateString('en-SA', { day: 'numeric', month: 'short' })}
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <select
+                      value={lead.status}
+                      onChange={e => updateStatus(lead.id, e.target.value)}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: 6,
+                        border: 'none',
+                        background: statusColor[lead.status] + '20',
+                        color: statusColor[lead.status],
+                        fontWeight: 700,
+                        fontSize: 11,
+                        cursor: 'pointer',
+                        outline: 'none',
+                      }}
+                    >
+                      <option value="lead">Lead</option>
+                      <option value="converted">Converted</option>
+                      <option value="dropped">Dropped</option>
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

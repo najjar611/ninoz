@@ -1,15 +1,15 @@
-// src/app/page.tsx — v6
+// src/app/page.tsx — v6.1
 import { createClient } from '@/lib/supabase/server'
 import HomeClient from './HomeClient'
 
-export const revalidate = 60
+export const revalidate = 30
 
 export default async function HomePage() {
   const supabase = await createClient()
 
   const [
     stages, meals, siteContent, howSteps, whyPoints,
-    ingredients, footerLinks, logoData, paymentCycles
+    ingredients, footerLinks, logoData, paymentCycles, faqs
   ] = await Promise.all([
     supabase.from('stages').select('*').eq('is_active', true).order('position'),
     supabase.from('meals').select('*').eq('is_active', true).order('position'),
@@ -20,6 +20,7 @@ export default async function HomePage() {
     supabase.from('footer_links').select('*').eq('is_active', true).order('position'),
     supabase.from('logo').select('*').limit(1).single(),
     supabase.from('payment_cycles').select('*').eq('is_active', true).order('position'),
+    supabase.from('faqs').select('*').eq('is_active', true).order('position'),
   ])
 
   const content: Record<string, string> = {}
@@ -38,6 +39,7 @@ export default async function HomePage() {
       footerLinks={footerLinks.data || []}
       logo={logoData.data || null}
       paymentCycles={paymentCycles.data || []}
+      faqs={faqs.data || []}
     />
   )
 }

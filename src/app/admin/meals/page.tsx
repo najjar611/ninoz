@@ -1,11 +1,5 @@
 'use client'
 
-// ══════════════════════════════════════════════════════════
-// /admin/meals/page.tsx — v5
-// Adds nutrition fields: Weight, Protein, Carbs, Fiber, Allergens
-// All fields editable, saved to Supabase
-// ══════════════════════════════════════════════════════════
-
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -13,7 +7,7 @@ type Meal = {
   id: string
   name: string
   description: string
-  meal_type: 'breakfast' | 'lunch' | 'dinner'
+  meal_type: string
   stage_id: string
   image_url: string | null
   allergens: string
@@ -26,27 +20,7 @@ type Meal = {
   position: number
 }
 
-type Stage = {
-  id: string
-  name: string
-  age_range: string
-}
-
-const EMPTY_MEAL: Omit<Meal, 'id'> = {
-  name: 'New Meal',
-  description: '',
-  meal_type: 'breakfast',
-  stage_id: '',
-  image_url: null,
-  allergens: '',
-  weight_g: '',
-  protein_g: '',
-  carbs_g: '',
-  fiber_g: '',
-  tag: '',
-  is_active: true,
-  position: 0,
-}
+type Stage = { id: string; name: string }
 
 export default function MealsAdmin() {
   const supabase = createClient()
@@ -55,25 +29,21 @@ export default function MealsAdmin() {
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editData, setEditData] = useState<Partial<Meal>>({})
-  const [msg, setMsg] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploadingId, setUploadingId] = useState<string | null>(null)
-  const [stageFilter, setStageFilter] = useState<string>('all')
-  const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [msg, setMsg] = useState('')
+  const [typeFilter, setTypeFilter] = useState('all')
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { fetchAll() }, [])
 
   async function fetchAll() {
-    const [{ data: m }, { data: s }] = await Promise.all([
-      supabase.from('meals').select('*').order('stage_id').order('meal_type').order('position'),
-      supabase.from('stages').select('id, name, age_range').order('position'),
+    const [m, s] = await Promise.all([
+      supabase.from('meals').select('*').order('position'),
+      supabase.from('stages').select('id, name').order('position'),
     ])
-    setMeals(m || [])
-    setStages(s || [])
-    if (s && s.length > 0 && !editData.stage_id) {
-      setEditData(prev => ({ ...prev, stage_id: s[0].id }))
-    }
+    setMeals(m.data || [])
+    setStages(s.data || [])
     setLoading(false)
   }
 
@@ -82,10 +52,13 @@ export default function MealsAdmin() {
     setEditData({ ...meal })
   }
 
-  function cancelEdit() { setEditingId(null); setEditData({}) }
+  function cancelEdit() {
+    setEditingId(null)
+    setEditData({})
+  }
 
   async function saveEdit() {
-    if (!editingId || !editData) return
+    if (!editingId) return
     setSaving(true)
     const { error } = await supabase.from('meals').update({
       name: editData.name,
@@ -100,10 +73,8 @@ export default function MealsAdmin() {
       tag: editData.tag,
       is_active: editData.is_active,
     }).eq('id', editingId)
-
     setSaving(false)
     if (error) { flash('Error: ' + error.message); return }
-
     setMeals(prev => prev.map(m => m.id === editingId ? { ...m, ...editData } as Meal : m))
     cancelEdit()
     flash('Saved!')
@@ -111,14 +82,25 @@ export default function MealsAdmin() {
 
   async function addMeal() {
     const stageId = stages[0]?.id || ''
-    const { data, error } = await supabase
-      .from('meals')
-      .insert({ ...EMPTY_MEAL, stage_id: stageId, position: meals.length + 1 })
-      .select()
-      .single()
-    if (!error && data) {
+    const { data, error } = await supabase.from('meals').insert({
+      name: 'New Meal',
+      description: '',
+      meal_type: 'breakfast',
+      stage_id: stageId,
+      allergens: '',
+      weight_g: '',
+      protein_g: '',
+      carbs_g: '',
+      fiber_g: '',
+      tag: '',
+      is_active: true,
+      position: meals.length + 1,
+    }).select().single()
+    if (error) { flash('Error adding meal: ' + error.message); return }
+    if (data) {
       setMeals(prev => [...prev, data])
       startEdit(data)
+      flash('Meal added — now edit the details below')
     }
   }
 
@@ -134,31 +116,25 @@ export default function MealsAdmin() {
     setUploadingId(mealId)
     const ext = file.name.split('.').pop()
     const path = `meal-${mealId}-${Date.now()}.${ext}`
-    const { error: upErr } = await supabase.storage.from('meals').upload(path, file, { upsert: true })
-    if (upErr) { flash('Upload failed: ' + upErr.message); setUploadingId(null); return }
-    const { data: urlData } = supabase.storage.from('meals').getPublicUrl(path)
-    const url = urlData.publicUrl
-    await supabase.from('meals').update({ image_url: url }).eq('id', mealId)
-    setMeals(prev => prev.map(m => m.id === mealId ? { ...m, image_url: url } : m))
-    if (editingId === mealId) setEditData(prev => ({ ...prev, image_url: url }))
+    const { error } = await supabase.storage.from('meals').upload(path, file, { upsert: true })
+    if (error) { flash('Upload failed: ' + error.message); setUploadingId(null); return }
+    const { data } = supabase.storage.from('meals').getPublicUrl(path)
+    await supabase.from('meals').update({ image_url: data.publicUrl }).eq('id', mealId)
+    setMeals(prev => prev.map(m => m.id === mealId ? { ...m, image_url: data.publicUrl } : m))
+    if (editingId === mealId) setEditData(prev => ({ ...prev, image_url: data.publicUrl }))
     setUploadingId(null)
     flash('Photo uploaded!')
   }
 
-  function flash(text: string) { setMsg(text); setTimeout(() => setMsg(''), 2500) }
+  function flash(text: string) { setMsg(text); setTimeout(() => setMsg(''), 3000) }
 
-  const inp = {
-    width: '100%', padding: '8px 11px', borderRadius: '8px',
-    border: '1.5px solid #EDE8E0', fontSize: '13px', outline: 'none',
-    fontFamily: 'inherit', boxSizing: 'border-box' as const,
+  const inp: React.CSSProperties = {
+    width: '100%', padding: '9px 12px', borderRadius: 8,
+    border: '1.5px solid #EDE8E0', fontSize: 13, outline: 'none',
+    fontFamily: 'inherit', boxSizing: 'border-box',
   }
-  const smallInp = { ...inp, padding: '6px 10px', fontSize: '12px' }
 
-  const filtered = meals.filter(m => {
-    if (stageFilter !== 'all' && m.stage_id !== stageFilter) return false
-    if (typeFilter !== 'all' && m.meal_type !== typeFilter) return false
-    return true
-  })
+  const filtered = typeFilter === 'all' ? meals : meals.filter(m => m.meal_type === typeFilter)
 
   if (loading) return <div style={{ padding: 40, color: '#7A7068' }}>Loading meals...</div>
 
@@ -167,87 +143,81 @@ export default function MealsAdmin() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, color: '#1C1C1A', marginBottom: 4 }}>Meals</h1>
-          <p style={{ fontSize: 13, color: '#7A7068' }}>{meals.length} total meals across all stages</p>
+          <h1 style={{ fontFamily: 'Nunito, sans-serif', fontSize: 22, fontWeight: 900, color: '#1C1C1A', marginBottom: 4 }}>Meals</h1>
+          <p style={{ fontSize: 13, color: '#7A7068' }}>{meals.length} total meals</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {msg && <div style={{ background: '#E8F5EE', color: '#2D6A4F', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 500 }}>{msg}</div>}
-          <button onClick={addMeal} style={{ padding: '9px 18px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+          {msg && (
+            <div style={{ background: '#E8F5EE', color: '#2D6A4F', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
+              {msg}
+            </div>
+          )}
+          <button onClick={addMeal} style={{ padding: '10px 20px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
             + Add Meal
           </button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-        <select value={stageFilter} onChange={e => setStageFilter(e.target.value)} style={{ ...smallInp, width: 'auto' }}>
-          <option value="all">All Stages</option>
-          {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={{ ...smallInp, width: 'auto' }}>
-          <option value="all">All Types</option>
-          <option value="breakfast">Breakfast</option>
-          <option value="lunch">Lunch</option>
-          <option value="dinner">Dinner</option>
-        </select>
-        <span style={{ fontSize: 12, color: '#7A7068', alignSelf: 'center' }}>
-          Showing {filtered.length} meals
-        </span>
+      {/* Filter */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        {['all', 'breakfast', 'lunch', 'dinner'].map(t => (
+          <button key={t} onClick={() => setTypeFilter(t)} style={{
+            padding: '7px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
+            fontFamily: 'inherit', fontSize: 12, fontWeight: 600, textTransform: 'capitalize',
+            background: typeFilter === t ? '#C84B0F' : 'white',
+            color: typeFilter === t ? 'white' : '#7A7068',
+          }}>
+            {t === 'all' ? `All (${meals.length})` : `${t.charAt(0).toUpperCase() + t.slice(1)} (${meals.filter(m => m.meal_type === t).length})`}
+          </button>
+        ))}
       </div>
 
-      {/* List */}
+      {/* Meals list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {filtered.map(meal => {
           const isEditing = editingId === meal.id
-          const stageName = stages.find(s => s.id === meal.stage_id)?.name || meal.stage_id
+          const stageName = stages.find(s => s.id === meal.stage_id)?.name || '—'
 
           return (
             <div key={meal.id} style={{
-              background: 'white',
-              borderRadius: 14,
+              background: 'white', borderRadius: 14,
               border: isEditing ? '2px solid #C84B0F' : '1.5px solid rgba(0,0,0,0.06)',
-              overflow: 'hidden',
+              overflow: 'hidden', opacity: meal.is_active ? 1 : 0.6,
             }}>
-              {/* Collapsed row */}
               {!isEditing ? (
+                /* Collapsed row */
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px' }}>
-                  {/* Thumb */}
-                  <div style={{ width: 56, height: 56, borderRadius: 10, overflow: 'hidden', background: '#FAF5EE', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>
-                    {meal.image_url ? (
-                      <img src={meal.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : '🍽️'}
+                  <div style={{ width: 52, height: 52, borderRadius: 10, background: '#FAF5EE', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, overflow: 'hidden' }}>
+                    {meal.image_url
+                      ? <img src={meal.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : '🍽️'}
                   </div>
-
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, color: '#1C1C1A', fontSize: 14, marginBottom: 2 }}>{meal.name}</div>
                     <div style={{ fontSize: 11, color: '#7A7068' }}>
                       {stageName} · {meal.meal_type.charAt(0).toUpperCase() + meal.meal_type.slice(1)}
-                      {!meal.is_active && ' · 🔴 Inactive'}
+                      {!meal.is_active && ' · Inactive'}
                     </div>
-                    {/* Nutrition preview */}
-                    {meal.weight_g && (
-                      <div style={{ fontSize: 11, color: '#C84B0F', marginTop: 2 }}>
-                        {meal.weight_g && `${meal.weight_g} · `}
-                        {meal.protein_g && `P:${meal.protein_g} · `}
-                        {meal.carbs_g && `C:${meal.carbs_g} · `}
-                        {meal.fiber_g && `F:${meal.fiber_g}`}
-                      </div>
-                    )}
                   </div>
-
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => startEdit(meal)} style={{ padding: '6px 14px', background: '#FAF5EE', color: '#2C1A0E', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Edit</button>
-                    <button onClick={() => deleteMeal(meal.id)} style={{ padding: '6px 10px', background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>✕</button>
+                    <button onClick={() => startEdit(meal)} style={{ padding: '7px 16px', background: '#FAF5EE', color: '#2C1A0E', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Edit
+                    </button>
+                    <button onClick={() => deleteMeal(meal.id)} style={{ padding: '7px 12px', background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Delete
+                    </button>
                   </div>
                 </div>
               ) : (
-                /* Expanded edit form */
+                /* Edit form */
                 <div style={{ padding: 20 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: '#1C1C1A', marginBottom: 16 }}>Editing: {meal.name}</div>
+                  <div style={{ fontFamily: 'Nunito, sans-serif', fontWeight: 800, fontSize: 14, color: '#1C1C1A', marginBottom: 18 }}>
+                    Editing: {meal.name}
+                  </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#7A7068', marginBottom: 5, textTransform: 'uppercase' }}>Name</label>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#7A7068', marginBottom: 5, textTransform: 'uppercase' }}>Meal Name</label>
                       <input style={inp} value={editData.name || ''} onChange={e => setEditData(p => ({ ...p, name: e.target.value }))} />
                     </div>
                     <div>
@@ -258,7 +228,7 @@ export default function MealsAdmin() {
 
                   <div style={{ marginBottom: 12 }}>
                     <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#7A7068', marginBottom: 5, textTransform: 'uppercase' }}>Description</label>
-                    <textarea style={{ ...inp, height: 70, resize: 'vertical' }} value={editData.description || ''} onChange={e => setEditData(p => ({ ...p, description: e.target.value }))} />
+                    <textarea style={{ ...inp, height: 72, resize: 'vertical' }} value={editData.description || ''} onChange={e => setEditData(p => ({ ...p, description: e.target.value }))} />
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -270,7 +240,7 @@ export default function MealsAdmin() {
                     </div>
                     <div>
                       <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#7A7068', marginBottom: 5, textTransform: 'uppercase' }}>Meal Type</label>
-                      <select style={inp} value={editData.meal_type || 'breakfast'} onChange={e => setEditData(p => ({ ...p, meal_type: e.target.value as any }))}>
+                      <select style={inp} value={editData.meal_type || 'breakfast'} onChange={e => setEditData(p => ({ ...p, meal_type: e.target.value }))}>
                         <option value="breakfast">Breakfast</option>
                         <option value="lunch">Lunch</option>
                         <option value="dinner">Dinner</option>
@@ -278,9 +248,9 @@ export default function MealsAdmin() {
                     </div>
                   </div>
 
-                  {/* Nutrition fields */}
-                  <div style={{ marginBottom: 6 }}>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#C84B0F', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>🍊 Nutrition Info</label>
+                  {/* Nutrition */}
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#C84B0F', marginBottom: 8, textTransform: 'uppercase' }}>Nutrition Info</label>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                       {[
                         { key: 'weight_g', label: 'Weight' },
@@ -290,12 +260,9 @@ export default function MealsAdmin() {
                       ].map(field => (
                         <div key={field.key}>
                           <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>{field.label}</label>
-                          <input
-                            style={smallInp}
-                            placeholder="e.g. 240g"
+                          <input style={{ ...inp, padding: '7px 10px', fontSize: 12 }} placeholder="e.g. 240g"
                             value={(editData as any)[field.key] || ''}
-                            onChange={e => setEditData(p => ({ ...p, [field.key]: e.target.value }))}
-                          />
+                            onChange={e => setEditData(p => ({ ...p, [field.key]: e.target.value }))} />
                         </div>
                       ))}
                     </div>
@@ -306,49 +273,34 @@ export default function MealsAdmin() {
                     <input style={inp} placeholder="e.g. Eggs, Dairy" value={editData.allergens || ''} onChange={e => setEditData(p => ({ ...p, allergens: e.target.value }))} />
                   </div>
 
-                  {/* Photo upload */}
-                  <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {/* Photo */}
+                  <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 14 }}>
                     {editData.image_url && (
                       <img src={editData.image_url} alt="" style={{ width: 60, height: 60, borderRadius: 10, objectFit: 'cover' }} />
                     )}
-                    <button
-                      onClick={() => fileRef.current?.click()}
-                      disabled={uploadingId === meal.id}
-                      style={{ padding: '7px 14px', background: '#FAF5EE', border: '1.5px solid #EDE8E0', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#2C1A0E' }}
-                    >
-                      {uploadingId === meal.id ? 'Uploading...' : '📷 Upload Photo'}
+                    <button onClick={() => fileRef.current?.click()} disabled={uploadingId === meal.id}
+                      style={{ padding: '8px 16px', background: '#FAF5EE', border: '1.5px solid #EDE8E0', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: '#2C1A0E' }}>
+                      {uploadingId === meal.id ? 'Uploading...' : 'Upload Photo'}
                     </button>
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      onChange={e => {
-                        const file = e.target.files?.[0]
-                        if (file) uploadImage(meal.id, file)
-                      }}
-                    />
+                    <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }}
+                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(meal.id, f) }} />
                   </div>
 
-                  {/* Active toggle */}
+                  {/* Active */}
                   <div style={{ marginBottom: 16 }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#2C1A0E' }}>
-                      <input
-                        type="checkbox"
-                        checked={editData.is_active ?? true}
+                      <input type="checkbox" checked={editData.is_active ?? true}
                         onChange={e => setEditData(p => ({ ...p, is_active: e.target.checked }))}
-                        style={{ accentColor: '#C84B0F' }}
-                      />
-                      Active (shown on menu page)
+                        style={{ accentColor: '#C84B0F', width: 16, height: 16 }} />
+                      Active (shown in menu)
                     </label>
                   </div>
 
-                  {/* Actions */}
                   <div style={{ display: 'flex', gap: 10 }}>
-                    <button onClick={cancelEdit} style={{ padding: '9px 18px', background: 'white', border: '1.5px solid #EDE8E0', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#7A7068' }}>
+                    <button onClick={cancelEdit} style={{ padding: '10px 20px', background: 'white', border: '1.5px solid #EDE8E0', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#7A7068', fontFamily: 'inherit' }}>
                       Cancel
                     </button>
-                    <button onClick={saveEdit} disabled={saving} style={{ padding: '9px 20px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+                    <button onClick={saveEdit} disabled={saving} style={{ padding: '10px 24px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: saving ? 0.6 : 1, fontFamily: 'inherit' }}>
                       {saving ? 'Saving...' : 'Save Meal'}
                     </button>
                   </div>
@@ -360,9 +312,10 @@ export default function MealsAdmin() {
       </div>
 
       {filtered.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#C9A98A' }}>
-          <div style={{ fontSize: 40 }}>🍽️</div>
-          <p style={{ marginTop: 8 }}>No meals yet. Add your first meal above.</p>
+        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#C9A98A', background: 'white', borderRadius: 16 }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>🍽️</div>
+          <p style={{ fontSize: 14, fontWeight: 600 }}>No meals yet.</p>
+          <p style={{ fontSize: 13, marginTop: 4 }}>Click "+ Add Meal" above to get started.</p>
         </div>
       )}
     </div>

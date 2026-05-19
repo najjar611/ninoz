@@ -29,9 +29,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const bellRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setEmail(data.user.email || '')
-    })
+  supabase.auth.getUser().then(({ data }) => {
+  if (data.user) setEmail(data.user.email || '')
+})
 
     const channel = supabase
       .channel('admin-leads')

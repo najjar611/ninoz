@@ -1,20 +1,9 @@
 'use client'
 
-// ══════════════════════════════════════════════════════════
-// SubscriptionPopup.tsx — v6
-// 4-step popup matching the design PDF
-// Food photos scattered background
-// Step 1: Email
-// Step 2: First Name, Kid Name, Kid Birthday
-// Step 3: Choose Stage
-// Step 4: Payment Cycle
-// Saves to lead_subscribers in Supabase
-// ══════════════════════════════════════════════════════════
-
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-type Stage = { id: string; name: string; age_range: string; description: string; card_bg: string; emoji: string }
+type Stage = { id: string; name: string; age_range: string; description: string; emoji: string }
 type PaymentCycle = { id: string; label: string; days: number; meals_total: number; price_sar: number }
 
 type Props = {
@@ -24,15 +13,15 @@ type Props = {
   onClose: () => void
 }
 
-const c = (content: Record<string, string>, key: string, fallback = '') => content[key] || fallback
+const g = (c: Record<string, string>, k: string, f = '') => c[k] || f
 
-const FOOD_DECORATIONS = [
-  { top: '0%', left: '0%', emoji: '🥕', size: 80, rotate: -20 },
-  { top: '0%', right: '0%', emoji: '🥦', size: 80, rotate: 15 },
-  { bottom: '0%', left: '0%', emoji: '🫛', size: 70, rotate: 10 },
-  { bottom: '0%', right: '0%', emoji: '🍊', size: 75, rotate: -15 },
-  { top: '30%', left: '-2%', emoji: '🥬', size: 60, rotate: 20 },
-  { top: '50%', right: '-2%', emoji: '🍠', size: 65, rotate: -10 },
+const FOOD = [
+  { top: '5%', left: '2%', emoji: '🥕', size: 72, rotate: -20 },
+  { top: '5%', right: '2%', emoji: '🥦', size: 72, rotate: 15 },
+  { bottom: '5%', left: '2%', emoji: '🍊', size: 68, rotate: 10 },
+  { bottom: '5%', right: '2%', emoji: '🫛', size: 68, rotate: -15 },
+  { top: '40%', left: '-2%', emoji: '🥬', size: 56, rotate: 25 },
+  { top: '40%', right: '-2%', emoji: '🍠', size: 56, rotate: -10 },
 ]
 
 export default function SubscriptionPopup({ stages, paymentCycles, content, onClose }: Props) {
@@ -40,35 +29,35 @@ export default function SubscriptionPopup({ stages, paymentCycles, content, onCl
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
-
   const [email, setEmail] = useState('')
   const [parentName, setParentName] = useState('')
   const [kidName, setKidName] = useState('')
   const [kidBirthday, setKidBirthday] = useState('')
-  const [selectedStage, setSelectedStage] = useState('')
-  const [selectedCycle, setSelectedCycle] = useState('')
+  const [stageId, setStageId] = useState('')
+  const [cycleId, setCycleId] = useState('')
 
   function canNext() {
-    if (step === 1) return email.includes('@')
+    if (step === 1) return email.includes('@') && email.includes('.')
     if (step === 2) return parentName.trim().length > 0 && kidName.trim().length > 0
-    if (step === 3) return !!selectedStage
-    if (step === 4) return !!selectedCycle
+    if (step === 3) return !!stageId
+    if (step === 4) return !!cycleId
     return false
   }
 
-  async function handleSubmit() {
+  async function submit() {
     setLoading(true)
     setError('')
     try {
       const supabase = createClient()
-      const stageObj = stages.find(s => s.id === selectedStage)
+      const selectedStage = stages.find(s => s.id === stageId)
+      const selectedCycle = paymentCycles.find(c => c.id === cycleId)
       const { error: err } = await supabase.from('lead_subscribers').insert({
         email,
         parent_name: parentName,
         kid_name: kidName,
         kid_birthday: kidBirthday || null,
-        stage_id: selectedStage || null,
-        payment_cycle: selectedCycle || null,
+        stage: selectedStage?.name || stageId,
+        payment_cycle: selectedCycle?.label || cycleId,
         status: 'lead',
       })
       if (err) throw err
@@ -80,316 +69,143 @@ export default function SubscriptionPopup({ stages, paymentCycles, content, onCl
     }
   }
 
-  const stepTitles = [
-    c(content, 'popup_step1_title', "Let's get started"),
-    c(content, 'popup_step2_title', 'Meal Picks, Just for you'),
-    c(content, 'popup_step3_title', 'Customized Your Plan'),
-    c(content, 'popup_step4_title', 'Payment Cycle'),
-  ]
-  const stepSubtitles = [
-    '',
-    c(content, 'popup_step2_subtitle', 'With a few basic details we will cater your experience to the needs of your family'),
-    c(content, 'popup_step3_subtitle', 'Fresh & healthy meals delivered to your doorstep'),
-    c(content, 'popup_step4_subtitle', 'Fresh & healthy meals delivered to your doorstep'),
+  const O = '#C84B0F'
+  const BR = '#2C1A0E'
+  const MU = '#8A7A6E'
+  const CR = '#FAF5EE'
+
+  const inp: React.CSSProperties = {
+    width: '100%', padding: '14px 16px', border: `1.5px solid rgba(200,75,15,0.25)`,
+    borderRadius: 12, fontSize: 16, color: BR, outline: 'none',
+    fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 14,
+    background: 'rgba(250,245,238,0.5)',
+  }
+
+  const titles = [
+    g(content, 'popup_step1_title', "Let's get started"),
+    g(content, 'popup_step2_title', 'Meal Picks, Just for you'),
+    g(content, 'popup_step3_title', 'Customized Your Plan'),
+    g(content, 'popup_step4_title', 'Payment Cycle'),
   ]
 
   return (
-    <>
-      <style>{`
-        .sp-overlay {
-          position: fixed; inset: 0; z-index: 2000;
-          display: flex; align-items: center; justify-content: center;
-          padding: 20px; background: rgba(44,26,14,0.5);
-          backdrop-filter: blur(8px);
-          animation: spFade 0.25s ease;
-        }
-        @keyframes spFade { from { opacity: 0 } to { opacity: 1 } }
+    <div style={{ position:'fixed', inset:0, zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:20, background:'rgba(44,26,14,0.6)', backdropFilter:'blur(8px)' }}
+      onClick={onClose}>
+      <div style={{ background:'white', borderRadius:28, width:'100%', maxWidth:480, position:'relative', overflow:'hidden', maxHeight:'92vh', overflowY:'auto', animation:'spop 0.3s ease' }}
+        onClick={e => e.stopPropagation()}>
+        <style>{`@keyframes spop { from { transform: scale(0.9); opacity: 0 } to { transform: scale(1); opacity: 1 } }`}</style>
 
-        .sp-box {
-          background: white; border-radius: 28px;
-          width: 100%; max-width: 480px;
-          position: relative; overflow: hidden;
-          animation: spSlide 0.3s ease;
-          max-height: 92vh; overflow-y: auto;
-        }
-        @keyframes spSlide { from { transform: scale(0.92); opacity: 0 } to { transform: scale(1); opacity: 1 } }
+        {/* Food decorations */}
+        <div style={{ position:'absolute', inset:0, pointerEvents:'none', zIndex:0, overflow:'hidden' }}>
+          {FOOD.map((f,i) => (
+            <span key={i} style={{ position:'absolute', fontSize:f.size, opacity:0.15, userSelect:'none', top:(f as any).top, bottom:(f as any).bottom, left:(f as any).left, right:(f as any).right, transform:`rotate(${f.rotate}deg)`, display:'block' }}>
+              {f.emoji}
+            </span>
+          ))}
+        </div>
 
-        /* Food decoration photos */
-        .sp-food-bg {
-          position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
-        }
-        .sp-food-item {
-          position: absolute; font-size: 80px; opacity: 0.18; user-select: none;
-        }
+        <button onClick={onClose} style={{ position:'absolute', top:16, right:16, zIndex:10, width:32, height:32, borderRadius:'50%', background:'rgba(44,26,14,0.08)', border:'none', color:BR, fontSize:16, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
 
-        .sp-inner { position: relative; z-index: 1; padding: 40px 36px 36px; }
-
-        .sp-close {
-          position: absolute; top: 16px; right: 16px; z-index: 10;
-          width: 32px; height: 32px; border-radius: 50%;
-          background: rgba(44,26,14,0.08); border: none;
-          color: #2C1A0E; font-size: 15px; cursor: pointer;
-          display: flex; align-items: center; justify-content: center;
-        }
-
-        .sp-progress {
-          display: flex; gap: 6px; margin-bottom: 32px;
-        }
-        .sp-prog-bar {
-          flex: 1; height: 4px; border-radius: 2px;
-          background: rgba(200,75,15,0.15); transition: background 0.3s;
-        }
-        .sp-prog-bar.filled { background: #C84B0F; }
-
-        .sp-title {
-          font-family: 'Nunito', sans-serif; font-size: 26px; font-weight: 900;
-          color: #C84B0F; text-align: center; margin-bottom: 6px;
-        }
-        .sp-subtitle {
-          font-size: 13px; color: #7A7068; text-align: center;
-          line-height: 1.55; margin-bottom: 28px; max-width: 340px; margin-inline: auto;
-        }
-
-        .sp-label {
-          display: block; font-size: 12px; font-weight: 700;
-          color: #2C1A0E; margin-bottom: 7px; letter-spacing: 0.04em;
-        }
-        .sp-input {
-          width: 100%; padding: 14px 16px;
-          border: 1.5px solid rgba(200,75,15,0.25);
-          border-radius: 10px; font-size: 15px;
-          font-family: 'Nunito Sans', sans-serif; color: #2C1A0E;
-          outline: none; transition: border-color 0.2s;
-          box-sizing: border-box; margin-bottom: 16px;
-          background: rgba(250,245,238,0.5);
-        }
-        .sp-input:focus { border-color: #C84B0F; background: white; }
-
-        /* Stage cards */
-        .sp-stages { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
-        .sp-stage {
-          display: flex; align-items: center; gap: 14px;
-          padding: 14px 16px; border: 2px solid rgba(200,75,15,0.15);
-          border-radius: 14px; cursor: pointer; transition: all 0.2s;
-          background: white; position: relative;
-        }
-        .sp-stage.selected { border-color: #C84B0F; background: #FDF5F0; }
-        .sp-stage:hover:not(.selected) { border-color: rgba(200,75,15,0.35); }
-        .sp-stage-emoji { font-size: 32px; }
-        .sp-stage-info { flex: 1; }
-        .sp-stage-name { font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 800; color: #2C1A0E; }
-        .sp-stage-age { font-size: 12px; color: #7A7068; margin-top: 2px; }
-        .sp-stage-desc { font-size: 12px; color: #A08070; line-height: 1.4; margin-top: 3px; }
-        .sp-stage-check {
-          width: 22px; height: 22px; border-radius: 50%;
-          background: #C84B0F; color: white; font-size: 11px;
-          display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-        }
-
-        /* Payment cycles */
-        .sp-cycles { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
-        .sp-cycle {
-          display: flex; align-items: center; gap: 14px;
-          padding: 16px 18px; border: 2px solid rgba(200,75,15,0.15);
-          border-radius: 14px; cursor: pointer; transition: all 0.2s;
-          background: white; position: relative;
-        }
-        .sp-cycle.selected { border-color: #C84B0F; background: #FDF5F0; }
-        .sp-cycle:hover:not(.selected) { border-color: rgba(200,75,15,0.35); }
-        .sp-cycle-info { flex: 1; }
-        .sp-cycle-label { font-family: 'Nunito', sans-serif; font-size: 16px; font-weight: 800; color: #C84B0F; }
-        .sp-cycle-detail { font-size: 12px; color: #7A7068; margin-top: 3px; }
-        .sp-cycle-price { font-family: 'Nunito', sans-serif; font-size: 20px; font-weight: 900; color: #2C1A0E; }
-        .sp-cycle-price-sub { font-size: 11px; color: #A08070; text-align: right; }
-
-        .sp-actions { display: flex; gap: 10px; margin-top: 24px; }
-        .sp-back {
-          padding: 14px 20px; border: 2px solid rgba(44,26,14,0.1);
-          border-radius: 12px; background: white; font-family: 'Nunito', sans-serif;
-          font-size: 14px; font-weight: 700; color: #7A7068; cursor: pointer;
-          transition: all 0.2s;
-        }
-        .sp-back:hover { border-color: #C84B0F; color: #C84B0F; }
-        .sp-next {
-          flex: 1; padding: 15px; background: #C84B0F; color: white; border: none;
-          border-radius: 12px; font-family: 'Nunito', sans-serif;
-          font-size: 15px; font-weight: 800; cursor: pointer;
-          transition: background 0.2s; letter-spacing: 0.05em;
-        }
-        .sp-next:hover:not(:disabled) { background: #A33A0A; }
-        .sp-next:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .sp-error {
-          background: #FEE2E2; color: #DC2626; padding: 10px 14px;
-          border-radius: 8px; font-size: 13px; margin-top: 8px;
-        }
-
-        /* Done state */
-        .sp-done { padding: 48px 36px; text-align: center; }
-        .sp-done-icon {
-          width: 80px; height: 80px; border-radius: 50%;
-          background: #FDF0E8; font-size: 40px;
-          display: flex; align-items: center; justify-content: center;
-          margin: 0 auto 24px;
-        }
-        .sp-done-title {
-          font-family: 'Nunito', sans-serif; font-size: 26px;
-          font-weight: 900; color: #2C1A0E; margin-bottom: 12px;
-        }
-        .sp-done-text { font-size: 14px; color: #7A7068; line-height: 1.7; margin-bottom: 28px; }
-        .sp-done-btn {
-          padding: 14px 40px; background: #C84B0F; color: white; border: none;
-          border-radius: 50px; font-family: 'Nunito', sans-serif;
-          font-size: 15px; font-weight: 800; cursor: pointer;
-        }
-
-        @media (max-width: 480px) {
-          .sp-box { border-radius: 20px; }
-          .sp-inner { padding: 32px 24px 28px; }
-          .sp-title { font-size: 22px; }
-        }
-      `}</style>
-
-      <div className="sp-overlay" onClick={onClose}>
-        <div className="sp-box" onClick={e => e.stopPropagation()}>
-          {/* Food decorations */}
-          <div className="sp-food-bg">
-            {FOOD_DECORATIONS.map((d, i) => (
-              <span key={i} className="sp-food-item" style={{
-                top: (d as any).top, bottom: (d as any).bottom,
-                left: (d as any).left, right: (d as any).right,
-                fontSize: d.size, transform: `rotate(${d.rotate}deg)`,
-              }}>
-                {d.emoji}
-              </span>
-            ))}
+        {done ? (
+          <div style={{ padding:'3rem 2rem', textAlign:'center', position:'relative', zIndex:1 }}>
+            <div style={{ fontSize:'3rem', marginBottom:'1rem' }}>🎉</div>
+            <h2 style={{ fontSize:'1.6rem', fontWeight:900, color:BR, marginBottom:'0.7rem' }}>You're on the list, {parentName}!</h2>
+            <p style={{ fontSize:'0.95rem', color:MU, lineHeight:1.7, marginBottom:'1.5rem' }}>
+              We'll reach out to <strong>{email}</strong> shortly to confirm your plan for <strong>{kidName}</strong>.<br/><br/>No payment taken yet — we'll walk you through everything.
+            </p>
+            <button onClick={onClose} style={{ background:O, color:'white', border:'none', padding:'14px 40px', borderRadius:50, fontFamily:'inherit', fontSize:'1rem', fontWeight:700, cursor:'pointer' }}>Back to Home</button>
           </div>
-
-          <button className="sp-close" onClick={onClose}>✕</button>
-
-          {done ? (
-            <div className="sp-done">
-              <div className="sp-done-icon">🎉</div>
-              <div className="sp-done-title">You're on the list, {parentName}!</div>
-              <div className="sp-done-text">
-                We'll reach out to <strong>{email}</strong> shortly to confirm your plan
-                and set up delivery for <strong>{kidName}</strong>.<br /><br />
-                No payment taken yet — we'll walk you through everything.
-              </div>
-              <button className="sp-done-btn" onClick={onClose}>Back to Home</button>
+        ) : (
+          <div style={{ padding:'2.5rem 2rem', position:'relative', zIndex:1 }}>
+            {/* Progress */}
+            <div style={{ display:'flex', gap:6, marginBottom:'1.5rem' }}>
+              {[1,2,3,4].map(n => (
+                <div key={n} style={{ flex:1, height:4, borderRadius:2, background:n<=step?O:'rgba(200,75,15,0.15)', transition:'background 0.3s' }}/>
+              ))}
             </div>
-          ) : (
-            <div className="sp-inner">
-              {/* Progress */}
-              <div className="sp-progress">
-                {[1,2,3,4].map(n => (
-                  <div key={n} className={`sp-prog-bar ${n <= step ? 'filled' : ''}`} />
+
+            <h2 style={{ fontSize:'1.6rem', fontWeight:900, color:O, textAlign:'center', marginBottom:'0.4rem' }}>{titles[step-1]}</h2>
+            {step === 2 && <p style={{ fontSize:'0.85rem', color:MU, textAlign:'center', marginBottom:'1.5rem', lineHeight:1.6 }}>{g(content,'popup_step2_subtitle','With a few details we will tailor your experience')}</p>}
+            {step === 3 && <p style={{ fontSize:'0.85rem', color:MU, textAlign:'center', marginBottom:'1.5rem' }}>{g(content,'popup_step3_subtitle','Fresh & healthy meals delivered to your doorstep')}</p>}
+            {step === 4 && <p style={{ fontSize:'0.85rem', color:MU, textAlign:'center', marginBottom:'1.5rem' }}>{g(content,'popup_step4_subtitle','Fresh & healthy meals delivered to your doorstep')}</p>}
+
+            {step === 1 && (
+              <div style={{ marginTop:'1.5rem' }}>
+                <label style={{ display:'block', fontSize:'0.8rem', fontWeight:700, color:BR, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.06em' }}>{g(content,'popup_step1_field1','Email')}</label>
+                <input style={inp} type="email" placeholder="you@example.com" value={email} onChange={e=>setEmail(e.target.value)} autoFocus
+                  onFocus={e => (e.target.style.borderColor=O)} onBlur={e => (e.target.style.borderColor='rgba(200,75,15,0.25)')}
+                  onKeyDown={e => { if(e.key==='Enter'&&canNext()) setStep(2) }} />
+              </div>
+            )}
+
+            {step === 2 && (
+              <div style={{ marginTop:'0.5rem' }}>
+                {[
+                  { label: g(content,'popup_step2_field1','Your First Name'), val: parentName, set: setParentName, type:'text', ph:'e.g. Sara' },
+                  { label: g(content,'popup_step2_field2',"Kid's Name"), val: kidName, set: setKidName, type:'text', ph:'e.g. Adam' },
+                  { label: `${g(content,'popup_step2_field3',"Kid's Birthday")} (optional)`, val: kidBirthday, set: setKidBirthday, type:'date', ph:'' },
+                ].map((f,i) => (
+                  <div key={i}>
+                    <label style={{ display:'block', fontSize:'0.8rem', fontWeight:700, color:BR, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.06em' }}>{f.label}</label>
+                    <input style={{ ...inp, marginBottom: i === 2 ? 0 : 14 }} type={f.type} placeholder={f.ph} value={f.val} onChange={e=>f.set(e.target.value)}
+                      onFocus={e => (e.target.style.borderColor=O)} onBlur={e => (e.target.style.borderColor='rgba(200,75,15,0.25)')} />
+                  </div>
                 ))}
               </div>
+            )}
 
-              {/* Title */}
-              <div className="sp-title">{stepTitles[step - 1]}</div>
-              {stepSubtitles[step - 1] && (
-                <div className="sp-subtitle">{stepSubtitles[step - 1]}</div>
-              )}
-
-              {/* Step 1: Email */}
-              {step === 1 && (
-                <div>
-                  <label className="sp-label">{c(content, 'popup_step1_field1', 'Email')}</label>
-                  <input
-                    className="sp-input" type="email"
-                    placeholder="you@example.com"
-                    value={email} onChange={e => setEmail(e.target.value)}
-                    autoFocus
-                    onKeyDown={e => { if (e.key === 'Enter' && canNext()) setStep(2) }}
-                  />
-                </div>
-              )}
-
-              {/* Step 2: Names */}
-              {step === 2 && (
-                <div>
-                  <label className="sp-label">{c(content, 'popup_step2_field1', 'Your First Name')}</label>
-                  <input className="sp-input" type="text" placeholder="e.g. Sara"
-                    value={parentName} onChange={e => setParentName(e.target.value)} autoFocus />
-                  <label className="sp-label">{c(content, 'popup_step2_field2', "Kid's Name")}</label>
-                  <input className="sp-input" type="text" placeholder="e.g. Adam"
-                    value={kidName} onChange={e => setKidName(e.target.value)} />
-                  <label className="sp-label">
-                    {c(content, 'popup_step2_field3', "Kid's Birthday")}
-                    <span style={{ fontWeight: 400, color: '#A08070' }}> (optional)</span>
-                  </label>
-                  <input className="sp-input" type="date" value={kidBirthday}
-                    onChange={e => setKidBirthday(e.target.value)} style={{ marginBottom: 0 }} />
-                </div>
-              )}
-
-              {/* Step 3: Stage */}
-              {step === 3 && (
-                <div className="sp-stages">
-                  {stages.map(stage => (
-                    <div key={stage.id}
-                      className={`sp-stage ${selectedStage === stage.id ? 'selected' : ''}`}
-                      onClick={() => setSelectedStage(stage.id)}>
-                      <span className="sp-stage-emoji">{stage.emoji}</span>
-                      <div className="sp-stage-info">
-                        <div className="sp-stage-name">{stage.name}</div>
-                        <div className="sp-stage-age">{stage.age_range}</div>
-                        <div className="sp-stage-desc">{stage.description}</div>
-                      </div>
-                      {selectedStage === stage.id && <div className="sp-stage-check">✓</div>}
+            {step === 3 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:10, marginTop:'0.5rem' }}>
+                {stages.map(s => (
+                  <div key={s.id} onClick={() => setStageId(s.id)}
+                    style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 16px', border:`2px solid ${stageId===s.id?O:'rgba(200,75,15,0.15)'}`, borderRadius:14, cursor:'pointer', background:stageId===s.id?'rgba(200,75,15,0.05)':'white', transition:'all 0.2s' }}>
+                    <span style={{ fontSize:'2rem' }}>{s.emoji}</span>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontWeight:800, color:BR, fontSize:'1rem' }}>{s.name}</div>
+                      <div style={{ fontSize:'0.8rem', color:MU }}>{s.age_range} · {s.description}</div>
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Step 4: Payment */}
-              {step === 4 && (
-                <div className="sp-cycles">
-                  {paymentCycles.map(cycle => (
-                    <div key={cycle.id}
-                      className={`sp-cycle ${selectedCycle === cycle.id ? 'selected' : ''}`}
-                      onClick={() => setSelectedCycle(cycle.id)}>
-                      <div className="sp-cycle-info">
-                        <div className="sp-cycle-label">{cycle.label}</div>
-                        <div className="sp-cycle-detail">{cycle.days} days / {cycle.meals_total} meals total</div>
-                      </div>
-                      <div>
-                        <div className="sp-cycle-price">{cycle.price_sar} SAR</div>
-                        <div className="sp-cycle-price-sub">per {cycle.label.toLowerCase()}</div>
-                      </div>
-                    </div>
-                  ))}
-                  <div style={{ fontSize: 12, color: '#A08070', marginTop: 4, textAlign: 'center' }}>
-                    No payment now — we'll contact you to confirm.
+                    {stageId === s.id && <div style={{ width:22, height:22, borderRadius:'50%', background:O, color:'white', fontSize:'0.75rem', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>✓</div>}
                   </div>
-                </div>
-              )}
-
-              {error && <div className="sp-error">{error}</div>}
-
-              <div className="sp-actions">
-                {step > 1 && (
-                  <button className="sp-back" onClick={() => setStep(s => s - 1)}>← Back</button>
-                )}
-                <button
-                  className="sp-next"
-                  disabled={!canNext() || loading}
-                  onClick={() => {
-                    if (step < 4) setStep(s => s + 1)
-                    else handleSubmit()
-                  }}
-                >
-                  {loading ? 'Submitting...' : step === 4
-                    ? c(content, 'popup_btn_submit', 'SUBMIT')
-                    : c(content, 'popup_btn_continue', 'CONTINUE')}
-                </button>
+                ))}
               </div>
+            )}
+
+            {step === 4 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:10, marginTop:'0.5rem' }}>
+                {paymentCycles.map(cy => (
+                  <div key={cy.id} onClick={() => setCycleId(cy.id)}
+                    style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', border:`2px solid ${cycleId===cy.id?O:'rgba(200,75,15,0.15)'}`, borderRadius:14, cursor:'pointer', background:cycleId===cy.id?'rgba(200,75,15,0.05)':'white', transition:'all 0.2s' }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontWeight:800, color:O, fontSize:'1rem' }}>{cy.label}</div>
+                      <div style={{ fontSize:'0.8rem', color:MU }}>{cy.days} days / {cy.meals_total} meals total</div>
+                    </div>
+                    <div style={{ textAlign:'right' }}>
+                      <div style={{ fontWeight:900, color:BR, fontSize:'1.1rem' }}>{cy.price_sar} SAR</div>
+                      <div style={{ fontSize:'0.7rem', color:MU }}>per {cy.label.toLowerCase()}</div>
+                    </div>
+                  </div>
+                ))}
+                <p style={{ fontSize:'0.75rem', color:MU, textAlign:'center', marginTop:4 }}>No payment now — we'll contact you to confirm.</p>
+              </div>
+            )}
+
+            {error && <div style={{ background:'#FEE2E2', color:'#DC2626', padding:'10px 14px', borderRadius:8, fontSize:'0.85rem', marginTop:8 }}>{error}</div>}
+
+            <div style={{ display:'flex', gap:10, marginTop:'1.5rem' }}>
+              {step > 1 && (
+                <button onClick={() => setStep(s=>s-1)}
+                  style={{ padding:'14px 20px', border:'1.5px solid rgba(44,26,14,0.12)', borderRadius:12, background:'white', fontFamily:'inherit', fontSize:'0.95rem', fontWeight:600, color:MU, cursor:'pointer' }}>
+                  ← Back
+                </button>
+              )}
+              <button disabled={!canNext()||loading} onClick={() => { if(step<4) setStep(s=>s+1); else submit() }}
+                style={{ flex:1, padding:'14px', background:canNext()&&!loading?O:'rgba(200,75,15,0.3)', color:'white', border:'none', borderRadius:12, fontFamily:'inherit', fontSize:'0.95rem', fontWeight:800, cursor:canNext()&&!loading?'pointer':'not-allowed', transition:'background 0.2s', letterSpacing:'0.05em' }}>
+                {loading ? 'Submitting...' : step === 4 ? g(content,'popup_btn_submit','SUBMIT') : g(content,'popup_btn_continue','CONTINUE')}
+              </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-    </>
+    </div>
   )
 }

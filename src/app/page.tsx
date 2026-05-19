@@ -1,4 +1,4 @@
-// src/app/page.tsx — v8
+// src/app/page.tsx
 import { createClient } from '@/lib/supabase/server'
 import HomeClient from './HomeClient'
 
@@ -7,10 +7,7 @@ export const revalidate = 30
 export default async function HomePage() {
   const supabase = await createClient()
 
-  const [
-    stages, meals, siteContent, howSteps, whyPoints,
-    ingredients, footerLinks, logoData, paymentCycles, faqs, tickerItems
-  ] = await Promise.all([
+  const [stages, meals, siteContent, howSteps, whyPoints, ingredients, footerLinks, logoData, paymentCycles, faqs, tickerItems] = await Promise.all([
     supabase.from('stages').select('*').eq('is_active', true).order('position'),
     supabase.from('meals').select('*').eq('is_active', true).order('position'),
     supabase.from('site_content').select('*'),
@@ -25,9 +22,7 @@ export default async function HomePage() {
   ])
 
   const content: Record<string, string> = {}
-  for (const item of siteContent.data || []) {
-    content[item.key] = item.value
-  }
+  for (const item of siteContent.data || []) content[item.key] = item.value
 
   return (
     <HomeClient

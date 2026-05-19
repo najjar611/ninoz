@@ -1,4 +1,4 @@
-// src/app/page.tsx — v6.1
+// src/app/page.tsx — v8
 import { createClient } from '@/lib/supabase/server'
 import HomeClient from './HomeClient'
 
@@ -9,7 +9,7 @@ export default async function HomePage() {
 
   const [
     stages, meals, siteContent, howSteps, whyPoints,
-    ingredients, footerLinks, logoData, paymentCycles, faqs
+    ingredients, footerLinks, logoData, paymentCycles, faqs, tickerItems
   ] = await Promise.all([
     supabase.from('stages').select('*').eq('is_active', true).order('position'),
     supabase.from('meals').select('*').eq('is_active', true).order('position'),
@@ -21,6 +21,7 @@ export default async function HomePage() {
     supabase.from('logo').select('*').limit(1).single(),
     supabase.from('payment_cycles').select('*').eq('is_active', true).order('position'),
     supabase.from('faqs').select('*').eq('is_active', true).order('position'),
+    supabase.from('ticker_items').select('*').eq('is_active', true).order('position'),
   ])
 
   const content: Record<string, string> = {}
@@ -40,6 +41,7 @@ export default async function HomePage() {
       logo={logoData.data || null}
       paymentCycles={paymentCycles.data || []}
       faqs={faqs.data || []}
+      tickerItems={tickerItems.data || []}
     />
   )
 }

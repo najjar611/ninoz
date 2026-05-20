@@ -1,42 +1,60 @@
-// src/app/page.tsx
 import { createClient } from '@/lib/supabase/server'
 import HomeClient from './HomeClient'
 
-export const revalidate = 30
+// Force Next.js to pull fresh database content instantly when edited in the admin portal
+export const revalidate = 0 
 
 export default async function HomePage() {
   const supabase = await createClient()
 
-  const [stages, meals, siteContent, howSteps, whyPoints, ingredients, footerLinks, logoData, paymentCycles, faqs, tickerItems] = await Promise.all([
-    supabase.from('stages').select('*').eq('is_active', true).order('position'),
-    supabase.from('meals').select('*').eq('is_active', true).order('position'),
-    supabase.from('site_content').select('*'),
-    supabase.from('how_steps').select('*').eq('is_active', true).order('position'),
-    supabase.from('why_points').select('*').eq('is_active', true).order('position'),
-    supabase.from('ingredients').select('*').eq('is_active', true).order('position'),
-    supabase.from('footer_links').select('*').eq('is_active', true).order('position'),
-    supabase.from('logo').select('*').limit(1).single(),
-    supabase.from('payment_cycles').select('*').eq('is_active', true).order('position'),
-    supabase.from('faqs').select('*').eq('is_active', true).order('position'),
-    supabase.from('ticker_items').select('*').eq('is_active', true).order('position'),
+  // Fetch all CMS content from Supabase simultaneously to maximize speed
+  const [
+    { data: stages },
+    { data: meals },
+    { data: siteContent },
+    { data: howSteps },
+    { data: whyPoints },
+    { data: ingredients },
+    { data: footerLinks },
+    { data: logos },
+    { data: paymentCycles },
+    { data: faqs },
+    { data: tickerItems }
+  ] = await Promise.all([
+    supabase.from('stages').select('*').order('created_at', { ascending: true }),
+    supabase.from('meals').select('*'),
+    supabase.from('site_content').select('key, value'),
+    supabase.from('how_steps').select('*').order('id', { ascending: true }),
+    supabase.from('why_points').select('*').order('id', { ascending: true }),
+    supabase.from('ingredients').select('*'),
+    supabase.from('footer_links').select('*'),
+    supabase.from('logo').select('*').maybeSingle(),
+    supabase.from('payment_cycles').select('*'),
+    supabase.from('faqs').select('*'),
+    supabase.from('ticker_items').select('*')
   ])
 
-  const content: Record<string, string> = {}
-  for (const item of siteContent.data || []) content[item.key] = item.value
+  // Convert array rows [{key: "hero_headline_1", value: "You Care."}] into a quick-lookup object map
+  const contentMap: Record<string, string> = {}
+  if (siteContent) {
+    siteContent.forEach(item => {
+      contentMap[item.key] = item.value
+    })
+  }
 
   return (
     <HomeClient
-      stages={stages.data || []}
-      meals={meals.data || []}
-      content={content}
-      howSteps={howSteps.data || []}
-      whyPoints={whyPoints.data || []}
-      ingredients={ingredients.data || []}
-      footerLinks={footerLinks.data || []}
-      logo={logoData.data || null}
-      paymentCycles={paymentCycles.data || []}
-      faqs={faqs.data || []}
-      tickerItems={tickerItems.data || []}
+      stages={stages || []}
+      meals={meals || []}
+      content={contentMap}
+      howSteps={howSteps || []}
+      whyPoints={whyPoints || []}
+      ingredients={ingredients || []}
+      footerLinks={footerLinks || []}
+      logo={logos || null}
+      paymentCycles={paymentCycles || []}
+      faqs={faqs || []}
+      tickerItems={tickerItems || []}
     />
   )
 }

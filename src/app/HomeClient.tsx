@@ -1,10 +1,11 @@
 'use client'
 
+// src/app/HomeClient.tsx — v14.0 Intelligent Graded Color Shading Engine Map
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import SubscriptionPopup from '@/components/SubscriptionPopup'
+import Wizard from '@/components/registration/Wizard'
 
-type Stage = { id: string; name: string; age_range: string; description: string; emoji: string; card_bg: string; image_url: string | null; tag: string | null; tag_color: string }
+type Stage = { id: string; name: string; age_range: string; description: string; emoji: string; card_bg: string; image_url: string | null }
 type Meal = { id: string; name: string; description: string; meal_type: string; image_url: string | null; allergens: string; weight_g: string; protein_g: string; carbs_g: string; fiber_g: string }
 type HowStep = { id: string; icon_url: string | null; icon_bg: string; description: string }
 type WhyPoint = { id: string; title: string; description: string; title_color: string }
@@ -27,23 +28,33 @@ const g = (c: Record<string, string>, k: string, f = '') => c[k] || f
 export default function HomeClient(p: Props) {
   const { stages, meals, content, howSteps, whyPoints, ingredients, footerLinks, logo, paymentCycles, faqs, tickerItems } = p
 
-  const [popup, setPopup] = useState(false)
-  const [stageI, setStageI] = useState(0)
+  const [popup, setPopup] = useState(true)
   const [tab, setTab] = useState('breakfast')
   const [mealI, setMealI] = useState(0)
+  const [stageI, setStageI] = useState(0)
+  const [howI, setHowI] = useState(0)
+  const [ingI, setIngI] = useState(0)
   const [faq, setFaq] = useState<string | null>(null)
-  const [subDone, setSubDone] = useState(false)
   const [subEmail, setSubEmail] = useState('')
+  const [subDone, setSubDone] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
-  const stTx = useRef<number | null>(null)
-  const mlTx = useRef<number | null>(null)
-  const mlTy = useRef<number | null>(null)
+  const mealTouchX = useRef<number | null>(null)
+  const stageTouchX = useRef<number | null>(null)
+  const processTouchX = useRef<number | null>(null)
+  const ingTouchX = useRef<number | null>(null)
 
   const font = g(content, 'site_font', 'Nunito')
-  const animated = g(content, 'ticker_animated', 'false') === 'true'
   const heroImg = g(content, 'hero_image_url', '')
   const whyImg = g(content, 'why_image_url', '')
+  
+  const ingredientsTitleMobileSize = g(content, 'font_size_ingredients_title_mobile', '2.2rem')
+  const menuBoxBgOpacity = g(content, 'menu_box_bg_opacity', '0.45')
+  const macrosLayoutFormat = g(content, 'menu_macros_layout_mobile', 'grid_2x2')
+  const mealImageSizePct = parseFloat(g(content, 'menu_meal_image_size_pct', '100')) / 100
+
+  const colorPrimary = g(content, 'theme_color_primary', '#C84B0F')
+  const colorDeepBlue = g(content, 'theme_color_deep_blue', '#0A429B')
 
   useEffect(() => {
     const lnk = document.createElement('link')
@@ -53,578 +64,578 @@ export default function HomeClient(p: Props) {
     document.body.style.fontFamily = `'${font}', sans-serif`
   }, [font])
 
-  useEffect(() => {
-    const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) (e.target as HTMLElement).style.opacity = '1', (e.target as HTMLElement).style.transform = 'translateY(0)' }), { threshold: 0.1 })
-    document.querySelectorAll('[data-reveal]').forEach(el => io.observe(el))
-    return () => io.disconnect()
-  }, [])
-
   useEffect(() => { setMealI(0) }, [tab])
 
   const mls = meals.filter(m => m.meal_type === tab)
-  const tot = mls.length
-  const getM = (o: number) => tot === 0 ? null : mls[((mealI + o) % tot + tot) % tot]
-  const prev = getM(-1), curr = getM(0), next = getM(1)
+  const totM = mls.length
+  const currM = totM === 0 ? null : mls[mealI]
 
-  const nextM = () => { if (tot > 1) setMealI(i => (i + 1) % tot) }
-  const prevM = () => { if (tot > 1) setMealI(i => (i - 1 + tot) % tot) }
+  const totS = stages.length
+  const totH = howSteps.length
+  const totI = ingredients.length
 
-  const reveal = (delay = 0): React.CSSProperties => ({
-    opacity: 0, transform: 'translateY(20px)',
-    transition: `opacity 0.6s ease ${delay}ms, transform 0.6s ease ${delay}ms`
-  })
+  const prevM = () => { if (totM > 1) setMealI(i => (i - 1 + totM) % totM) }
+  const nextM = () => { if (totM > 1) setMealI(i => (i + 1) % totM) }
+
+  const prevS = () => { if (totS > 1) setStageI(i => (i - 1 + totS) % totS) }
+  const nextS = () => { if (totS > 1) setStageI(i => (i + 1) % totS) }
+
+  const prevH = () => { if (totH > 1) setHowI(i => (i - 1 + totH) % totH) }
+  const nextH = () => { if (totH > 1) setHowI(i => (i + 1) % totH) }
+
+  const prevI = () => { if (totI > 1) setIngI(i => (i - 1 + totI) % totI) }
+  const nextI = () => { if (totI > 1) setIngI(i => (i + 1) % totI) }
 
   const tItems = tickerItems.length > 0 ? tickerItems : [
     { id: '1', text: 'Fresh Ingredients', highlight: '100%' },
-    { id: '2', text: 'Sugar Added', highlight: '0%' },
-    { id: '3', text: 'Preservatives', highlight: '0%' },
+    { id: '2', text: 'Sugar Added or Sweetener', highlight: '0%' },
+    { id: '3', text: 'Preservatives & Synthetics', highlight: '0%' },
     { id: '4', text: 'Frozen Food', highlight: '0%' },
   ]
-
-  // Colors — warm orange gradient palette
-  const O = '#C84B0F'
-  const O2 = '#D96020'
-  const O3 = '#E8834A'
-  const CR = '#FAF5EE'
-  const CR2 = '#F5EAD8'
-  const CR3 = '#FDEEDE'
-  const BR = '#2C1A0E'
-  const MU = '#8A7A6E'
 
   return (
     <>
       <style>{`
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html { scroll-behavior: smooth; font-size: 18px; }
-        body { font-family: '${font}', sans-serif; overflow-x: hidden; background: ${CR}; color: ${BR}; }
-        [data-reveal] { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
-        img { max-width: 100%; display: block; }
-        button { cursor: pointer; font-family: inherit; }
-        a { text-decoration: none; }
+        :root {
+          --orange: ${colorPrimary};
+          /* FIXED: Built an automated layout compiler that mixes white into your choice at 15%, 25%, 35%, and 45% increments natively */
+          --orange-light: color-mix(in srgb, var(--orange) 75%, #ffffff);
+          --theme-grade-1: color-mix(in srgb, var(--orange) 6%, #ffffff);
+          --theme-grade-2: color-mix(in srgb, var(--orange) 12%, #ffffff);
+          --theme-grade-3: color-mix(in srgb, var(--orange) 18%, #ffffff);
+          --theme-grade-4: color-mix(in srgb, var(--orange) 24%, #ffffff);
+          
+          --brown: #1C1C1A;
+          --text-muted: #7A7068;
+          --cream: #F7F4F0;
+          --cream-dark: #EDE8E0;
+          --deep-blue: ${colorDeepBlue};
+        }
 
-        /* BTN */
-        .btn { display: inline-flex; align-items: center; justify-content: center; padding: 14px 28px; border-radius: 50px; font-size: 1rem; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-        .btn-primary { background: ${O}; color: white; }
-        .btn-primary:hover { background: #A33A0A; transform: translateY(-1px); }
-        .btn-outline { background: transparent; color: ${BR}; border: 2px solid rgba(44,26,14,0.2); }
-        .btn-outline:hover { border-color: ${O}; color: ${O}; }
-        .btn-white { background: white; color: ${O}; }
-        .btn-white:hover { background: ${CR2}; }
-
-        /* NAV */
-        .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: rgba(250,245,238,0.97); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(200,75,15,0.1); }
-        .nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 0 5%; height: 72px; max-width: 1400px; margin: 0 auto; }
-        .nav-logo { font-size: 1.6rem; font-weight: 900; color: ${O}; }
-        .nav-logo img { height: 38px; object-fit: contain; }
-        .nav-links { display: flex; gap: 2rem; align-items: center; }
-        .nav-link { font-size: 0.9rem; font-weight: 600; color: ${BR}; opacity: 0.55; background: none; border: none; transition: opacity 0.2s; }
-        .nav-link:hover { opacity: 1; }
-        .nav-ham { display: none; background: none; border: none; font-size: 1.5rem; color: ${BR}; }
-        .nav-mobile { display: none; flex-direction: column; gap: 0; background: white; border-top: 1px solid rgba(200,75,15,0.1); }
+        .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: var(--deep-blue); opacity: 0.96; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; height: 80px; max-width: 1400px; margin: 0 auto; }
+        .nav-logo { font-size: 1.6rem; font-weight: 900; color: white; text-decoration: none; }
+        .nav-links { display: flex; gap: 2.5rem; align-items: center; }
+        .nav-link { font-size: 0.95rem; font-weight: 600; color: white; opacity: 0.85; background: none; border: none; cursor: pointer; }
+        .nav-ham { display: none; background: none; border: none; font-size: 1.8rem; color: white; cursor: pointer; }
+        .nav-mobile { display: none; flex-direction: column; background: var(--deep-blue); }
         .nav-mobile.open { display: flex; }
-        .nav-mobile a, .nav-mobile button { padding: 1rem 5%; font-size: 1rem; font-weight: 600; color: ${BR}; border: none; background: none; text-align: left; border-bottom: 1px solid rgba(44,26,14,0.06); }
+        .nav-mobile button { padding: 1.2rem 2rem; font-size: 1rem; font-weight: 600; color: white; border: none; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); }
 
-        /* HERO */
-        .hero { min-height: 100vh; background: linear-gradient(160deg, white 0%, ${CR} 60%, ${CR2} 100%); display: flex; align-items: center; padding: 90px 5% 60px; }
-        .hero-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; max-width: 1300px; width: 100%; margin: 0 auto; }
-        .hero-badge { display: inline-flex; align-items: center; gap: 8px; background: ${CR3}; color: ${O}; font-size: 0.7rem; font-weight: 700; padding: 8px 18px; border-radius: 50px; margin-bottom: 1.5rem; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid rgba(200,75,15,0.2); }
-        .hero-h1 { font-size: clamp(2.8rem, 5vw, 5rem); font-weight: 900; color: ${BR}; line-height: 1.05; letter-spacing: -0.03em; margin-bottom: 1.2rem; }
-        .hero-h1 span { color: ${O}; }
-        .hero-desc { font-size: 1.05rem; color: ${MU}; line-height: 1.8; max-width: 480px; margin-bottom: 1.5rem; font-weight: 500; }
-        .hero-trust { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.8rem; }
-        .hero-ti { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: ${MU}; font-weight: 600; }
-        .hero-ti::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: ${O}; flex-shrink: 0; }
-        .hero-btns { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-        .hero-proof { display: flex; align-items: center; gap: 12px; }
-        .hero-avs { display: flex; }
-        .hero-av { width: 32px; height: 32px; border-radius: 50%; border: 2px solid white; margin-left: -10px; }
-        .hero-av:first-child { margin-left: 0; }
-        .hero-img { position: relative; }
-        .hero-photo { width: 100%; aspect-ratio: 3/4; border-radius: 28px; overflow: hidden; background: ${CR2}; }
-        .hero-photo img { width: 100%; height: 100%; object-fit: cover; }
-        .hero-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 7rem; background: linear-gradient(145deg, ${CR2}, #E8D0B0); }
-        .hero-pill { position: absolute; background: white; border-radius: 16px; padding: 12px 18px; box-shadow: 0 8px 32px rgba(44,26,14,0.12); border: 1px solid rgba(200,75,15,0.1); }
-        .hero-pill-1 { bottom: 2rem; left: -1.5rem; }
-        .hero-pill-2 { top: 2rem; right: -1.5rem; }
-        .pill-label { font-size: 0.6rem; font-weight: 700; color: ${MU}; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; }
-        .pill-val { font-size: 0.9rem; font-weight: 800; color: ${BR}; }
-
-        /* TICKER */
-        .ticker { background: ${O}; padding: 14px 0; overflow: hidden; }
-        .ticker-track { display: flex; white-space: nowrap; ${animated ? 'animation: tick 30s linear infinite;' : ''} }
-        .ticker-item { font-size: 0.85rem; font-weight: 700; color: white; padding: 0 2.5rem; }
-        .ticker-hi { color: rgba(255,255,255,0.6); margin-right: 5px; }
-        @keyframes tick { from { transform: translateX(0) } to { transform: translateX(-50%) } }
-
-        /* STAGES */
-        .stages { background: ${CR}; padding: 6rem 5%; overflow: hidden; }
-        .stages-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 3rem; gap: 1.5rem; flex-wrap: wrap; }
-        .sec-lbl { font-size: 0.7rem; font-weight: 700; color: ${O}; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
-        .sec-title { font-size: clamp(1.8rem, 3.5vw, 2.8rem); font-weight: 900; color: ${BR}; line-height: 1.15; }
-        .sec-title span { color: ${O}; }
-        .stages-wrap { position: relative; overflow: hidden; touch-action: pan-y; }
-        .stages-track { display: flex; transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
-        .stage-card { min-width: clamp(280px, 33vw, 360px); margin-right: 1.5rem; border-radius: 24px; overflow: hidden; flex-shrink: 0; transition: box-shadow 0.3s, transform 0.3s; }
-        .stage-card.active { box-shadow: 0 24px 64px rgba(200,75,15,0.2); transform: scale(1.02); }
-        .stage-img { width: 100%; height: clamp(200px, 22vw, 280px); display: flex; align-items: center; justify-content: center; font-size: 5rem; position: relative; overflow: hidden; }
-        .stage-img img { width: 100%; height: 100%; object-fit: cover; }
-        .stage-body { padding: 1.5rem; }
-        .stage-name { font-size: 1.4rem; font-weight: 900; color: ${BR}; margin-bottom: 4px; }
-        .stage-age { font-size: 0.85rem; font-weight: 700; color: ${O}; margin-bottom: 0.6rem; }
-        .stage-desc { font-size: 0.85rem; color: ${MU}; line-height: 1.65; font-weight: 500; }
-        .stages-nav { display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 2rem; }
-        .nav-btn { width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid rgba(200,75,15,0.2); background: white; color: ${BR}; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-        .nav-btn:hover { background: ${O}; color: white; border-color: ${O}; }
-        .dots { display: flex; gap: 6px; }
-        .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(200,75,15,0.2); transition: all 0.3s; border: none; padding: 0; }
-        .dot.a { background: ${O}; width: 22px; border-radius: 4px; }
-
-        /* HOW */
-        .how { background: linear-gradient(180deg, ${CR2} 0%, ${CR3} 100%); padding: 6rem 5%; }
-        .how-inner { max-width: 1100px; margin: 0 auto; }
-        .how-head { text-align: center; margin-bottom: 4rem; }
-        .how-title { font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 900; color: ${BR}; margin-bottom: 0.8rem; }
-        .how-sub { font-size: 1.05rem; color: ${MU}; font-weight: 500; }
-        .how-steps { display: flex; align-items: flex-start; gap: 0; }
-        .how-step { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 1.2rem; }
-        .how-line { flex-shrink: 0; width: 48px; padding-top: 4.5rem; }
-        .how-line-inner { width: 100%; height: 2px; background: repeating-linear-gradient(to right, rgba(200,75,15,0.3) 0, rgba(200,75,15,0.3) 6px, transparent 6px, transparent 13px); }
-        .how-icon { width: clamp(100px, 10vw, 144px); height: clamp(100px, 10vw, 144px); border-radius: 24px; display: flex; align-items: center; justify-content: center; margin-bottom: 1.2rem; font-size: 2.8rem; overflow: hidden; flex-shrink: 0; }
-        .how-icon img { width: 100%; height: 100%; object-fit: cover; border-radius: 24px; }
-        .how-desc { font-size: 0.9rem; color: ${MU}; line-height: 1.7; font-weight: 500; max-width: 200px; }
-        .how-cta { text-align: center; margin-top: 3.5rem; }
-
-        /* MENU */
-        .menu-wrap { display: flex; min-height: 700px; }
-        .menu-left { width: clamp(280px, 30vw, 380px); background: ${O}; display: flex; flex-direction: column; padding: 2.5rem; position: relative; overflow: hidden; flex-shrink: 0; }
-        .menu-left::before { content: ''; position: absolute; width: 600px; height: 600px; border-radius: 50%; background: rgba(0,0,0,0.08); top: 50%; left: 50%; transform: translate(-50%,-50%); pointer-events: none; }
-        .menu-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2.5rem; position: relative; z-index: 1; }
-        .menu-logo { font-size: 1.4rem; font-weight: 900; color: white; }
-        .menu-h { flex: 1; position: relative; z-index: 1; }
-        .menu-h h2 { font-size: clamp(2rem, 3.5vw, 2.8rem); font-weight: 900; color: white; line-height: 1.2; }
-        .menu-tabs { display: flex; gap: 8px; margin-top: auto; padding-top: 1.5rem; position: relative; z-index: 1; }
-        .menu-tab { flex: 1; padding: 0.8rem 0.4rem; border-radius: 12px; border: 1.5px solid rgba(255,255,255,0.35); background: transparent; color: rgba(255,255,255,0.65); font-size: 0.9rem; font-weight: 700; transition: all 0.2s; text-align: center; }
-        .menu-tab.a { background: white; color: ${O}; border-color: white; }
-        .menu-tab:hover:not(.a) { background: rgba(255,255,255,0.12); color: white; }
-
-        /* MEAL CAROUSEL — Instagram style */
-        .menu-right { flex: 1; background: ${CR}; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 0; overflow: hidden; position: relative; min-height: 700px; }
-        .menu-bg-circle { position: absolute; width: 480px; height: 480px; border-radius: 50%; background: ${CR2}; top: 50%; left: 50%; transform: translate(-50%,-50%); z-index: 0; }
-        .meal-counter { font-size: 0.75rem; font-weight: 700; color: ${MU}; letter-spacing: 0.08em; margin-bottom: 1rem; position: relative; z-index: 1; }
-        .meal-carousel { position: relative; width: 100%; height: 300px; z-index: 1; touch-action: pan-y; user-select: none; flex-shrink: 0; }
-        .meal-slot { position: absolute; top: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
-        .meal-slot-prev { left: 0; transform: translateY(-50%) translateX(-15%) scale(0.72); opacity: 0.4; z-index: 2; cursor: pointer; filter: blur(1px); }
-        .meal-slot-curr { left: 50%; transform: translateY(-50%) translateX(-50%) scale(1); opacity: 1; z-index: 3; }
-        .meal-slot-next { right: 0; transform: translateY(-50%) translateX(15%) scale(0.72); opacity: 0.4; z-index: 2; cursor: pointer; filter: blur(1px); }
-        .meal-photo { border-radius: 50%; overflow: hidden; background: ${CR2}; display: flex; align-items: center; justify-content: center; border: 5px solid white; box-shadow: 0 12px 48px rgba(200,75,15,0.15); }
-        .meal-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .meal-info { position: relative; z-index: 1; width: 100%; max-width: 420px; text-align: center; padding: 1rem 1.5rem 0; }
-        .meal-name { font-size: 1.3rem; font-weight: 900; color: ${O}; margin-bottom: 0.5rem; }
-        .meal-desc { font-size: 0.85rem; color: ${MU}; line-height: 1.7; font-weight: 500; margin-bottom: 1rem; }
-        .nutr { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 0.8rem; }
-        .nutr-box { background: ${O}; border-radius: 10px; padding: 0.7rem 0.3rem; text-align: center; }
-        .nutr-val { font-size: 1.05rem; font-weight: 900; color: white; display: block; line-height: 1; margin-bottom: 3px; }
-        .nutr-lbl { font-size: 0.55rem; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; }
-        .allergen { display: inline-flex; align-items: center; gap: 7px; background: rgba(200,75,15,0.08); border-radius: 8px; padding: 7px 14px; font-size: 0.8rem; color: ${BR}; font-weight: 600; margin-bottom: 0.8rem; }
-        .meal-dots { display: flex; gap: 5px; justify-content: center; margin-top: 0.6rem; }
-        .meal-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(200,75,15,0.15); transition: all 0.3s; border: none; padding: 0; cursor: pointer; }
-        .meal-dot.a { background: ${O}; width: 20px; border-radius: 3px; }
-
-        /* WHY */
-        .why { background: linear-gradient(180deg, ${CR3} 0%, ${CR} 100%); padding: 6rem 5%; }
-        .why-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: center; max-width: 1300px; margin: 0 auto; }
-        .why-title { font-size: clamp(2.8rem, 5.5vw, 5rem); font-weight: 900; line-height: 1.05; margin-bottom: 1.8rem; color: ${BR}; }
-        .why-title span { color: ${O}; }
-        .why-pts { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
-        .why-pt-t { font-size: 1rem; font-weight: 800; margin-bottom: 3px; }
-        .why-pt-d { font-size: 0.85rem; color: ${MU}; line-height: 1.65; font-weight: 500; }
-        .ing-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
-        .ing-card { border-radius: 16px; overflow: hidden; background: white; box-shadow: 0 2px 12px rgba(200,75,15,0.08); }
-        .ing-img { width: 100%; height: 80px; background: ${CR2}; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; }
-        .ing-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .ing-name { font-size: 0.75rem; font-weight: 800; color: ${BR}; padding: 7px 10px 2px; }
-        .ing-desc { font-size: 0.65rem; color: ${MU}; padding: 0 10px 8px; line-height: 1.4; }
-        .why-photo { width: 100%; aspect-ratio: 3/4; border-radius: 28px; overflow: hidden; background: ${CR2}; display: flex; align-items: center; justify-content: center; font-size: 5rem; }
-        .why-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-        /* FAQ */
-        .faq { background: ${CR}; padding: 6rem 5%; }
-        .faq-inner { max-width: 760px; margin: 0 auto; }
-        .faq-head { text-align: center; margin-bottom: 3rem; }
-        .faq-item { border-bottom: 1px solid rgba(200,75,15,0.12); }
-        .faq-q { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 1.3rem 0; background: none; border: none; font-size: 1rem; font-weight: 700; color: ${BR}; text-align: left; gap: 1rem; }
-        .faq-icon { width: 28px; height: 28px; border-radius: 50%; background: ${CR3}; color: ${O}; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; transition: all 0.3s; border: 1px solid rgba(200,75,15,0.2); }
-        .faq-icon.open { transform: rotate(45deg); background: ${O}; color: white; }
-        .faq-a { max-height: 0; overflow: hidden; transition: max-height 0.4s ease, padding 0.3s; }
-        .faq-a.open { max-height: 400px; padding-bottom: 1.2rem; }
-        .faq-a p { font-size: 0.9rem; color: ${MU}; line-height: 1.8; font-weight: 500; }
-
-        /* FOOTER */
-        .footer-hero { background: linear-gradient(135deg, ${O} 0%, #A33A0A 100%); padding: 4rem 5%; text-align: center; position: relative; overflow: hidden; }
-        .footer-toys { position: absolute; inset: 0; pointer-events: none; }
-        .toy { position: absolute; font-size: 3.5rem; opacity: 0.1; user-select: none; }
-        .footer-word { font-size: clamp(4rem, 12vw, 8rem); font-weight: 900; color: rgba(255,255,255,0.15); line-height: 1; position: relative; z-index: 1; letter-spacing: -0.04em; }
-        .footer-cols { background: ${CR}; padding: 3.5rem 5% 2.5rem; display: grid; grid-template-columns: repeat(4,1fr); gap: 2.5rem; border-top: 1px solid rgba(200,75,15,0.1); }
-        .footer-col-t { font-size: 0.7rem; font-weight: 800; color: ${O}; margin-bottom: 1rem; display: block; text-transform: uppercase; letter-spacing: 0.08em; }
-        .footer-text { font-size: 0.82rem; color: ${MU}; line-height: 1.8; }
-        .footer-bul { list-style: none; margin: 0.7rem 0 1rem; }
-        .footer-bul li { font-size: 0.82rem; color: ${MU}; padding: 3px 0; display: flex; gap: 8px; line-height: 1.5; }
-        .footer-bul li::before { content: '–'; color: ${O}; flex-shrink: 0; }
-        .footer-links-l { display: flex; flex-direction: column; gap: 0.7rem; }
-        .footer-lnk { font-size: 0.82rem; color: ${MU}; transition: color 0.2s; font-weight: 500; }
-        .footer-lnk:hover { color: ${O}; }
-        .footer-ci { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 0.8rem; }
-        .footer-cic { width: 28px; height: 28px; border-radius: 8px; background: rgba(200,75,15,0.1); display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0; }
-        .footer-cit { font-size: 0.82rem; color: ${MU}; line-height: 1.5; }
-        .footer-cit a { color: ${O}; font-weight: 600; }
-        .sub-inp { width: 100%; padding: 12px 16px; border: 1.5px solid rgba(200,75,15,0.2); border-radius: 10px; font-size: 0.85rem; color: ${BR}; outline: none; box-sizing: border-box; margin-bottom: 8px; background: white; }
-        .sub-inp:focus { border-color: ${O}; }
-        .footer-bot { background: ${BR}; padding: 1rem 5%; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; }
-        .footer-copy { font-size: 0.75rem; color: rgba(255,255,255,0.3); }
-        .footer-bot-links { display: flex; gap: 1.5rem; }
-        .footer-bot-links a { font-size: 0.75rem; color: rgba(255,255,255,0.25); transition: color 0.2s; }
-        .footer-bot-links a:hover { color: rgba(255,255,255,0.6); }
-
-        /* RESPONSIVE */
-        @media (max-width: 1024px) {
-          .footer-cols { grid-template-columns: repeat(2,1fr); }
-          .why-grid { grid-template-columns: 1fr; gap: 3rem; }
-          .menu-wrap { flex-direction: column; }
-          .menu-left { width: 100%; min-height: 50vh; }
-          .hero-pill-1, .hero-pill-2 { display: none; }
-          .how-steps { flex-direction: column; align-items: center; gap: 2.5rem; }
-          .how-line { display: none; }
-          .how-step { padding: 0; }
+        .hero { 
+          min-height: 100vh; 
+          display: flex; 
+          align-items: center; 
+          padding: 140px 1.5rem 80px; 
+          background-color: var(--deep-blue); 
+          background-image: linear-gradient(rgba(10, 66, 155, 0.75), rgba(10, 66, 155, 0.85)), url('${heroImg}');
+          background-size: cover;
+          background-position: center;
+          color: white; 
+          width: 100vw;
+          overflow: hidden;
         }
+        .hero-inner { max-width: 650px; width: 100%; margin: 0 auto; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 1.5rem; }
+        .hero-h1 { font-size: clamp(2.4rem, 6vw, 4.2rem); font-weight: 900; line-height: 1.1; }
+        .hero-h1 span { color: var(--orange-light); }
+        .hero-desc { font-size: 1.15rem; color: rgba(255,255,255,0.95); line-height: 1.6; max-width: 540px; }
+        .hero-trust { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; width: 100%; }
+        .hero-ti { display: flex; flex-direction: column; align-items: center; text-align: center; font-size: 0.7rem; font-weight: 800; gap: 8px; text-transform: uppercase; }
+        .hero-ic { width: 54px; height: 54px; border-radius: 50%; background: rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
+        
+        .ticker { background: var(--orange); padding: 18px 0; overflow: hidden; }
+        .ticker-track { display: flex; white-space: nowrap; animation: tick 30s linear infinite; }
+        .ticker-item { font-size: 0.9rem; font-weight: 700; color: white; padding: 0 2.5rem; text-transform: uppercase; }
+        .ticker-hi { color: var(--orange-light); margin-right: 8px; font-weight: 900; }
+        @keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+        .stages-section { background: var(--cream); padding: 6rem 0; text-align: center; overflow: hidden; width: 100vw; position: relative; }
+        .stages-header-box { max-width: 600px; margin: 0 auto 3rem; padding: 0 1.5rem; }
+        .stages-h2 { font-size: 2.6rem; font-weight: 900; color: var(--brown); }
+        .stages-h2 span { color: var(--orange); }
+        .stage-carousel-area { width: 100%; position: relative; display: flex; align-items: center; justify-content: center; height: 420px; overflow: hidden; }
+        .stage-carousel-track { display: flex; align-items: center; justify-content: center; width: 100%; position: relative; }
+        
+        .stage-node { position: absolute; border-radius: 36px; padding: 2.5rem 2rem; display: flex; flex-direction: column; align-items: center; text-align: center; transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; width: 310px; min-height: 400px; box-sizing: border-box; }
+        .stage-node.center { transform: translateX(0) scale(1); z-index: 4; opacity: 1; box-shadow: 0 32px 64px rgba(10,66,155,0.14); }
+        .stage-node.left-peek { transform: translateX(-220px) scale(0.82); z-index: 2; opacity: 0.65; filter: blur(0.5px); }
+        .stage-node.right-peek { transform: translateX(220px) scale(0.82); z-index: 2; opacity: 0.65; filter: blur(0.5px); }
+        .stage-node.hidden { transform: scale(0.5); opacity: 0; z-index: 1; pointer-events: none; }
+        
+        .stage-node-title { font-size: 2rem; font-weight: 900; color: var(--deep-blue); margin-bottom: 0.8rem; }
+        .stage-node-desc { font-size: 0.95rem; color: #1C1C1A; line-height: 1.5; flex-grow: 1; display: flex; align-items: center; margin-bottom: 1.5rem; font-weight: 600; }
+        .stage-node-age { font-size: 1.2rem; font-weight: 900; text-transform: uppercase; background: var(--deep-blue); color: white; padding: 6px 20px; border-radius: 100px; }
+        .stage-node-img { width: 130px; height: 130px; object-fit: contain; margin-bottom: 1.5rem; }
+        .stages-arrows { display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem; }
+        .stage-arrow-btn { width: 48px; height: 48px; border-radius: 50%; background: var(--deep-blue); color: white; border: none; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; }
+
+        .how { background: var(--cream); padding: 7rem 0; text-align: center; overflow: hidden; width: 100vw; position: relative; }
+        .how-h2 { font-size: 3rem; font-weight: 900; margin-bottom: 1rem; color: var(--deep-blue); }
+        .how-p { font-size: 1.15rem; color: var(--text-muted); margin-bottom: 3rem; padding: 0 1.5rem; }
+        .how-carousel-area { width: 100%; position: relative; display: flex; align-items: center; justify-content: center; height: 400px; overflow: hidden; }
+        
+        .how-card-node { position: absolute; border-radius: 32px; background: white; padding: 2rem 2rem; display: flex; flex-direction: column; align-items: center; text-align: center; transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; width: 290px; min-height: 360px; box-shadow: 0 15px 35px rgba(0,0,0,0.06); box-sizing: border-box; border: 1px solid rgba(10,66,155,0.04); }
+        .how-card-node.center { transform: translateX(0) scale(1); z-index: 4; opacity: 1; box-shadow: 0 25px 50px rgba(10,66,155,0.12); border: 1.5px solid rgba(10,66,155,0.08); }
+        .how-card-node.left-peek { transform: translateX(-200px) scale(0.84); z-index: 2; opacity: 0.55; filter: blur(0.5px); }
+        .how-card-node.right-peek { transform: translateX(200px) scale(0.84); z-index: 2; opacity: 0.55; filter: blur(0.5px); }
+        .how-card-node.hidden { transform: scale(0.5); opacity: 0; z-index: 1; pointer-events: none; }
+        
+        .how-step-num { font-size: 1.1rem; font-weight: 900; color: var(--deep-blue); background: rgba(10,66,155,0.06); padding: 4px 14px; border-radius: 100px; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .how-icon-box { width: 85px; height: 85px; border-radius: 24px; display: flex; align-items: center; justify-content: center; font-size: 2.4rem; margin-bottom: 1.5rem; box-shadow: 0 10px 20px rgba(0,0,0,0.04); }
+        .how-node-desc { font-size: 1.05rem; color: var(--deep-blue); font-weight: 800; line-height: 1.5; }
+        .how-arrows { display: flex; gap: 1rem; justify-content: center; margin-top: 1rem; }
+
+        .menu-wrap { display: flex; min-height: 750px; background: white; position: relative; }
+        /* FIXED: Wired Left Banner background opacity logic to color-mix safely */
+        .menu-left { width: 450px; background: color-mix(in srgb, var(--orange) 35%, #ffffff); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); display: flex; flex-direction: column; padding: 5rem 4rem; justify-content: space-between; flex-shrink: 0; border-radius: 0 120px 120px 0; z-index: 5; }
+        .menu-left h2 { font-size: 3.2rem; font-weight: 900; color: var(--deep-blue); line-height: 1.15; }
+        .menu-left h2 span { display: block; }
+        .menu-tabs { display: flex; flex-direction: column; gap: 14px; width: 100%; margin-top: 3rem; }
+        
+        .menu-tab { width: 100%; padding: 16px 24px; border-radius: 20px; border: none; background: white; color: var(--deep-blue); font-size: 1.05rem; font-weight: 800; text-align: left; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.25s; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
+        .menu-tab.a { background: var(--deep-blue); color: white; }
+        
+        .menu-right { flex: 1; background: var(--cream); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 0; position: relative; overflow: hidden; }
+        .carousel-view-area { width: 100%; position: relative; display: flex; align-items: center; justify-content: center; height: 380px; overflow: hidden; margin-bottom: 1rem; }
+        .carousel-track { display: flex; align-items: center; justify-content: center; width: 100%; position: relative; }
+        
+        .plate-node { position: absolute; border-radius: 50%; overflow: visible; display: flex; align-items: center; justify-content: center; transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; transform-origin: center center; background: transparent; }
+        .plate-node img { width: 100%; height: 100%; object-fit: contain; border-radius: 50%; filter: drop-shadow(0 20px 35px rgba(44,26,14,0.12)); }
+        
+        .plate-node.center { width: 290px; height: 290px; transform: translateX(0) scale(${mealImageSizePct}); z-index: 4; opacity: 1; }
+        .plate-node.left-peek { width: 210px; height: 210px; transform: translateX(-195px) scale(${mealImageSizePct * 0.75}); z-index: 2; opacity: 0.45; filter: blur(0.4px); }
+        .plate-node.right-peek { width: 210px; height: 210px; transform: translateX(195px) scale(${mealImageSizePct * 0.75}); z-index: 2; opacity: 0.45; filter: blur(0.4px); }
+        .plate-node.hidden { transform: scale(0.5); opacity: 0; z-index: 1; pointer-events: none; }
+        
+        .meal-info { width: 100%; max-width: 520px; text-align: center; padding: 0 2rem; display: flex; flex-direction: column; align-items: center; }
+        .meal-name { font-size: 1.8rem; font-weight: 900; color: var(--deep-blue); margin-bottom: 0.5rem; }
+        .meal-desc { font-size: 0.95rem; color: var(--text-muted); line-height: 1.65; margin-bottom: 2rem; font-weight: 600; }
+        
+        .nutr { display: flex; justify-content: center; gap: 10px; width: 100%; max-width: 420px; }
+        .nutr-box { background: var(--deep-blue); border-radius: 16px; padding: 12px 14px; text-align: center; box-sizing: border-box; }
+        .nutr-val { font-size: 1.15rem; font-weight: 900; color: white; display: block; }
+        .nutr-lbl { font-size: 0.65rem; color: rgba(255,255,255,0.8); text-transform: uppercase; font-weight: 700; margin-top: 2px; }
+        
+        .allergen { display: inline-flex; align-items: center; gap: 6px; background: rgba(10, 66, 155, 0.06); border-radius: 100px; padding: 6px 18px; font-size: 0.85rem; color: var(--deep-blue); font-weight: 700; margin-top: 1.5rem; margin-bottom: 1rem; }
+        .meal-arrows { display: flex; gap: 1rem; margin-top: 1rem; }
+        .meal-arrow-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--deep-blue); color: white; border: none; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; }
+
+        .why { padding: 8rem 2rem; max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 5rem; align-items: center; background: white; }
+        .why-title { font-size: 3.6rem; font-weight: 900; color: var(--deep-blue); margin-bottom: 2rem; }
+        .why-pts { display: flex; flex-direction: column; gap: 2rem; margin-bottom: 3rem; }
+        .why-pt-t { font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; color: var(--orange); }
+        .why-pt-d { font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; font-weight: 600; }
+        
+        .ing-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; width: 100%; }
+        .ing-card { background: var(--cream); border-radius: 24px; padding: 1.5rem 1.2rem; display: flex; flex-direction: column; align-items: center; text-align: center; border: 1px solid rgba(0,0,0,0.02); }
+        .ing-img { width: 100px; height: 100px; border-radius: 20px; overflow: hidden; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
+        .ing-img img { width: 100%; height: 100%; object-fit: cover; }
+        .ing-name { font-size: 0.95rem; font-weight: 800; color: var(--deep-blue); margin-bottom: 4px; }
+        .ing-desc { font-size: 0.75rem; color: var(--text-muted); line-height: 1.3; }
+        .why-photo img { width: 100%; height: auto; object-fit: contain; }
+
+        .footer-hero { background: var(--deep-blue); padding: 5rem 2rem; text-align: center; }
+        .footer-logo-big { font-size: clamp(4rem, 12vw, 8rem); font-weight: 900; color: white; letter-spacing: -0.03em; }
+        .footer-cols { background: var(--cream); padding: 6rem 2rem; display: grid; grid-template-columns: 1.3fr 0.8fr 1fr 1fr; gap: 4rem; max-width: 1400px; margin: 0 auto; }
+        .footer-col-t { font-size: 1.1rem; font-weight: 900; color: var(--deep-blue); margin-bottom: 1.5rem; display: block; }
+        .footer-text { font-size: 0.95rem; color: var(--text-muted); line-height: 1.65; }
+        .footer-bul { list-style: none; margin: 1.2rem 0; display: flex; flex-direction: column; gap: 10px; }
+        .footer-bul li { font-size: 0.9rem; color: var(--deep-blue); font-weight: 600; display: flex; gap: 8px; }
+        .footer-bul li::before { content: '▪'; color: var(--orange); }
+        .footer-links-l { display: flex; flex-direction: column; gap: 0.9rem; }
+        .footer-lnk { font-size: 0.95rem; color: var(--deep-blue); font-weight: 600; text-decoration: none; }
+        .footer-bot { background: white; padding: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; border-top: 1px solid rgba(0,0,0,0.05); }
+
+        @media (max-width: 1100px) {
+          .menu-wrap { flex-direction: column; min-height: auto; }
+          .menu-left { width: 100%; border-radius: 0 0 40px 40px; padding: 2.5rem 1.2rem; text-align: center; background: color-mix(in srgb, var(--orange) 35%, #ffffff); }
+          .menu-left h2 { font-size: 2.2rem; margin-bottom: 0.5rem; }
+          .menu-left h2 span { display: inline; margin-right: 6px; }
+          .menu-tabs { flex-direction: row; overflow-x: auto; padding-bottom: 4px; margin-top: 1.2rem; gap: 8px; justify-content: center; width: 100%; }
+          
+          .menu-tab { 
+            width: auto; 
+            white-space: nowrap; 
+            padding: 8px 14px !important; 
+            font-size: 0.82rem !important; 
+            border-radius: 12px !important; 
+            font-weight: 800;
+            gap: 4px;
+          }
+          
+          .plate-node.center { width: 230px; height: 230px; transform: translateX(0) scale(${mealImageSizePct}); }
+          .plate-node.left-peek { width: 160px; height: 160px; transform: translateX(-145px) scale(${mealImageSizePct * 0.75}); opacity: 0.5; }
+          .plate-node.right-peek { width: 160px; height: 160px; transform: translateX(145px) scale(${mealImageSizePct * 0.75}); opacity: 0.5; }
+          .carousel-view-area { height: 280px; }
+          
+          .why { grid-template-columns: 1fr; text-align: center; gap: 4rem; }
+          .footer-cols { grid-template-columns: repeat(2, 1fr); gap: 3rem; }
+        }
+
         @media (max-width: 768px) {
-          html { font-size: 16px; }
-          .nav-links { display: none; }
-          .nav-ham { display: flex; }
-          .hero-inner { grid-template-columns: 1fr; gap: 2.5rem; }
-          .hero-h1 { font-size: 2.5rem; }
-          .hero-btns { flex-direction: column; }
-          .stages-head { flex-direction: column; gap: 1rem; }
-          .ing-grid { grid-template-columns: repeat(2,1fr); }
-          .footer-cols { grid-template-columns: 1fr; }
-          .nutr { grid-template-columns: repeat(2,1fr); }
-          .meal-slot-prev, .meal-slot-next { display: none; }
-          .menu-right { min-height: 580px; }
-          .meal-carousel { height: 260px; }
-        }
-        @media (max-width: 480px) {
-          html { font-size: 15px; }
-          .hero-h1 { font-size: 2.2rem; }
-          .why-title { font-size: 2.5rem; }
-          .footer-word { font-size: 3.5rem; }
-          .stage-card { min-width: 85vw; }
+          .nav-links, .nav-inner .btn { display: none !important; }
+          .nav-ham { display: block !important; }
+          
+          .hero-trust { grid-template-columns: repeat(2, 1fr); gap: 1.2rem; justify-content: center; width: 100%; }
+          .hero-ti { font-size: 0.75rem; }
+          
+          .why-title { font-size: ${ingredientsTitleMobileSize} !important; text-align: center; margin-bottom: 1rem; }
+
+          .stage-node.left-peek { transform: translateX(-140px) scale(0.76); opacity: 0.45; }
+          .stage-node.right-peek { transform: translateX(140px) scale(0.76); opacity: 0.45; }
+          .stage-carousel-area { height: 380px; }
+          .stage-node { width: 240px; min-height: 340px; padding: 2rem 1.2rem; border-radius: 28px; }
+          .stage-node-title { font-size: 1.5rem; }
+          .stage-node-img { width: 90px; height: 90px; margin-bottom: 1rem; }
+          .stage-node-desc { font-size: 0.85rem; margin-bottom: 1rem; }
+          .stage-node-age { font-size: 1rem; padding: 4px 14px; }
+
+          .how-card-node.left-peek { transform: translateX(-130px) scale(0.78); opacity: 0.45; }
+          .how-card-node.right-peek { transform: translateX(130px) scale(0.78); opacity: 0.45; }
+          .how-carousel-area { height: 320px; }
+          .how-card-node { width: 230px; min-height: 270px; padding: 1.5rem 1.2rem; border-radius: 24px; }
+          .how-icon-box { width: 70px; height: 70px; font-size: 2rem; margin-bottom: 1rem; }
+          .how-node-desc { font-size: 0.9rem; }
+
+          .nutr {
+            display: ${macrosLayoutFormat === 'grid_2x2' ? 'grid' : 'flex'} !important;
+            grid-template-columns: ${macrosLayoutFormat === 'grid_2x2' ? 'repeat(2, 1fr)' : 'none'} !important;
+            flex-direction: ${macrosLayoutFormat === 'row_4x1' ? 'row' : 'none'} !important;
+            gap: 10px !important;
+            width: 100% !important;
+            padding: 0 1rem !important;
+            box-sizing: border-box !important;
+          }
+          .nutr-box {
+            flex: ${macrosLayoutFormat === 'row_4x1' ? '1 1 0' : 'none'} !important;
+            min-width: 0 !important;
+            padding: 12px 6px !important;
+            margin: 0 !important;
+          }
+          .nutr-val { font-size: 1.15rem !important; }
+
+          .ing-carousel-area { width: 100vw; position: relative; display: flex; align-items: center; justify-content: center; height: 300px; overflow: hidden; margin-left: -2rem; }
+          .ing-carousel-track { display: flex; align-items: center; justify-content: center; width: 100%; position: relative; }
+          
+          .ing-card { position: absolute !important; display: flex !important; flex-direction: column !important; align-items: center !important; text-align: center !important; transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1) !important; cursor: pointer !important; width: 210px !important; min-height: 250px !important; box-sizing: border-box !important; border-radius: 28px !important; background: var(--cream) !important; padding: 1.5rem 1rem !important; box-shadow: 0 12px 28px rgba(0,0,0,0.04) !important; }
+          .ing-card.center { transform: translateX(0) scale(1) !important; z-index: 4 !important; opacity: 1 !important; box-shadow: 0 20px 45px rgba(10,66,155,0.08) !important; border: 1.5px solid rgba(10,66,155,0.05) !important; }
+          .ing-card.left-peek { transform: translateX(-140px) scale(0.8) !important; z-index: 2 !important; opacity: 0.5 !important; filter: blur(0.5px) !important; }
+          .ing-card.right-peek { transform: translateX(140px) scale(0.8) !important; z-index: 2 !important; opacity: 0.5 !important; filter: blur(0.5px) !important; }
+          .ing-card.hidden { transform: scale(0.5); opacity: 0 !important; z-index: 1 !important; pointer-events: none !important; }
+          
+          .ing-img { width: 75px !important; height: 75px !important; font-size: 2rem !important; margin-bottom: 0.8rem !important; }
+          .ing-name { font-size: 0.9rem !important; }
+          .ing-desc { font-size: 0.7rem !important; }
+
+          .footer-cols { grid-template-columns: 1fr; gap: 2.5rem; }
+          
+          .plate-node.center { width: 200px !important; height: 200px !important; transform: translateX(0) scale(${mealImageSizePct}) !important; }
+          .plate-node.left-peek { width: 140px !important; height: 140px !important; transform: translateX(-120px) scale(${mealImageSizePct * 0.75}) !important; opacity: 0.35 !important; }
+          .plate-node.right-peek { width: 140px !important; height: 140px !important; transform: translateX(120px) scale(${mealImageSizePct * 0.75}) !important; opacity: 0.35 !important; }
         }
       `}</style>
 
-      {/* NAV */}
+      {/* NAVBAR */}
       <nav className="nav">
         <div className="nav-inner">
           <Link href="/" className="nav-logo">
-            {logo?.url ? <img src={logo.url} alt={logo.alt_text || 'Ninoz'} /> : 'Ninoz'}
+            {logo?.url ? <img src={logo.url} alt={logo.alt_text || 'Ninoz'} style={{ height: 42 }} /> : 'Ninoz'}
           </Link>
           <div className="nav-links">
-            {[['How It Works','how'],['Menu','menu'],['Plans','stages'],['FAQ','faq']].map(([l,id]) => (
+            {[['Menu', 'menu'], ['How It Works', 'how'], ['Plans', 'stages'], ['FAQ', 'faq']].map(([l, id]) => (
               <button key={id} className="nav-link" onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })}>{l}</button>
             ))}
           </div>
+          <button className="btn btn-primary" style={{ padding: '12px 24px', fontSize: '0.85rem', background: 'var(--orange)' }} onClick={() => setPopup(true)}>Start Your Plan</button>
           <button className="nav-ham" onClick={() => setMenuOpen(o => !o)}>☰</button>
-          <button className="btn btn-primary" style={{ fontSize: '0.85rem', padding: '10px 22px' }} onClick={() => setShowPopup(true)}>
-            {g(content, 'nav_cta_text', 'Start Your Plan')}
-          </button>
         </div>
         <div className={`nav-mobile ${menuOpen ? 'open' : ''}`}>
-          {[['How It Works','how'],['Menu','menu'],['Plans','stages'],['FAQ','faq']].map(([l,id]) => (
+          {[['Menu', 'menu'], ['How It Works', 'how'], ['Plans', 'stages'], ['FAQ', 'faq']].map(([l, id]) => (
             <button key={id} onClick={() => { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); setMenuOpen(false) }}>{l}</button>
           ))}
+          <button style={{ background: 'var(--orange)', color: 'white', fontWeight: 700 }} onClick={() => { setPopup(true); setMenuOpen(false); }}>Start Your Plan →</button>
         </div>
       </nav>
 
       {/* HERO */}
       <section className="hero" id="hero">
         <div className="hero-inner">
-          <div>
-            <div className="hero-badge" data-reveal>🌿 {g(content,'hero_badge','Fresh · Organic · Daily in Riyadh')}</div>
-            <h1 className="hero-h1" data-reveal style={{ transitionDelay: '100ms' }}>
-              {g(content,'hero_headline_1','You Care.')}<br />
-              <span>{g(content,'hero_headline_2','We Prepare.')}</span>
-            </h1>
-            <p className="hero-desc" data-reveal style={{ transitionDelay: '150ms' }}>
-              {g(content,'hero_description','Fresh daily meals for babies 3 months to 3 years — cooked today, delivered to your door.')}
-            </p>
-            <div className="hero-trust" data-reveal style={{ transitionDelay: '200ms' }}>
-              {['Fresh Ingredients','No Preservatives','Cooked Daily','Pediatrician Approved'].map(t => (
-                <div key={t} className="hero-ti">{t}</div>
-              ))}
-            </div>
-            <div className="hero-btns" data-reveal style={{ transitionDelay: '250ms' }}>
-              <button className="btn btn-primary" onClick={() => setShowPopup(true)}>{g(content,'hero_btn_primary','Start Your Plan')}</button>
-              <button className="btn btn-outline" onClick={() => document.getElementById('menu')?.scrollIntoView({ behavior: 'smooth' })}>{g(content,'hero_btn_secondary','Explore Meals')}</button>
-            </div>
-            <div className="hero-proof" data-reveal style={{ transitionDelay: '300ms' }}>
-              <div className="hero-avs">
-                {['#FFB347','#E8834A','#C84B0F','#7A7068','#2C1A0E'].map((c,i) => (
-                  <div key={i} className="hero-av" style={{ background: c }} />
-                ))}
+          <h1 className="hero-h1">
+            {g(content, 'hero_headline_1', 'You Care.')}<br />
+            <span>{g(content, 'hero_headline_2', 'We Prepare.')}</span>
+          </h1>
+          <p className="hero-desc">{g(content, 'hero_description', 'Fresh, Healthy daily meals for your little ones.')}</p>
+          
+          <div className="hero-trust">
+            {[{ t: 'Fresh Ingredients', e: '🍂' }, { t: 'No Preservatives', e: '🥑' }, { t: 'Cooked Daily', e: '🕒' }, { t: 'Pediatrician Approved', e: '🛡️' }].map(badge => (
+              <div key={badge.t} className="hero-ti">
+                <div className="hero-ic">{badge.e}</div>
+                <span>{badge.t}</span>
               </div>
-              <span style={{ fontSize: '0.82rem', color: MU, fontWeight: 600 }}>{g(content,'hero_social_proof','Trusted by 200+ Riyadh mothers')}</span>
-            </div>
+            ))}
           </div>
-          <div className="hero-img" data-reveal style={{ transitionDelay: '100ms' }}>
-            <div className="hero-photo">
-              {heroImg ? <img src={heroImg} alt="Ninoz" /> : <div className="hero-ph">👶</div>}
-            </div>
-            <div className="hero-pill hero-pill-1">
-              <div className="pill-label">Daily Fresh</div>
-              <div className="pill-val">Cooked Every Morning</div>
-            </div>
-            <div className="hero-pill hero-pill-2">
-              <div className="pill-label">Nutritionist</div>
-              <div className="pill-val">Approved ✓</div>
-            </div>
+          
+          <div className="hero-btns" style={{ display: 'flex', gap: '1.2rem', flexWrap: 'wrap', justifyContent: 'center', width: '100%' }}>
+            <button className="btn btn-primary" onClick={() => setPopup(true)} style={{ background: 'var(--orange)' }}>Start Your Plan</button>
+            <button className="btn btn-outline" style={{ color: 'white', borderColor: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.05)' }} onClick={() => document.getElementById('menu')?.scrollIntoView({ behavior: 'smooth' })}>Explore Meals</button>
           </div>
         </div>
       </section>
 
-      {/* TICKER */}
       <div className="ticker">
         <div className="ticker-track">
-          {(animated ? [0,1] : [0]).map(r =>
-            tItems.map((t,i) => (
-              <span key={`${r}-${i}`} className="ticker-item">
-                <span className="ticker-hi">{t.highlight}</span>{t.text} ·{' '}
-              </span>
-            ))
-          )}
+          {[0, 1, 2].map(r => tItems.map((t, i) => (
+            <span key={`${r}-${i}`} className="ticker-item"><span className="ticker-hi">{t.highlight}</span>{t.text} • </span>
+          )))}
         </div>
       </div>
 
-      {/* STAGES */}
-      <section className="stages" id="stages">
-        <div>
-          <div className="stages-head" data-reveal>
-            <div>
-              <div className="sec-lbl">Our Plans</div>
-              <h2 className="sec-title">
-                {g(content,'stages_title','Fresh Meals Built for').replace(g(content,'stages_title_highlight','Their Stage'),'').trim()}{' '}
-                <span>{g(content,'stages_title_highlight','Their Stage')}</span>
-              </h2>
-            </div>
-            <button className="btn btn-primary" onClick={() => setShowPopup(true)}>{g(content,'stages_cta','Start Your Plan')}</button>
-          </div>
-          <div className="stages-wrap" data-reveal
-            onTouchStart={e => { stTx.current = e.touches[0].clientX }}
-            onTouchEnd={e => {
-              if (!stTx.current) return
-              const dx = stTx.current - e.changedTouches[0].clientX
-              if (Math.abs(dx) > 40) dx > 0 ? setStageI(i => (i+1)%stages.length) : setStageI(i => (i-1+stages.length)%stages.length)
-              stTx.current = null
-            }}>
-            <div className="stages-track" style={{ transform: `translateX(calc(-${stageI * (clamp(280, 33, 360) + 24)}px))` }}>
-              {stages.map((s, idx) => (
-                <div key={s.id} className={`stage-card ${idx===stageI?'active':''}`}
-                  style={{ background: s.card_bg||CR2, cursor: idx!==stageI?'pointer':'default' }}
-                  onClick={() => idx!==stageI && setStageI(idx)}>
-                  <div className="stage-img" style={{ background: s.card_bg||CR2 }}>
-                    {s.image_url ? <img src={s.image_url} alt={s.name} /> : <span style={{ fontSize: '5rem' }}>{s.emoji}</span>}
-                    {s.tag && <div style={{ position:'absolute', top:12, right:12, background:s.tag_color||O, color:'white', fontSize:'0.7rem', fontWeight:700, padding:'4px 12px', borderRadius:50 }}>{s.tag}</div>}
+      {/* STAGES WITH DYNAMIC CALCULATED PASTEL GRADES */}
+      <section className="stages-section" id="stages">
+        <div className="stages-header-box">
+          <h2 className="stages-h2">Built for <span>Their Stage</span></h2>
+        </div>
+        
+        <div className="stage-carousel-area"
+          onTouchStart={e => { stageTouchX.current = e.touches[0].clientX }}
+          onTouchEnd={e => {
+            if (!stageTouchX.current) return
+            const diff = stageTouchX.current - e.changedTouches[0].clientX
+            if (diff > 40) nextS()
+            if (diff < -40) prevS()
+            stageTouchX.current = null
+          }}>
+          
+          {totS === 0 ? (
+            <div style={{ color: 'var(--text-muted)' }}>No stages loaded yet.</div>
+          ) : (
+            <div className="stage-carousel-track">
+              {stages.map((s, idx) => {
+                let positionalClass = 'hidden'
+                if (idx === stageI) positionalClass = 'center'
+                else if (idx === (stageI - 1 + totS) % totS) positionalClass = 'left-peek'
+                else if (idx === (stageI + 1) % totS) positionalClass = 'right-peek'
+                
+                // FIXED: Automatically maps elegant, looping color variations using your selection grades
+                const dynamicGradeBg = idx % 4 === 0 ? 'var(--theme-grade-1)' : idx % 4 === 1 ? 'var(--theme-grade-2)' : idx % 4 === 2 ? 'var(--theme-grade-3)' : 'var(--theme-grade-4)'
+
+                return (
+                  <div key={s.id} className={`stage-node ${positionalClass}`} style={{ background: dynamicGradeBg }} onClick={() => {
+                    if (positionalClass === 'left-peek') prevS()
+                    if (positionalClass === 'right-peek') nextS()
+                  }}>
+                    {s.image_url ? (
+                      <img src={s.image_url} alt={s.name} className="stage-node-img" />
+                    ) : (
+                      <span style={{ fontSize: '3rem', marginBottom: '1.2rem', display: 'block' }}>{s.emoji || '🍼'}</span>
+                    )}
+                    <div className="stage-node-title">{s.name}</div>
+                    <div className="stage-node-desc">{s.description}</div>
+                    <div className="stage-node-age">{s.age_range}</div>
                   </div>
-                  <div className="stage-body">
-                    <div className="stage-name">{s.name}</div>
-                    <div className="stage-age">{s.age_range}</div>
-                    <div className="stage-desc">{s.description}</div>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
-          </div>
-          <div className="stages-nav">
-            <button className="nav-btn" onClick={() => setStageI(i => (i-1+stages.length)%stages.length)}>←</button>
-            <div className="dots">{stages.map((_,i) => <button key={i} className={`dot ${i===stageI?'a':''}`} onClick={() => setStageI(i)} />)}</div>
-            <button className="nav-btn" onClick={() => setStageI(i => (i+1)%stages.length)}>→</button>
-          </div>
+          )}
+        </div>
+
+        <div className="stages-arrows">
+          <button className="stage-arrow-btn" onClick={prevS}>←</button>
+          <button className="stage-arrow-btn" onClick={nextS}>→</button>
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
+      {/* HOW IT WORKS WITH AUTOMATED ICON BG TINTS */}
       <section className="how" id="how">
-        <div className="how-inner">
-          <div className="how-head" data-reveal>
-            <div className="sec-lbl" style={{ color: MU }}>Process</div>
-            <h2 className="how-title">{g(content,'how_title','How Ninoz Works')}</h2>
-            <p className="how-sub">{g(content,'how_subtitle','Three steps to peace of mind — and a well-fed baby.')}</p>
-          </div>
-          <div className="how-steps" data-reveal>
-            {howSteps.map((step, i) => (
-              <>
-                <div key={step.id} className="how-step">
-                  <div className="how-icon" style={{ background: step.icon_bg||(i===0?CR2:i===1?'#FDE8CC':O) }}>
-                    {step.icon_url ? <img src={step.icon_url} alt="" /> : <span>{i===0?'📋':i===1?'👨‍🍳':'🚚'}</span>}
-                  </div>
-                  <p className="how-desc">{step.description}</p>
+        <h2 className="how-h2">How Ninoz Works</h2>
+        <p className="how-p">Three steps to peace of mind — and a well-fed baby.</p>
+        
+        <div className="how-carousel-area"
+          onTouchStart={e => { processTouchX.current = e.touches[0].clientX }}
+          onTouchEnd={e => {
+            if (!processTouchX.current) return
+            const diff = processTouchX.current - e.changedTouches[0].clientX
+            if (diff > 40) nextH()
+            if (diff < -40) prevH()
+            processTouchX.current = null
+          }}>
+          
+          {howSteps.map((step, i) => {
+            let positionalClass = 'hidden'
+            if (i === howI) positionalClass = 'center'
+            else if (i === (howI - 1 + totH) % totH) positionalClass = 'left-peek'
+            else if (i === (howI + 1) % totH) positionalClass = 'right-peek'
+
+            // FIXED: Dynamically tints step cards based on the main choice configuration layout
+            const dynamicIconBg = i === 0 ? 'var(--theme-grade-1)' : i === 1 ? 'var(--theme-grade-2)' : 'var(--theme-grade-3)'
+
+            return (
+              <div key={step.id} className={`how-card-node ${positionalClass}`} onClick={() => {
+                if (positionalClass === 'left-peek') prevH()
+                if (positionalClass === 'right-peek') nextH()
+              }}>
+                <span className="how-step-num">Step 0{i + 1}</span>
+                <div className="how-icon-box" style={{ background: dynamicIconBg }}>
+                  {step.icon_url ? <img src={step.icon_url} alt="" style={{ width: '50%' }} /> : <span style={{ color: 'var(--deep-blue)' }}>{i === 0 ? '📋' : i === 1 ? '👨‍🍳' : '🚚'}</span>}
                 </div>
-                {i < howSteps.length-1 && <div key={`c${i}`} className="how-line"><div className="how-line-inner"/></div>}
-              </>
+                <p className="how-node-desc">{step.description}</p>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="how-arrows">
+          <button className="stage-arrow-btn" onClick={prevH}>←</button>
+          <button className="stage-arrow-btn" onClick={nextH}>→</button>
+        </div>
+
+        <button className="btn btn-primary" style={{ marginTop: '2.5rem', background: 'var(--orange)' }} onClick={() => setPopup(true)}>Get Started</button>
+      </section>
+
+      {/* DIAL MENU */}
+      <section id="menu" className="menu-wrap">
+        <div className="menu-left">
+          <h2><span>Real Food.</span><span>Real Ingredients.</span><span style={{ color: 'var(--deep-blue)' }}>Every Single Day.</span></h2>
+          <div className="menu-tabs">
+            {(['breakfast', 'lunch', 'dinner'] as const).map(t => (
+              <button key={t} className={`menu-tab ${tab === t ? 'a' : ''}`} onClick={() => setTab(t)}>
+                {g(content, `menu_tab_${t}`, t.charAt(0).toUpperCase() + t.slice(1))}
+                <span>→</span>
+              </button>
             ))}
           </div>
-          <div className="how-cta" data-reveal>
-            <button className="btn btn-primary" style={{ padding: '14px 48px', fontSize: '1rem' }} onClick={() => setShowPopup(true)}>
-              {g(content,'how_cta','Get Started')}
-            </button>
-          </div>
         </div>
-      </section>
-
-      {/* MENU */}
-      <section id="menu">
-        <div className="menu-wrap">
-          <div className="menu-left">
-            <div className="menu-top">
-              <Link href="/" className="menu-logo">Ninoz</Link>
-              <button className="btn btn-white" style={{ fontSize: '0.8rem', padding: '9px 18px' }} onClick={() => setShowPopup(true)}>
-                {g(content,'menu_cta','Start your plan')}
-              </button>
-            </div>
-            <div className="menu-h">
-              <h2>
-                {[g(content,'menu_headline_1','Real Food'),g(content,'menu_headline_2','Real Ingredients'),g(content,'menu_headline_3','Every Single Day')].map((l,i) => (
-                  <span key={i} style={{ display:'block' }}>{l}</span>
-                ))}
-              </h2>
-            </div>
-            <div className="menu-tabs">
-              {(['breakfast','lunch','dinner'] as const).map(t => (
-                <button key={t} className={`menu-tab ${tab===t?'a':''}`} onClick={() => setTab(t)}>
-                  {g(content,`menu_tab_${t}`,t.charAt(0).toUpperCase()+t.slice(1))}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="menu-right"
-            onTouchStart={e => { mlTx.current = e.touches[0].clientX; mlTy.current = e.touches[0].clientY }}
-            onTouchEnd={e => {
-              if (!mlTx.current) return
-              const dx = mlTx.current - e.changedTouches[0].clientX
-              const dy = Math.abs((mlTy.current||0) - e.changedTouches[0].clientY)
-              if (Math.abs(dx) > 40 && Math.abs(dx) > dy) dx > 0 ? nextM() : prevM()
-              mlTx.current = null
-            }}>
-            <div className="menu-bg-circle"/>
-
-            {tot === 0 ? (
-              <div style={{ textAlign:'center', color:MU, position:'relative', zIndex:1, padding:'2rem' }}>
-                <div style={{ fontSize:'3.5rem', marginBottom:'0.8rem' }}>🍽️</div>
-                <p style={{ fontWeight:600 }}>No meals yet.</p>
-                <p style={{ fontSize:'0.85rem', marginTop:'0.4rem' }}>Add meals from the admin portal.</p>
-              </div>
-            ) : (
-              <>
-                <div className="meal-counter">{mealI+1} / {tot} meals</div>
-
-                <div className="meal-carousel">
-                  {prev && tot > 1 && (
-                    <div className="meal-slot meal-slot-prev" onClick={prevM}>
-                      <div className="meal-photo" style={{ width:180, height:180, fontSize:'3rem' }}>
-                        {prev.image_url ? <img src={prev.image_url} alt="" /> : <span>🍽️</span>}
+        
+        <div className="menu-right"
+          onTouchStart={e => { mealTouchX.current = e.touches[0].clientX }}
+          onTouchEnd={e => {
+            if (!mealTouchX.current) return
+            const diff = mealTouchX.current - e.changedTouches[0].clientX
+            if (diff > 40) nextM()
+            if (diff < -40) prevM()
+            mealTouchX.current = null
+          }}>
+          {totM === 0 ? (
+            <div style={{ color: 'var(--text-muted)' }}>No meals loaded.</div>
+          ) : (
+            <>
+              <div className="meal-counter">{mealI + 1} / {totM} choices</div>
+              
+              <div className="carousel-view-area">
+                <div className="carousel-track">
+                  {mls.map((m, idx) => {
+                    let positionalClass = 'hidden'
+                    if (idx === mealI) positionalClass = 'center'
+                    else if (idx === (mealI - 1 + totM) % totM) positionalClass = 'left-peek'
+                    else if (idx === (mealI + 1) % totM) positionalClass = 'right-peek'
+                    
+                    return (
+                      <div key={m.id} className={`plate-node ${positionalClass}`} onClick={() => {
+                        if (positionalClass === 'left-peek') prevM()
+                        if (positionalClass === 'right-peek') nextM()
+                      }}>
+                        {m.image_url ? <img src={m.image_url} alt={m.name} /> : <span style={{ fontSize: '4rem' }}>🍽️</span>}
                       </div>
-                    </div>
-                  )}
-                  {curr && (
-                    <div className="meal-slot meal-slot-curr">
-                      <div className="meal-photo" style={{ width:250, height:250, fontSize:'4.5rem' }}>
-                        {curr.image_url ? <img src={curr.image_url} alt={curr.name} /> : <span>🍽️</span>}
-                      </div>
-                    </div>
-                  )}
-                  {next && tot > 1 && (
-                    <div className="meal-slot meal-slot-next" onClick={nextM}>
-                      <div className="meal-photo" style={{ width:180, height:180, fontSize:'3rem' }}>
-                        {next.image_url ? <img src={next.image_url} alt="" /> : <span>🍽️</span>}
-                      </div>
-                    </div>
-                  )}
+                    )
+                  })}
                 </div>
+              </div>
 
-                {curr && (
-                  <div className="meal-info">
-                    <div className="meal-name">{curr.name}</div>
-                    <div className="meal-desc">{curr.description}</div>
-                    {(curr.weight_g||curr.protein_g) && (
-                      <div className="nutr">
-                        {[{v:curr.weight_g,l:'Weight'},{v:curr.protein_g,l:'Protein'},{v:curr.carbs_g,l:'Carbs'},{v:curr.fiber_g,l:'Fiber'}].filter(n=>n.v).map(n=>(
-                          <div key={n.l} className="nutr-box"><span className="nutr-val">{n.v}</span><span className="nutr-lbl">{n.l}</span></div>
-                        ))}
-                      </div>
-                    )}
-                    {curr.allergens && <div className="allergen">⚠️ {curr.allergens}</div>}
-                    <div className="meal-dots">
-                      {mls.slice(0,8).map((_,i) => <button key={i} className={`meal-dot ${i===mealI?'a':''}`} onClick={() => setMealI(i)} />)}
+              {currM && (
+                <div className="meal-info">
+                  <div className="meal-name">{currM.name}</div>
+                  <div className="meal-desc">{currM.description}</div>
+                  {(currM.weight_g || currM.protein_g) && (
+                    <div className="nutr">
+                      {[{ v: currM.weight_g, l: 'Weight' }, { v: currM.protein_g, l: 'Protein' }, { v: currM.carbs_g, l: 'Carbs' }, { v: currM.fiber_g, l: 'Fiber' }].filter(n => n.v).map(n => (
+                        <div key={n.l} className="nutr-box">
+                          <span className="nutr-val">{n.v}</span>
+                          <span className="nutr-lbl">{n.l}</span>
+                        </div>
+                      ))}
                     </div>
+                  )}
+                  {currM.allergens && <div className="allergen">🌾 Allergen info: {currM.allergens}</div>}
+                  <div className="meal-arrows" style={{ justifyContent: 'center' }}>
+                    <button className="meal-arrow-btn" onClick={prevM}>←</button>
+                    <button className="meal-arrow-btn" onClick={nextM}>→</button>
                   </div>
-                )}
-              </>
-            )}
-          </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </section>
 
-      {/* WHY */}
+      {/* INGREDIENTS */}
       <section className="why" id="ingredients">
-        <div className="why-grid">
-          <div data-reveal>
-            <h2 className="why-title">Only <span>Real</span><br/>Ingredients</h2>
-            <div className="why-pts">
-              {whyPoints.map(pt => (
-                <div key={pt.id}>
-                  <div className="why-pt-t" style={{ color:pt.title_color||O }}>{pt.title}</div>
-                  <div className="why-pt-d">{pt.description}</div>
-                </div>
-              ))}
-            </div>
-            {ingredients.length > 0 && (
-              <div className="ing-grid">
-                {ingredients.slice(0,4).map(ing => (
-                  <div key={ing.id} className="ing-card">
-                    <div className="ing-img">{ing.image_url ? <img src={ing.image_url} alt={ing.name} /> : <span>🥕</span>}</div>
-                    <div className="ing-name">{ing.name}</div>
-                    <div className="ing-desc">{ing.description}</div>
-                  </div>
-                ))}
+        <div>
+          <h2 className="why-title">Only Real<br/>Ingredients</h2>
+          <div className="why-pts">
+            {whyPoints.map(pt => (
+              <div key={pt.id}>
+                <div className="why-pt-t" style={{ color: pt.title_color || 'var(--orange)' }}>{pt.title}</div>
+                <div className="why-pt-d">{pt.description}</div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="ing-carousel-area"
+            onTouchStart={e => { ingTouchX.current = e.touches[0].clientX }}
+            onTouchEnd={e => {
+              if (!ingTouchX.current) return
+              const diff = ingTouchX.current - e.changedTouches[0].clientX
+              if (diff > 40) nextI()
+              if (diff < -40) prevI()
+              ingTouchX.current = null
+            }}>
+            
+            {totI === 0 ? (
+              <div style={{ color: 'var(--text-muted)' }}>No ingredients loaded.</div>
+            ) : (
+              <div className="ing-carousel-track ing-grid">
+                {ingredients.map((ing, idx) => {
+                  let positionalClass = 'hidden'
+                  if (idx === ingI) positionalClass = 'center'
+                  else if (idx === (ingI - 1 + totI) % totI) positionalClass = 'left-peek'
+                  else if (idx === (ingI + 1) % totI) positionalClass = 'right-peek'
+                  
+                  return (
+                    <div key={ing.id} className={`ing-card ${positionalClass}`} onClick={() => {
+                      if (positionalClass === 'left-peek') prevI()
+                      if (positionalClass === 'right-peek') nextI()
+                    }}>
+                      <div className="ing-img">
+                        {ing.image_url ? <img src={ing.image_url} alt={ing.name} /> : <span>🥕</span>}
+                      </div>
+                      <div className="ing-name">{ing.name}</div>
+                      <div className="ing-desc">{ing.description}</div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
-          <div data-reveal>
-            <div className="why-photo">
-              {whyImg ? <img src={whyImg} alt="Why Ninoz" /> : <span>👶</span>}
-            </div>
-          </div>
+        </div>
+        <div className="why-photo">
+          {whyImg ? <img src={whyImg} alt="Real Ingredients Matrix" /> : <div style={{ fontSize: '8rem', textAlign: 'center' }}>🥑</div>}
         </div>
       </section>
 
       {/* FAQ */}
       {faqs.length > 0 && (
-        <section className="faq" id="faq">
-          <div className="faq-inner">
-            <div className="faq-head" data-reveal>
-              <div className="sec-lbl">FAQ</div>
-              <h2 className="sec-title">{g(content,'faq_title','Common Questions')}</h2>
-              <p style={{ fontSize:'1rem', color:MU, marginTop:'0.6rem', fontWeight:500 }}>{g(content,'faq_subtitle','Everything you need to know about Ninoz.')}</p>
-            </div>
-            <div data-reveal>
-              {faqs.map(item => (
-                <div key={item.id} className="faq-item">
-                  <button className="faq-q" onClick={() => setFaq(faq===item.id?null:item.id)}>
-                    <span>{item.question}</span>
-                    <div className={`faq-icon ${faq===item.id?'open':''}`}>+</div>
-                  </button>
-                  <div className={`faq-a ${faq===item.id?'open':''}`}><p>{item.answer}</p></div>
-                </div>
-              ))}
-            </div>
+        <section id="faq" style={{ background: 'white', padding: '6rem 2rem', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+          <div style={{ maxWidth: 800, margin: '0 auto' }}>
+            <h2 style={{ fontSize: '2.5rem', fontWeight: 900, textAlign: 'center', marginBottom: '3rem', color: 'var(--deep-blue)' }}>Common Questions</h2>
+            {faqs.map(item => (
+              <div key={item.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                <button onClick={() => setFaq(faq === item.id ? null : item.id)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', padding: '1.5rem 0', background: 'none', border: 'none', fontSize: '1.1rem', fontWeight: 700, color: 'var(--deep-blue)', textAlign: 'left', cursor: 'pointer' }}>
+                  <span>{item.question}</span>
+                  <span style={{ color: 'var(--orange)' }}>{faq === item.id ? '−' : '+'}</span>
+                </button>
+                {faq === item.id && <div style={{ paddingBottom: '1.5rem', fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>{item.answer}</div>}
+              </div>
+            ))}
           </div>
         </section>
       )}
@@ -632,57 +643,47 @@ export default function HomeClient(p: Props) {
       {/* FOOTER */}
       <footer>
         <div className="footer-hero">
-          <div className="footer-toys">
-            {[{t:'10%',l:'4%',e:'🪆'},{t:'60%',l:'2%',e:'🚲'},{t:'15%',l:'18%',e:'🧸'},{t:'10%',r:'18%',e:'🏀'},{t:'65%',r:'15%',e:'🪀'},{t:'12%',r:'4%',e:'🚂'}].map((x,i)=>(
-              <span key={i} className="toy" style={{ top:x.t, left:(x as any).l, right:(x as any).r }}>{x.e}</span>
-            ))}
-          </div>
-          <div className="footer-word">Ninoz</div>
+          <div className="footer-logo-big">Ninoz</div>
         </div>
         <div className="footer-cols">
           <div>
-            <span className="footer-col-t">{g(content,'footer_about_title','About Ninoz')}</span>
-            <div className="footer-text"><strong style={{ color:BR, display:'block', marginBottom:4, fontWeight:700 }}>Hi. We're Ninoz.</strong>{g(content,'footer_about_text','We cook fresh daily meals for babies and toddlers in Riyadh.')}</div>
+            <span className="footer-col-t">About Ninoz</span>
+            <p className="footer-text" style={{ marginBottom: '1rem' }}><strong>Hi. We\'re Ninoz.</strong> We cook fresh daily meals for babies and toddlers in Riyadh.</p>
             <ul className="footer-bul">
-              {["Cooked the morning of delivery","Designed for your baby's stage","Approved by a pediatric nutritionist","Free from salt, sugar and preservatives"].map(b=>(
-                <li key={b}>{b}</li>
-              ))}
+              {["Cooked fresh every morning", "Approved by a pediatrician nutritionist", "Free from salt, sugar and preservatives"].map(b => <li key={b}>{b}</li>)}
             </ul>
-            <div className="footer-text" style={{ fontStyle:'italic' }}>{g(content,'footer_about_closing',"You handle the love. We handle the food.")}</div>
           </div>
           <div>
-            <span className="footer-col-t">{g(content,'footer_links_title','Useful Links')}</span>
-            <div className="footer-links-l">{footerLinks.map(l=><a key={l.id} href={l.url} className="footer-lnk">{l.label}</a>)}</div>
+            <span className="footer-col-t">Useful Links</span>
+            <div className="footer-links-l">
+              {footerLinks.map(l => <a key={l.id} href={l.url} className="footer-lnk">{l.label}</a>)}
+            </div>
           </div>
           <div>
-            <span className="footer-col-t">{g(content,'footer_contact_title','Get in Touch')}</span>
-            <div className="footer-ci"><div className="footer-cic">☺️</div><div className="footer-cit">{g(content,'footer_contact_tagline',"We'd love to hear from you")}</div></div>
-            {g(content,'footer_contact_whatsapp') && <div className="footer-ci"><div className="footer-cic">📱</div><div className="footer-cit"><a href={`https://wa.me/${g(content,'footer_contact_whatsapp')}`}>WhatsApp Us</a></div></div>}
-            <div className="footer-ci"><div className="footer-cic">📧</div><div className="footer-cit"><a href={`mailto:${g(content,'footer_contact_email','hello@ninoz.sa')}`}>{g(content,'footer_contact_email','hello@ninoz.sa')}</a></div></div>
+            <span className="footer-col-t">Get in Touch</span>
+            <p className="footer-text">📧 <a href={`mailto:${g(content, 'footer_contact_email', 'hello@ninoz.sa')}`} style={{ color: 'var(--orange)', fontWeight: 700 }}>{g(content, 'footer_contact_email', 'hello@ninoz.sa')}</a></p>
           </div>
           <div>
-            <span className="footer-col-t">{g(content,'footer_subscribe_title','Subscribe Now')}</span>
-            <p className="footer-text" style={{ marginBottom:'0.8rem' }}>Enter your email to start your plan.</p>
+            <span className="footer-col-t">Subscribe Now</span>
             {subDone ? (
-              <div style={{ background:'rgba(200,75,15,0.1)', color:O, padding:'12px 16px', borderRadius:10, fontSize:'0.85rem', fontWeight:700 }}>✓ You're on the list!</div>
+              <div style={{ color: 'var(--orange)', fontWeight: 700 }}>✓ Added to the early access list!</div>
             ) : (
               <>
-                <input className="sub-inp" type="email" placeholder="your@email.com" value={subEmail} onChange={e=>setSubEmail(e.target.value)} />
-                <button className="btn btn-primary" style={{ width:'100%', borderRadius:10 }} onClick={() => { if(subEmail.includes('@')){ setSubDone(true); setShowPopup(true) } }}>Start Your Plan →</button>
+                <input style={{ width: '100%', padding: 14, border: '1.5px solid rgba(44,26,14,0.1)', borderRadius: 12, marginBottom: 12 }} type="email" placeholder="Enter email address" value={subEmail} onChange={e => setSubEmail(e.target.value)} />
+                <button className="btn btn-primary" style={{ width: '100%', background: 'var(--orange)' }} onClick={() => { if (subEmail.includes('@')) { setSubDone(true); setPopup(true); } }}>Start Your Plan</button>
               </>
             )}
           </div>
         </div>
         <div className="footer-bot">
-          <span className="footer-copy">{g(content,'footer_copyright','© 2025 Ninoz. All rights reserved.')}</span>
-          <div className="footer-bot-links">{['Terms','Privacy','Allergens'].map(l=><a key={l} href="#">{l}</a>)}</div>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>© 2026 Ninoz. All rights reserved.</span>
         </div>
       </footer>
+      
+      {/* <Wizard onClose={() => setPopup(false)} /> */}
 
-      {popup && <SubscriptionPopup stages={stages} paymentCycles={paymentCycles} content={content} onClose={() => setShowPopup(false)} />}
+      {/* Renders the registration wizard pop-up when state is true */}
+     
     </>
   )
-
-  function setShowPopup(v: boolean) { setPopup(v) }
-  function clamp(min: number, vw: number, max: number) { return Math.min(Math.max(min, window.innerWidth * vw / 100), max) }
 }

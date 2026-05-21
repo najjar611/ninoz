@@ -1,0 +1,73 @@
+:root {
+  --orange: #C84B0F;
+  --orange-light: #E8834A;
+  --brown: #2C1A0E;
+  --text-muted: #8A7A6E;
+  --cream: #FAF5EE;
+  --cream-dark: #EADCC9;
+  --deep-blue: #539b0a; /* Premium ocean blue from your blueprint */
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 18px;
+  background: var(--cream);
+  color: var(--brown);
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+/* Base Utility Classes */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 36px;
+  border-radius: 100px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--orange);
+  color: white;
+  box-shadow: 0 8px 24px rgba(200,75,15,0.15);
+}
+
+.btn-primary:hover {
+  background: var(--orange-light);
+  transform: translateY(-2px);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--brown);
+  border: 1.5px solid rgba(44,26,14,0.15);
+}
+
+.btn-outline:hover {
+  border-color: var(--orange);
+  color: var(--orange);
+}
+
+/* Hide scrollbars for sliders while retaining touch functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

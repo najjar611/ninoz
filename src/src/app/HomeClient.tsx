@@ -20,15 +20,15 @@ type Props = {
   stages: Stage[]; meals: Meal[]; content: Record<string, string>
   howSteps: HowStep[]; whyPoints: WhyPoint[]; ingredients: Ingredient[]
   footerLinks: FooterLink[]; logo: Logo | null; paymentCycles: PaymentCycle[]
-  faqs: Faq[]; tickerItems: TickerItem[]; subscriberCount: number
+  faqs: Faq[]; tickerItems: TickerItem[]
 }
 
 const g = (c: Record<string, string>, k: string, f = '') => c[k] || f
 
 export default function HomeClient(p: Props) {
-  const { stages, meals, content, howSteps, whyPoints, ingredients, footerLinks, logo, paymentCycles, faqs, tickerItems, subscriberCount } = p
+  const { stages, meals, content, howSteps, whyPoints, ingredients, footerLinks, logo, paymentCycles, faqs, tickerItems } = p
 
-  const [popup, setPopup] = useState(false)
+  const [popup, setPopup] = useState(true)
   const [tab, setTab] = useState('breakfast')
   const [mealI, setMealI] = useState(0)
   const [stageI, setStageI] = useState(0)
@@ -365,22 +365,7 @@ export default function HomeClient(p: Props) {
             <span>{g(content, 'hero_headline_2', 'We Prepare.')}</span>
           </h1>
           <p className="hero-desc">{g(content, 'hero_description', 'Fresh, Healthy daily meals for your little ones.')}</p>
-
-          {subscriberCount > 0 && (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 100, padding: '8px 18px', backdropFilter: 'blur(8px)' }}>
-              <div style={{ display: 'flex' }}>
-                {['#FBB', '#FAD', '#FCA'].map((c, i) => (
-                  <div key={i} style={{ width: 28, height: 28, borderRadius: '50%', background: c, border: '2px solid rgba(255,255,255,0.6)', marginLeft: i > 0 ? -8 : 0, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {['👶','👧','👦'][i]}
-                  </div>
-                ))}
-              </div>
-              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'rgba(255,255,255,0.92)' }}>
-                <strong style={{ color: 'white' }}>{subscriberCount}+</strong> families already subscribed
-              </span>
-            </div>
-          )}
-
+          
           <div className="hero-trust">
             {[{ t: 'Fresh Ingredients', e: '🍂' }, { t: 'No Preservatives', e: '🥑' }, { t: 'Cooked Daily', e: '🕒' }, { t: 'Pediatrician Approved', e: '🛡️' }].map(badge => (
               <div key={badge.t} className="hero-ti">
@@ -695,7 +680,10 @@ export default function HomeClient(p: Props) {
         </div>
       </footer>
       
-      {popup && <Wizard onClose={() => setPopup(false)} />}
+      {/* <Wizard onClose={() => setPopup(false)} /> */}
+
+      {/* Renders the registration wizard pop-up when state is true */}
+     
     </>
   )
 }

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Allergen = { id: string; name: string }
 type Stage    = { id: string; name: string; age_range: string; image_url: string | null; emoji: string; description: string }
-type Cycle    = { id: string; label: string; days: number; meals_total: number; price_sar: number }
+type Cycle    = { id: string; label: string; days?: number; meals_total?: number; price_sar?: number }
 
 type Form = {
   fullName: string; phone: string; email: string; otp: string[]
@@ -117,8 +117,8 @@ export default function Wizard({ onClose }: { onClose: () => void }) {
     ;(async () => {
       const [a, s, c] = await Promise.all([
         supabase.from('allergens').select('id, name').eq('is_active', true).order('name'),
-        supabase.from('stages').select('id, name, age_range, image_url, emoji, description').order('position'),
-        supabase.from('payment_cycles').select('id, label, days, meals_total, price_sar').order('position'),
+        supabase.from('stages').select('id, name, age_range, image_url, emoji, description').order('id', { ascending: true }),
+        supabase.from('payment_cycles').select('*').order('id', { ascending: true }),
       ])
       if (a.data) setAllergens(a.data)
       if (s.data) setStages(s.data)
@@ -394,11 +394,11 @@ export default function Wizard({ onClose }: { onClose: () => void }) {
                   </div>
                   <div>
                     <div style={{ fontWeight: 900, fontSize: '0.97rem', color: sel ? C.orange : C.blue }}>{c.label}</div>
-                    <div style={{ fontSize: '0.75rem', color: C.muted, marginTop: 2 }}>{c.days} days · {c.meals_total} meals</div>
+                    <div style={{ fontSize: '0.75rem', color: C.muted, marginTop: 2 }}>{c.days ?? '—'} days · {c.meals_total ?? '—'} meals</div>
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 900, fontSize: '1.1rem', color: C.blue }}>SAR {c.price_sar}</div>
+                  <div style={{ fontWeight: 900, fontSize: '1.1rem', color: C.blue }}>SAR {c.price_sar ?? '—'}</div>
                   <div style={{ fontSize: '0.68rem', color: C.muted, marginTop: 1 }}>per cycle</div>
                 </div>
               </div>
@@ -438,7 +438,7 @@ export default function Wizard({ onClose }: { onClose: () => void }) {
             {form.allergenNotes && <Row icon="📝" label="Notes"     value={form.allergenNotes} />}
             <Row icon="📍" label="Delivery" value={[form.deliveryType ? form.deliveryType.charAt(0).toUpperCase() + form.deliveryType.slice(1) : '', form.deliveryAddress].filter(Boolean).join(' · ') || '—'} />
             <Row icon="🍽️" label="Stage"   value={stage ? `${stage.name} (${stage.age_range})` : '—'} />
-            <Row icon="📅" label="Plan"     value={cycle ? `${cycle.label} · SAR ${cycle.price_sar}` : '—'} />
+            <Row icon="📅" label="Plan"     value={cycle ? `${cycle.label}${cycle.price_sar != null ? ` · SAR ${cycle.price_sar}` : ''}` : '—'} />
           </div>
         </div>
       )

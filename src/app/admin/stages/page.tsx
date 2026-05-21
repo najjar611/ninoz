@@ -23,7 +23,7 @@ export default function StagesAdmin() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    const { data } = await supabase.from('stages').select('*').order('position')
+    const { data } = await supabase.from('stages').select('*').order('created_at', { ascending: true })
     setStages(data || [])
     setLoading(false)
   }

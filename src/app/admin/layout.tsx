@@ -15,6 +15,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: '🍽️ Manage Meals', href: '/admin/meals' },
     { label: '🍼 Manage Stages', href: '/admin/stages' },
     { label: '👥 Subscribers', href: '/admin/subscribers' },
+    { label: '✍️ Blog Posts', href: '/admin/blog' },
+    { label: '💳 Payment Plans', href: '/admin/payment-cycles' },
   ]
 
   return (

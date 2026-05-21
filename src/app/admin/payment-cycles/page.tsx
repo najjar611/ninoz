@@ -16,7 +16,7 @@ export default function PaymentCyclesAdmin() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    const { data } = await supabase.from('payment_cycles').select('*').order('position')
+    const { data } = await supabase.from('payment_cycles').select('*').order('created_at', { ascending: true })
     setCycles(data || [])
     setLoading(false)
   }

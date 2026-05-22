@@ -4,7 +4,7 @@ import Link from 'next/link'
 export const revalidate = 60
 
 export default async function BlogPage() {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: posts } = await supabase
     .from('blog_posts')
     .select('id, title, slug, excerpt, published_at')

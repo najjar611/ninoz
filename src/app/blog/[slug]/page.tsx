@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 export const revalidate = 60
 
 export default async function BlogPost({ params }: { params: { slug: string } }) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: post } = await supabase
     .from('blog_posts')
     .select('*')

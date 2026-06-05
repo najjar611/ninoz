@@ -20,15 +20,15 @@ type Props = {
   stages: Stage[]; meals: Meal[]; content: Record<string, string>
   howSteps: HowStep[]; whyPoints: WhyPoint[]; ingredients: Ingredient[]
   footerLinks: FooterLink[]; logo: Logo | null; paymentCycles: PaymentCycle[]
-  faqs: Faq[]; tickerItems: TickerItem[]; subscriberCount: number
+  faqs: Faq[]; tickerItems: TickerItem[]
 }
 
 const g = (c: Record<string, string>, k: string, f = '') => c[k] || f
 
 export default function HomeClient(p: Props) {
-  const { stages, meals, content, howSteps, whyPoints, ingredients, footerLinks, logo, paymentCycles, faqs, tickerItems, subscriberCount } = p
+  const { stages, meals, content, howSteps, whyPoints, ingredients, footerLinks, logo, paymentCycles, faqs, tickerItems } = p
 
-  const [popup, setPopup] = useState(false)
+  const [popup, setPopup] = useState(true)
   const [tab, setTab] = useState('breakfast')
   const [mealI, setMealI] = useState(0)
   const [stageI, setStageI] = useState(0)
@@ -128,7 +128,7 @@ export default function HomeClient(p: Props) {
           align-items: center; 
           padding: 140px 1.5rem 80px; 
           background-color: var(--deep-blue); 
-          background-image: linear-gradient(rgba(10, 66, 155, 0.75), rgba(10, 66, 155, 0.85)), url('${heroImg}');
+          background-image: linear-gradient(color-mix(in srgb, var(--deep-blue) 75%, transparent), color-mix(in srgb, var(--deep-blue) 85%, transparent)), url('${heroImg}');
           background-size: cover;
           background-position: center;
           color: white; 
@@ -148,7 +148,6 @@ export default function HomeClient(p: Props) {
         .ticker-item { font-size: 0.9rem; font-weight: 700; color: white; padding: 0 2.5rem; text-transform: uppercase; }
         .ticker-hi { color: var(--orange-light); margin-right: 8px; font-weight: 900; }
         @keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-        @keyframes waPulse { 0%, 100% { box-shadow: 0 6px 24px rgba(37,211,102,0.45); transform: scale(1); } 50% { box-shadow: 0 8px 32px rgba(37,211,102,0.65); transform: scale(1.06); } }
 
         .stages-section { background: var(--cream); padding: 6rem 0; text-align: center; overflow: hidden; width: 100vw; position: relative; }
         .stages-header-box { max-width: 600px; margin: 0 auto 3rem; padding: 0 1.5rem; }
@@ -366,22 +365,7 @@ export default function HomeClient(p: Props) {
             <span>{g(content, 'hero_headline_2', 'We Prepare.')}</span>
           </h1>
           <p className="hero-desc">{g(content, 'hero_description', 'Fresh, Healthy daily meals for your little ones.')}</p>
-
-          {subscriberCount > 0 && (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 100, padding: '8px 18px', backdropFilter: 'blur(8px)' }}>
-              <div style={{ display: 'flex' }}>
-                {['#FBB', '#FAD', '#FCA'].map((c, i) => (
-                  <div key={i} style={{ width: 28, height: 28, borderRadius: '50%', background: c, border: '2px solid rgba(255,255,255,0.6)', marginLeft: i > 0 ? -8 : 0, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {['👶','👧','👦'][i]}
-                  </div>
-                ))}
-              </div>
-              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'rgba(255,255,255,0.92)' }}>
-                <strong style={{ color: 'white' }}>{subscriberCount}+</strong> families already subscribed
-              </span>
-            </div>
-          )}
-
+          
           <div className="hero-trust">
             {[{ t: 'Fresh Ingredients', e: '🍂' }, { t: 'No Preservatives', e: '🥑' }, { t: 'Cooked Daily', e: '🕒' }, { t: 'Pediatrician Approved', e: '🛡️' }].map(badge => (
               <div key={badge.t} className="hero-ti">
@@ -394,10 +378,6 @@ export default function HomeClient(p: Props) {
           <div className="hero-btns" style={{ display: 'flex', gap: '1.2rem', flexWrap: 'wrap', justifyContent: 'center', width: '100%' }}>
             <button className="btn btn-primary" onClick={() => setPopup(true)} style={{ background: 'var(--orange)' }}>Start Your Plan</button>
             <button className="btn btn-outline" style={{ color: 'white', borderColor: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.05)' }} onClick={() => document.getElementById('menu')?.scrollIntoView({ behavior: 'smooth' })}>Explore Meals</button>
-          </div>
-          <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.75)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>🕗</span>
-            <span>Orders close at <strong style={{ color: 'white' }}>8 PM daily</strong> for next-day delivery</span>
           </div>
         </div>
       </section>
@@ -660,37 +640,6 @@ export default function HomeClient(p: Props) {
         </section>
       )}
 
-      {/* TESTIMONIALS */}
-      <section style={{ background: 'var(--cream)', padding: '6rem 2rem', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
-            <p style={{ color: 'var(--orange)', fontWeight: 700, fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>What Parents Say</p>
-            <h2 style={{ fontSize: 'clamp(2rem, 5vw, 2.8rem)', fontWeight: 900, color: 'var(--deep-blue)', lineHeight: 1.15 }}>Trusted by Riyadh Families</h2>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-            {[
-              { quote: 'Nora has been eating Ninoz for 2 months and she refuses anything else! The lentil purée is her absolute favorite.', name: 'Sara A.', role: 'Mother of a 14-month-old', initial: 'S' },
-              { quote: 'As a pediatrician I recommend Ninoz to my patients. Fresh, balanced, no additives. Real peace of mind for parents.', name: 'Dr. Khalid M.', role: 'Pediatrician, Riyadh', initial: 'K' },
-              { quote: 'Delivery is always on time and the packaging is beautiful. My twins absolutely love the breakfast bowls.', name: 'Fatima R.', role: 'Mother of twins', initial: 'F' },
-            ].map(t => (
-              <div key={t.name} style={{ background: 'white', borderRadius: 20, padding: '2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {[1,2,3,4,5].map(s => <span key={s} style={{ color: 'var(--orange)', fontSize: '0.9rem' }}>★</span>)}
-                </div>
-                <p style={{ fontSize: '0.97rem', color: '#4A3D35', lineHeight: 1.7, fontStyle: 'italic', flex: 1 }}>&ldquo;{t.quote}&rdquo;</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'var(--orange)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: '1rem', flexShrink: 0 }}>{t.initial}</div>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--deep-blue)' }}>{t.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#7A7068' }}>{t.role}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* FOOTER */}
       <footer>
         <div className="footer-hero">
@@ -731,26 +680,10 @@ export default function HomeClient(p: Props) {
         </div>
       </footer>
       
-      {popup && <Wizard onClose={() => setPopup(false)} />}
+      {/* <Wizard onClose={() => setPopup(false)} /> */}
 
-      {/* WHATSAPP FLOAT */}
-      <a
-        href={`https://wa.me/${g(content, 'whatsapp_number', '966500000000')}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{
-          position: 'fixed', bottom: 28, right: 28, zIndex: 8000,
-          width: 58, height: 58, borderRadius: '50%',
-          background: '#25D366', color: 'white',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '1.7rem', textDecoration: 'none',
-          boxShadow: '0 6px 24px rgba(37,211,102,0.45)',
-          animation: 'waPulse 2.2s ease-in-out infinite',
-        }}
-        aria-label="Chat on WhatsApp"
-      >
-        💬
-      </a>
+      {/* Renders the registration wizard pop-up when state is true */}
+     
     </>
   )
 }

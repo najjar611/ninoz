@@ -92,18 +92,15 @@ export default function WaitlistPage() {
   })
 
   return (
-    <div style={{ minHeight: '100vh', position: 'relative', fontFamily: isAR ? "'Tajawal','Nunito',sans-serif" : "'Nunito',sans-serif", direction: isAR ? 'rtl' : 'ltr' }}>
+    <div style={{
+        minHeight: '100vh', fontFamily: isAR ? "'Tajawal','Nunito',sans-serif" : "'Nunito',sans-serif",
+        direction: isAR ? 'rtl' : 'ltr', position: 'relative',
+        backgroundImage: bgUrl ? `linear-gradient(rgba(15,7,3,0.65),rgba(15,7,3,0.65)), url(${bgUrl})` : undefined,
+        backgroundSize: 'cover', backgroundPosition: 'center',
+        backgroundColor: bgUrl ? undefined : '#1C0A04',
+      }}>
 
-      {/* Background */}
-      <div style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
-        {bgUrl
-          ? <img src={bgUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : <div style={{ width: '100%', height: '100%', background: 'linear-gradient(160deg,#1C0A04 0%,#3D1A08 50%,#7A3010 100%)' }} />
-        }
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(15,7,3,0.65)' }} />
-      </div>
-
-      <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px' }}>

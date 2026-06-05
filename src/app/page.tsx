@@ -19,8 +19,7 @@ export default async function HomePage() {
     { data: logos },
     { data: paymentCycles },
     { data: faqs },
-    { data: tickerItems },
-    { count: subscriberCount }
+    { data: tickerItems }
   ] = await Promise.all([
     supabase.from('stages').select('*').order('created_at', { ascending: true }),
     supabase.from('meals').select('*'),
@@ -32,8 +31,7 @@ export default async function HomePage() {
     supabase.from('logo').select('*').maybeSingle(),
     supabase.from('payment_cycles').select('*'),
     supabase.from('faqs').select('*'),
-    supabase.from('ticker_items').select('*'),
-    supabase.from('subscribers').select('id', { count: 'exact', head: true }),
+    supabase.from('ticker_items').select('*')
   ])
 
   // Convert array rows [{key: "hero_headline_1", value: "You Care."}] into a quick-lookup object map
@@ -57,7 +55,6 @@ export default async function HomePage() {
       paymentCycles={paymentCycles || []}
       faqs={faqs || []}
       tickerItems={tickerItems || []}
-      subscriberCount={subscriberCount || 0}
     />
   )
 }

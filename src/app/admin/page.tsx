@@ -14,11 +14,11 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function load() {
       const [leads, meals, stages, faqs, recent] = await Promise.all([
-        supabase.from('subscribers').select('id', { count: 'exact', head: true }),
+        supabase.from('lead_subscribers').select('id', { count: 'exact', head: true }),
         supabase.from('meals').select('id', { count: 'exact', head: true }),
         supabase.from('stages').select('id', { count: 'exact', head: true }),
         supabase.from('faqs').select('id', { count: 'exact', head: true }),
-        supabase.from('subscribers').select('*').order('created_at', { ascending: false }).limit(6),
+        supabase.from('lead_subscribers').select('*').order('created_at', { ascending: false }).limit(6),
       ])
       setStats({ leads: leads.count || 0, meals: meals.count || 0, stages: stages.count || 0, faqs: faqs.count || 0 })
       setRecentLeads(recent.data || [])
@@ -102,11 +102,11 @@ export default function AdminDashboard() {
               {recentLeads.map(lead => (
                 <div key={lead.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
                   <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#FDF0E8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#C84B0F', flexShrink: 0 }}>
-                    {(lead.full_name || lead.email || '?').charAt(0).toUpperCase()}
+                    {(lead.parent_name || lead.email || '?').charAt(0).toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {lead.full_name || lead.email}
+                      {lead.parent_name || lead.email}
                     </div>
                     <div style={{ fontSize: 11, color: '#7A7068' }}>
                       {new Date(lead.created_at).toLocaleDateString('en-SA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}

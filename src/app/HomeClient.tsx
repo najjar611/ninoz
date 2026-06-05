@@ -20,7 +20,7 @@ type Props = {
   stages: Stage[]; meals: Meal[]; content: Record<string, string>
   howSteps: HowStep[]; whyPoints: WhyPoint[]; ingredients: Ingredient[]
   footerLinks: FooterLink[]; logo: Logo | null; paymentCycles: PaymentCycle[]
-  faqs: Faq[]; tickerItems: TickerItem[]
+  faqs: Faq[]; tickerItems: TickerItem[]; subscriberCount?: number
 }
 
 const g = (c: Record<string, string>, k: string, f = '') => c[k] || f

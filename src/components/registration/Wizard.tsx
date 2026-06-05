@@ -29,7 +29,7 @@ export default function Wizard({ onClose }: { onClose: () => void }) {
     
     // 1. Insert Lead
     const { data: lead, error } = await supabase
-      .from('lead_subscribers')
+      .from('subscribers')
       .insert({
         parent_name: data.fullName,
         email: data.email,

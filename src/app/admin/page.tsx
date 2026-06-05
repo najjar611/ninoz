@@ -1,126 +1,191 @@
 'use client'
-
-// src/app/admin/page.tsx — v6.1
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
+const QUICK = [
+  { label: 'Edit Homepage Text', href: '/admin/content', desc: 'Headlines, descriptions, CTA' },
+  { label: 'Add / Edit Meals', href: '/admin/meals', desc: 'Manage your menu' },
+  { label: 'Manage Stages', href: '/admin/stages', desc: 'Age-based meal plans' },
+  { label: 'Site Settings', href: '/admin/settings', desc: 'Logo, fonts, colors' },
+  { label: 'Manage Waitlist', href: '/admin/waitlist', desc: 'View signups, edit page' },
+  { label: 'View Subscribers', href: '/admin/subscribers', desc: 'All registered customers' },
+]
+
+function timeGreeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  return 'Good evening'
+}
+
+function fmt(n: number) {
+  return n.toLocaleString()
+}
+
 export default function AdminDashboard() {
   const supabase = createClient()
-  const [stats, setStats] = useState({ leads: 0, meals: 0, stages: 0, faqs: 0 })
-  const [recentLeads, setRecentLeads] = useState<any[]>([])
+  const [stats, setStats] = useState({ waitlist: 0, subscribers: 0, meals: 0, stages: 0 })
+  const [recent, setRecent] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const [leads, meals, stages, faqs, recent] = await Promise.all([
-        supabase.from('lead_subscribers').select('id', { count: 'exact', head: true }),
+      const [waitlist, subscribers, meals, stages, recentW] = await Promise.all([
+        supabase.from('waitlist_submissions').select('id', { count: 'exact', head: true }),
+        supabase.from('subscribers').select('id', { count: 'exact', head: true }),
         supabase.from('meals').select('id', { count: 'exact', head: true }),
         supabase.from('stages').select('id', { count: 'exact', head: true }),
-        supabase.from('faqs').select('id', { count: 'exact', head: true }),
-        supabase.from('lead_subscribers').select('*').order('created_at', { ascending: false }).limit(6),
+        supabase.from('waitlist_submissions').select('*').order('created_at', { ascending: false }).limit(8),
       ])
-      setStats({ leads: leads.count || 0, meals: meals.count || 0, stages: stages.count || 0, faqs: faqs.count || 0 })
-      setRecentLeads(recent.data || [])
+      setStats({
+        waitlist: waitlist.count || 0,
+        subscribers: subscribers.count || 0,
+        meals: meals.count || 0,
+        stages: stages.count || 0,
+      })
+      setRecent(recentW.data || [])
       setLoading(false)
     }
     load()
   }, [])
 
+  const today = new Date().toLocaleDateString('en-SA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
   const STATS = [
-    { label: 'Subscribers', value: stats.leads, icon: '👥', href: '/admin/subscribers', color: '#C84B0F' },
-    { label: 'Meals', value: stats.meals, icon: '🍽️', href: '/admin/meals', color: '#4A7C59' },
-    { label: 'Stages', value: stats.stages, icon: '🍼', href: '/admin/stages', color: '#7B5EA7' },
-    { label: 'FAQs', value: stats.faqs, icon: '❓', href: '/admin/faq', color: '#E8834A' },
+    { label: 'Waitlist Signups', value: stats.waitlist, href: '/admin/waitlist', color: '#C84B0F', bg: '#FDF0E8' },
+    { label: 'Subscribers', value: stats.subscribers, href: '/admin/subscribers', color: '#0A429B', bg: '#EEF3FB' },
+    { label: 'Meals', value: stats.meals, href: '/admin/meals', color: '#2D6A4F', bg: '#E8F5EE' },
+    { label: 'Stages', value: stats.stages, href: '/admin/stages', color: '#7B5EA7', bg: '#F2EEF8' },
   ]
-
-  const QUICK = [
-    { label: 'Edit Homepage Text', icon: '📝', href: '/admin/content' },
-    { label: 'Add a Meal', icon: '🍽️', href: '/admin/meals' },
-    { label: 'Manage Stages', icon: '🍼', href: '/admin/stages' },
-    { label: 'View Subscribers', icon: '👥', href: '/admin/subscribers' },
-    { label: 'Edit FAQ', icon: '❓', href: '/admin/faq' },
-    { label: 'Site Settings', icon: '⚙️', href: '/admin/settings' },
-  ]
-
-  const statusColors: Record<string, string> = { lead: '#C84B0F', converted: '#2D6A4F', dropped: '#DC2626' }
-  const statusBgs: Record<string, string> = { lead: '#FDF0E8', converted: '#E8F5EE', dropped: '#FEE2E2' }
 
   return (
-    <div>
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontFamily: 'Nunito, sans-serif', fontSize: 24, fontWeight: 900, color: '#1C1C1A', marginBottom: 4 }}>Dashboard</h1>
-        <p style={{ fontSize: 13, color: '#7A7068' }}>Welcome back. Here's your Ninoz overview.</p>
+    <div style={{ fontFamily: 'Nunito, sans-serif' }}>
+
+      {/* Header */}
+      <div style={{ marginBottom: 32 }}>
+        <p style={{ fontSize: 13, color: '#B0A098', fontWeight: 600, marginBottom: 4 }}>{today}</p>
+        <h1 style={{ fontSize: 28, fontWeight: 900, color: '#1C1C1A', lineHeight: 1.1 }}>
+          {timeGreeting()} <span style={{ color: '#C84B0F' }}>👋</span>
+        </h1>
+        <p style={{ fontSize: 14, color: '#7A7068', marginTop: 4 }}>Here's what's happening with Ninoz today.</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
         {STATS.map(s => (
           <Link key={s.label} href={s.href} style={{ textDecoration: 'none' }}>
-            <div style={{ background: 'white', borderRadius: 14, padding: '20px 18px', border: '1px solid rgba(0,0,0,0.05)', transition: 'transform 0.2s' }}
-              onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
-              onMouseLeave={e => (e.currentTarget.style.transform = 'none')}>
-              <div style={{ fontSize: 24, marginBottom: 10 }}>{s.icon}</div>
-              <div style={{ fontFamily: 'Nunito, sans-serif', fontSize: 30, fontWeight: 900, color: s.color, marginBottom: 2 }}>
-                {loading ? '–' : s.value}
+            <div style={{
+              background: '#fff', borderRadius: 16, padding: '22px 20px',
+              border: '1px solid #EDEBE8', transition: 'transform 0.18s, box-shadow 0.18s',
+              cursor: 'pointer',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 32px rgba(0,0,0,0.08)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none' }}
+            >
+              <div style={{ width: 38, height: 38, borderRadius: 10, background: s.bg, marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 14, height: 14, borderRadius: 3, background: s.color, opacity: 0.85 }} />
               </div>
-              <div style={{ fontSize: 12, color: '#7A7068', fontWeight: 600 }}>{s.label}</div>
+              <div style={{ fontSize: 32, fontWeight: 900, color: s.color, lineHeight: 1, marginBottom: 6 }}>
+                {loading ? '—' : fmt(s.value)}
+              </div>
+              <div style={{ fontSize: 12, color: '#7A7068', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {s.label}
+              </div>
             </div>
           </Link>
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <div style={{ background: 'white', borderRadius: 14, padding: 22, border: '1px solid rgba(0,0,0,0.05)' }}>
-          <h2 style={{ fontFamily: 'Nunito, sans-serif', fontSize: 15, fontWeight: 800, color: '#1C1C1A', marginBottom: 14 }}>Quick Actions</h2>
+      {/* Bottom two-panel layout */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
+
+        {/* Recent Waitlist */}
+        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #EDEBE8', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid #F5F0EB' }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: '#1C1C1A' }}>Recent Waitlist Signups</div>
+              <div style={{ fontSize: 12, color: '#B0A098', marginTop: 2 }}>Latest people who joined</div>
+            </div>
+            <Link href="/admin/waitlist" style={{ fontSize: 12, fontWeight: 700, color: '#C84B0F', textDecoration: 'none', padding: '6px 14px', background: '#FDF0E8', borderRadius: 8 }}>
+              View All →
+            </Link>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#C9A98A', fontSize: 14 }}>Loading…</div>
+          ) : recent.length === 0 ? (
+            <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+              <div style={{ fontSize: 38, marginBottom: 12 }}>📋</div>
+              <div style={{ fontWeight: 700, color: '#5A5048', fontSize: 14 }}>No signups yet</div>
+              <div style={{ color: '#B0A098', fontSize: 13, marginTop: 4 }}>Share /waitlist on your Instagram bio</div>
+            </div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #F5F0EB' }}>
+                  {['Name', 'WhatsApp', "Baby's Age", 'Lang', 'Signed Up'].map(h => (
+                    <th key={h} style={{ padding: '10px 16px', fontSize: 10.5, fontWeight: 800, color: '#B0A098', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {recent.map((r, i) => (
+                  <tr key={r.id} style={{ borderBottom: i < recent.length - 1 ? '1px solid #F9F7F5' : 'none' }}>
+                    <td style={{ padding: '13px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#FDF0E8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: '#C84B0F', flexShrink: 0 }}>
+                          {(r.parent_name || '?').charAt(0).toUpperCase()}
+                        </div>
+                        <span style={{ fontWeight: 700, fontSize: 13, color: '#1C1C1A' }}>{r.parent_name || '—'}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '13px 16px', fontSize: 13, fontFamily: 'monospace', color: '#4A3C34' }}>{r.whatsapp || '—'}</td>
+                    <td style={{ padding: '13px 16px', fontSize: 13, color: '#7A7068' }}>{r.baby_age || <span style={{ color: '#DDD' }}>—</span>}</td>
+                    <td style={{ padding: '13px 16px' }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 800, padding: '3px 10px', borderRadius: 20, background: r.language === 'ar' ? '#EEF3FB' : '#E8F5EE', color: r.language === 'ar' ? '#0A429B' : '#2D6A4F' }}>
+                        {r.language === 'ar' ? 'AR' : 'EN'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '13px 16px', fontSize: 12, color: '#B0A098', whiteSpace: 'nowrap' }}>
+                      {new Date(r.created_at).toLocaleDateString('en-SA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Quick Actions */}
+        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #EDEBE8', padding: '18px 20px' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#1C1C1A', marginBottom: 4 }}>Quick Actions</div>
+          <div style={{ fontSize: 12, color: '#B0A098', marginBottom: 18 }}>Jump to any section</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {QUICK.map(q => (
-              <Link key={q.href} href={q.href} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, background: '#FAF5EE', textDecoration: 'none', color: '#2C1A0E', fontSize: 13, fontWeight: 600, transition: 'background 0.15s' }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#F0E8D8')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#FAF5EE')}>
-                <span style={{ fontSize: 16 }}>{q.icon}</span>
-                {q.label}
-                <span style={{ marginLeft: 'auto', color: '#C9A98A' }}>→</span>
+              <Link key={q.href} href={q.href} style={{ textDecoration: 'none' }}>
+                <div style={{
+                  padding: '11px 14px', borderRadius: 11, background: '#F9F7F5',
+                  border: '1px solid #F0EBE5', transition: 'all 0.14s', cursor: 'pointer',
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#FDF0E8'; e.currentTarget.style.borderColor = '#F5DACC' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = '#F9F7F5'; e.currentTarget.style.borderColor = '#F0EBE5' }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1A' }}>{q.label}</div>
+                  <div style={{ fontSize: 11.5, color: '#A09088', marginTop: 2 }}>{q.desc}</div>
+                </div>
               </Link>
             ))}
           </div>
         </div>
-
-        <div style={{ background: 'white', borderRadius: 14, padding: 22, border: '1px solid rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-            <h2 style={{ fontFamily: 'Nunito, sans-serif', fontSize: 15, fontWeight: 800, color: '#1C1C1A' }}>Recent Subscribers</h2>
-            <Link href="/admin/subscribers" style={{ fontSize: 12, color: '#C84B0F', fontWeight: 700, textDecoration: 'none' }}>View all →</Link>
-          </div>
-          {loading ? (
-            <div style={{ color: '#C9A98A', fontSize: 13 }}>Loading...</div>
-          ) : recentLeads.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '24px 0', color: '#C9A98A' }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
-              <p style={{ fontSize: 13 }}>No subscribers yet.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {recentLeads.map(lead => (
-                <div key={lead.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-                  <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#FDF0E8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#C84B0F', flexShrink: 0 }}>
-                    {(lead.parent_name || lead.email || '?').charAt(0).toUpperCase()}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {lead.parent_name || lead.email}
-                    </div>
-                    <div style={{ fontSize: 11, color: '#7A7068' }}>
-                      {new Date(lead.created_at).toLocaleDateString('en-SA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 11, padding: '3px 10px', borderRadius: 50, background: statusBgs[lead.status] || '#F5F5F5', color: statusColors[lead.status] || '#333', fontWeight: 700, textTransform: 'capitalize', flexShrink: 0 }}>
-                    {lead.status}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
+
+      <style>{`
+        @media (max-width: 900px) {
+          .dash-grid { grid-template-columns: 1fr !important; }
+          .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
     </div>
   )
 }

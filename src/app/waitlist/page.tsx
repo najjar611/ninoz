@@ -103,13 +103,15 @@ export default function WaitlistPage() {
 
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px' }}>
-          {logoUrl
-            ? <img src={logoUrl} alt="Ninoz" style={{ height: logoHeight, maxWidth: Math.max(logoHeight * 4, 140), objectFit: 'contain', display: 'block' }} />
-            : <span style={{ fontFamily: "'Nunito',sans-serif", fontWeight: 900, fontSize: 24, color: btnColor }}>Ninoz</span>
-          }
-          <button onClick={() => setLang(isAR ? 'en' : 'ar')} style={{ background: 'rgba(255,255,255,0.14)', border: '1.5px solid rgba(255,255,255,0.28)', borderRadius: 22, padding: '6px 16px', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+        {/* Header — fixed height so logo scaling never shifts content below */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 22px', height: Math.max(logoHeight + 28, 68), flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', maxWidth: '60%' }}>
+            {logoUrl
+              ? <img src={logoUrl} alt="Ninoz" style={{ height: logoHeight, maxWidth: 200, width: 'auto', objectFit: 'contain', display: 'block' }} />
+              : <span style={{ fontFamily: "'Nunito',sans-serif", fontWeight: 900, fontSize: 24, color: btnColor, whiteSpace: 'nowrap' }}>Ninoz</span>
+            }
+          </div>
+          <button onClick={() => setLang(isAR ? 'en' : 'ar')} style={{ background: 'rgba(255,255,255,0.14)', border: '1.5px solid rgba(255,255,255,0.28)', borderRadius: 22, padding: '6px 16px', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, whiteSpace: 'nowrap' }}>
             {isAR ? 'English' : 'عربي'}
           </button>
         </div>

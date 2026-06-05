@@ -1,3 +1,12 @@
+/* Custom font — place Quicksand-VariableFont_wght.ttf in public/fonts/ */
+@font-face {
+  font-family: 'Quicksand';
+  src: url('/fonts/Quicksand-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --orange: #C84B0F;
   --orange-light: #E8834A;

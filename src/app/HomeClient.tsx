@@ -149,7 +149,7 @@ export default function HomeClient(p: Props) {
         .ticker-hi { color: var(--orange-light); margin-right: 8px; font-weight: 900; }
         @keyframes tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
-        .stages-section { background: var(--cream); padding: 6rem 0; text-align: center; overflow: hidden; width: 100vw; position: relative; }
+        .stages-section { background: var(--cream); padding: 3.5rem 0 4rem; text-align: center; overflow: hidden; width: 100vw; position: relative; }
         .stages-header-box { max-width: 600px; margin: 0 auto 3rem; padding: 0 1.5rem; }
         .stages-h2 { font-size: 2.6rem; font-weight: 900; color: var(--brown); }
         .stages-h2 span { color: var(--orange); }
@@ -169,7 +169,7 @@ export default function HomeClient(p: Props) {
         .stages-arrows { display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem; }
         .stage-arrow-btn { width: 48px; height: 48px; border-radius: 50%; background: var(--deep-blue); color: white; border: none; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; }
 
-        .how { background: var(--cream); padding: 7rem 0; text-align: center; overflow: hidden; width: 100vw; position: relative; }
+        .how { background: var(--cream); padding: 3.5rem 0 4rem; text-align: center; overflow: hidden; width: 100vw; position: relative; }
         .how-h2 { font-size: 3rem; font-weight: 900; margin-bottom: 1rem; color: var(--deep-blue); }
         .how-p { font-size: 1.15rem; color: var(--text-muted); margin-bottom: 3rem; padding: 0 1.5rem; }
         .how-carousel-area { width: 100%; position: relative; display: flex; align-items: center; justify-content: center; height: 400px; overflow: hidden; }
@@ -185,7 +185,7 @@ export default function HomeClient(p: Props) {
         .how-node-desc { font-size: 1.05rem; color: var(--deep-blue); font-weight: 800; line-height: 1.5; }
         .how-arrows { display: flex; gap: 1rem; justify-content: center; margin-top: 1rem; }
 
-        .menu-wrap { display: flex; min-height: 750px; background: white; position: relative; }
+        .menu-wrap { display: flex; min-height: 580px; background: white; position: relative; }
         /* FIXED: Wired Left Banner background opacity logic to color-mix safely */
         .menu-left { width: 450px; background: color-mix(in srgb, var(--orange) 35%, #ffffff); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); display: flex; flex-direction: column; padding: 5rem 4rem; justify-content: space-between; flex-shrink: 0; border-radius: 0 120px 120px 0; z-index: 5; }
         .menu-left h2 { font-size: 3.2rem; font-weight: 900; color: var(--deep-blue); line-height: 1.15; }
@@ -195,8 +195,8 @@ export default function HomeClient(p: Props) {
         .menu-tab { width: 100%; padding: 16px 24px; border-radius: 20px; border: none; background: white; color: var(--deep-blue); font-size: 1.05rem; font-weight: 800; text-align: left; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.25s; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
         .menu-tab.a { background: var(--deep-blue); color: white; }
         
-        .menu-right { flex: 1; background: var(--cream); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 0; position: relative; overflow: hidden; }
-        .carousel-view-area { width: 100%; position: relative; display: flex; align-items: center; justify-content: center; height: 380px; overflow: hidden; margin-bottom: 1rem; }
+        .menu-right { flex: 1; background: var(--cream); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 0; position: relative; overflow: hidden; }
+        .carousel-view-area { width: 100%; position: relative; display: flex; align-items: center; justify-content: center; height: 320px; overflow: hidden; margin-bottom: 1rem; }
         .carousel-track { display: flex; align-items: center; justify-content: center; width: 100%; position: relative; }
         
         .plate-node { position: absolute; border-radius: 50%; overflow: visible; display: flex; align-items: center; justify-content: center; transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; transform-origin: center center; background: transparent; }
@@ -220,7 +220,7 @@ export default function HomeClient(p: Props) {
         .meal-arrows { display: flex; gap: 1rem; margin-top: 1rem; }
         .meal-arrow-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--deep-blue); color: white; border: none; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; }
 
-        .why { padding: 8rem 2rem; max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 5rem; align-items: center; background: white; }
+        .why { padding: 5rem 2rem; max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 4rem; align-items: center; background: white; }
         .why-title { font-size: 3.6rem; font-weight: 900; color: var(--deep-blue); margin-bottom: 2rem; }
         .why-pts { display: flex; flex-direction: column; gap: 2rem; margin-bottom: 3rem; }
         .why-pt-t { font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; color: var(--orange); }
@@ -339,7 +339,7 @@ export default function HomeClient(p: Props) {
       <nav className="nav">
         <div className="nav-inner">
           <Link href="/" className="nav-logo">
-            {logo?.url ? <img src={logo.url} alt={logo.alt_text || 'Ninoz'} style={{ height: 42 }} /> : 'Ninoz'}
+            {logo?.url ? <img src={logo.url} alt={logo.alt_text || 'Ninoz'} style={{ height: parseInt(g(content, 'logo_height', '42')), maxHeight: 80, width: 'auto', objectFit: 'contain' }} /> : 'Ninoz'}
           </Link>
           <div className="nav-links">
             {[['Menu', 'menu'], ['How It Works', 'how'], ['Plans', 'stages'], ['FAQ', 'faq']].map(([l, id]) => (

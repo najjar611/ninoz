@@ -24,6 +24,7 @@ export default function SettingsAdmin() {
   const [colorPrimary, setColorPrimary] = useState('#C84B0F')
   const [colorBlue, setColorBlue] = useState('#0A429B')
   const [logoUrl, setLogoUrl] = useState('')
+  const [logoHeight, setLogoHeight] = useState(42)
   const logoRef = useRef<HTMLInputElement>(null)
 
   // Images
@@ -48,6 +49,7 @@ export default function SettingsAdmin() {
       supabase.from('site_content').select('key,value').in('key', [
         'site_font', 'ticker_animated', 'hero_image_url', 'why_image_url',
         'waitlist_bg_url', 'waitlist_btn_color', 'theme_color_primary', 'theme_color_deep_blue',
+        'logo_height',
       ]),
       supabase.from('logo').select('*').limit(1).single(),
       supabase.from('ticker_items').select('*').order('position'),
@@ -65,6 +67,7 @@ export default function SettingsAdmin() {
     setWaitlistBtnColor(m['waitlist_btn_color'] || '#C84B0F')
     setTickerAnimated(m['ticker_animated'] !== 'false')
     setLogoUrl(logo.data?.url || '')
+    setLogoHeight(parseInt(m['logo_height'] || '42'))
     setTickerItems(ticker.data || [])
   }
 
@@ -81,6 +84,7 @@ export default function SettingsAdmin() {
       upsert('site_font', finalFont),
       upsert('theme_color_primary', colorPrimary),
       upsert('theme_color_deep_blue', colorBlue),
+      upsert('logo_height', String(logoHeight)),
     ])
     setSaving(false)
     flash('Saved! Refresh the site to see the new font and colors.')
@@ -189,6 +193,20 @@ export default function SettingsAdmin() {
               <input ref={logoRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={() => uploadLogo(logoRef)} />
             </div>
             <p style={{ fontSize: 12, color: '#A08070', margin: 0 }}>PNG with transparent background recommended.</p>
+
+            <div style={{ marginTop: 16 }}>
+              <label style={{ ...lbl, marginBottom: 6 }}>Logo Size on Main Site — {logoHeight}px</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 11, color: '#A08070' }}>Small</span>
+                <input
+                  type="range" min="24" max="80" step="2"
+                  value={logoHeight}
+                  onChange={e => setLogoHeight(parseInt(e.target.value))}
+                  style={{ flex: 1, accentColor: '#C84B0F', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: 11, color: '#A08070' }}>Large</span>
+              </div>
+            </div>
           </div>
 
           {/* Font */}

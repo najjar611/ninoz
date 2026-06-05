@@ -15,6 +15,8 @@ export default function SettingsAdmin() {
   const [heroUrl, setHeroUrl] = useState('')
   const [whyUrl, setWhyUrl] = useState('')
   const [logoUrl, setLogoUrl] = useState('')
+  const [waitlistBgUrl, setWaitlistBgUrl] = useState('')
+  const [waitlistBtnColor, setWaitlistBtnColor] = useState('#C84B0F')
   const [tickerItems, setTickerItems] = useState<TickerItem[]>([])
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState('')
@@ -23,12 +25,13 @@ export default function SettingsAdmin() {
   const heroRef = useRef<HTMLInputElement>(null)
   const whyRef = useRef<HTMLInputElement>(null)
   const logoRef = useRef<HTMLInputElement>(null)
+  const waitlistBgRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { load() }, [])
 
   async function load() {
     const [content, logo, ticker] = await Promise.all([
-      supabase.from('site_content').select('key,value').in('key',['site_font','ticker_animated','hero_image_url','why_image_url']),
+      supabase.from('site_content').select('key,value').in('key',['site_font','ticker_animated','hero_image_url','why_image_url','waitlist_bg_url','waitlist_btn_color']),
       supabase.from('logo').select('*').limit(1).single(),
       supabase.from('ticker_items').select('*').order('position'),
     ])
@@ -38,6 +41,8 @@ export default function SettingsAdmin() {
     setTickerAnimated(m['ticker_animated'] === 'true')
     setHeroUrl(m['hero_image_url'] || '')
     setWhyUrl(m['why_image_url'] || '')
+    setWaitlistBgUrl(m['waitlist_bg_url'] || '')
+    setWaitlistBtnColor(m['waitlist_btn_color'] || '#C84B0F')
     setLogoUrl(logo.data?.url || '')
     setTickerItems(ticker.data || [])
   }
@@ -53,6 +58,8 @@ export default function SettingsAdmin() {
       saveKey('ticker_animated', tickerAnimated ? 'true' : 'false'),
       saveKey('hero_image_url', heroUrl),
       saveKey('why_image_url', whyUrl),
+      saveKey('waitlist_bg_url', waitlistBgUrl),
+      saveKey('waitlist_btn_color', waitlistBtnColor),
     ])
     setSaving(false)
     flash('Saved! Refresh the site to see changes.')
@@ -173,6 +180,27 @@ export default function SettingsAdmin() {
           <input ref={whyRef} type="file" accept="image/*" style={{ display:'none' }} onChange={e => { const f=e.target.files?.[0]; if(f) uploadImg('why-section',f,setWhyUrl,'why_image_url') }} />
         </div>
         <p style={{ fontSize:12, color:'#A08070' }}>Right side of the ingredients section. Best: 3:4 portrait.</p>
+      </div>
+
+      {/* Waitlist Page */}
+      <div style={card}>
+        <label style={lbl}>Waitlist Page — Background Photo</label>
+        <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:8 }}>
+          {waitlistBgUrl && <img src={waitlistBgUrl} alt="Waitlist BG" style={{ width:72, height:72, objectFit:'cover', borderRadius:12 }} />}
+          <button onClick={() => waitlistBgRef.current?.click()} disabled={uploading==='waitlist-bg'} style={{ padding:'9px 18px', background:'#FAF5EE', border:'1.5px solid #EDE8E0', borderRadius:10, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+            {uploading==='waitlist-bg' ? 'Uploading...' : 'Upload Background'}
+          </button>
+          <input ref={waitlistBgRef} type="file" accept="image/*" style={{ display:'none' }} onChange={e => { const f=e.target.files?.[0]; if(f) uploadImg('hero',f,setWaitlistBgUrl,'waitlist_bg_url') }} />
+        </div>
+        <p style={{ fontSize:12, color:'#A08070', marginBottom:16 }}>Full-screen background for the Instagram waiting list page. Falls back to the Hero photo if not set.</p>
+
+        <label style={lbl}>Waitlist Button Color</label>
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <input type="color" value={waitlistBtnColor} onChange={e => setWaitlistBtnColor(e.target.value)} style={{ width:44, height:44, border:'none', borderRadius:10, cursor:'pointer', padding:2, background:'none' }} />
+          <input value={waitlistBtnColor} onChange={e => setWaitlistBtnColor(e.target.value)} style={{ ...inp, width:120 }} placeholder="#C84B0F" />
+          <div style={{ width:44, height:44, borderRadius:10, background:waitlistBtnColor, border:'1px solid rgba(0,0,0,0.08)' }} />
+          <a href="/waitlist" target="_blank" style={{ fontSize:12, color:'#C84B0F', fontWeight:700, textDecoration:'none' }}>Preview →</a>
+        </div>
       </div>
 
       {/* Ticker */}

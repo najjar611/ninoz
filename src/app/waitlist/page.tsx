@@ -6,37 +6,40 @@ import React, { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 type Lang = 'en' | 'ar'
+type Stage = { id: string; name: string; age_range: string }
 
 const D: Record<string, string> = {
   waitlist_btn_color: '#C84B0F',
   waitlist_h1_en: 'You Care.', waitlist_h1_ar: 'أنت تهتم.',
   waitlist_h2_en: 'We Prepare.', waitlist_h2_ar: 'نحن نُعِد.',
-  waitlist_sub_en: 'Delicious, healthy meals for your little one — delivered to your door.',
-  waitlist_sub_ar: 'وجبات صحية ولذيذة لطفلك — توصيل إلى باب منزلك.',
-  waitlist_form_title_en: 'Join the Waitlist', waitlist_form_title_ar: 'انضم لقائمة الانتظار',
-  waitlist_form_sub_en: 'Be first to know when we launch in Riyadh',
-  waitlist_form_sub_ar: 'كن أول من يعلم عند إطلاقنا في الرياض',
-  waitlist_btn_en: 'Reserve My Spot →', waitlist_btn_ar: '← احجز مكانك',
-  waitlist_footer_en: '© 2026 Ninoz · Riyadh, KSA',
-  waitlist_footer_ar: '© 2026 Ninoz · الرياض، المملكة العربية السعودية',
-  waitlist_show_baby_name: 'true', waitlist_show_baby_age: 'true',
-  waitlist_badge1_icon: '🥗', waitlist_badge1_en: 'Fresh Ingredients', waitlist_badge1_ar: 'مكونات طازجة',
+  waitlist_badge_title_en: 'Founding Mamas', waitlist_badge_title_ar: 'أمهات نينوز',
+  waitlist_sub_en: 'Join the first 20 mamas and be part of the Ninoz story from day one',
+  waitlist_sub_ar: 'انضمي لأول 20 أم وكوني جزءاً من قصة نينوز من البداية',
+  waitlist_form_title_en: 'Reserve your Founding Mama spot', waitlist_form_title_ar: 'احجزي مكانك كـ أمهات نينوز',
+  waitlist_form_sub_en: 'Limited to 20 mamas only', waitlist_form_sub_ar: 'أماكن محدودة · 20 فقط',
+  waitlist_btn_en: 'Join Now 👑', waitlist_btn_ar: 'انضمي الآن 👑',
+  waitlist_footer_en: 'Your data is safe · Limited to 20 mamas', waitlist_footer_ar: 'بياناتك محمية · أماكن محدودة',
+  waitlist_benefit1_value_en: '25%', waitlist_benefit1_value_ar: '25%',
+  waitlist_benefit1_label_en: 'Founding Mamas discount', waitlist_benefit1_label_ar: 'خصم أمهات نينوز',
+  waitlist_benefit2_icon: '🔒',
+  waitlist_benefit2_label_en: 'Price locked for life', waitlist_benefit2_label_ar: 'سعر مجمّد للأبد',
+  waitlist_benefit3_icon: '👩‍⚕️',
+  waitlist_benefit3_label_en: 'Direct access to a pediatric nutrition specialist', waitlist_benefit3_label_ar: 'وصول مباشر لاستشاري تغذية الأطفال',
+  waitlist_badge1_icon: '🥦', waitlist_badge1_en: 'Fresh Ingredients', waitlist_badge1_ar: 'مكونات طازجة',
   waitlist_badge2_icon: '🚫', waitlist_badge2_en: 'No Preservatives', waitlist_badge2_ar: 'بدون مواد حافظة',
-  waitlist_badge3_icon: '🍳', waitlist_badge3_en: 'Cooked Daily', waitlist_badge3_ar: 'طُهي يومياً',
-  waitlist_badge4_icon: '👶', waitlist_badge4_en: 'Pediatrician Approved', waitlist_badge4_ar: 'موصى به طبياً',
-  waitlist_success_title_en: "You're on the list! 🎉", waitlist_success_title_ar: 'أنت في القائمة! 🎉',
-  waitlist_success_sub_en: "We'll reach out on WhatsApp as soon as we launch in Riyadh.",
-  waitlist_success_sub_ar: 'سنتواصل معك عبر واتساب فور الإطلاق في الرياض.',
+  waitlist_badge3_icon: '🔄', waitlist_badge3_en: 'Cooked Daily', waitlist_badge3_ar: 'يُطبخ يومياً',
+  waitlist_badge4_icon: '🩺', waitlist_badge4_en: 'Pediatrician Approved', waitlist_badge4_ar: 'معتمد طبياً',
+  waitlist_success_title_en: "You're in! 🎉", waitlist_success_title_ar: 'تم تسجيلك! 🎉',
+  waitlist_success_sub_en: "Welcome to the Founding Mamas family. We'll reach out on WhatsApp soon.",
+  waitlist_success_sub_ar: 'مرحباً بك في عائلة أمهات نينوز. سنتواصل معك عبر واتساب قريباً.',
 }
-
-const AGES_EN = ['0–3 months', '3–6 months', '6–9 months', '9–12 months', '12–18 months', '18–24 months', '2–3 years']
-const AGES_AR = ['0–3 أشهر', '3–6 أشهر', '6–9 أشهر', '9–12 شهر', '12–18 شهر', '18–24 شهر', '2–3 سنوات']
 
 export default function WaitlistPage() {
   const supabase = createClient()
-  const [lang, setLang] = useState<Lang>('en')
+  const [lang, setLang] = useState<Lang>('ar')
   const [cms, setCms] = useState<Record<string, string>>(D)
-  const [form, setForm] = useState({ name: '', baby: '', wa: '', age: '' })
+  const [stages, setStages] = useState<Stage[]>([])
+  const [form, setForm] = useState({ name: '', baby: '', wa: '', birthday: '', stage: '' })
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
   const [errors, setErrors] = useState<Record<string, boolean>>({})
@@ -46,14 +49,16 @@ export default function WaitlistPage() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: content }, { data: logo }] = await Promise.all([
+      const [{ data: content }, { data: logo }, { data: stagesData }] = await Promise.all([
         supabase.from('site_content').select('key,value'),
         supabase.from('logo').select('url').limit(1).single(),
+        supabase.from('stages').select('id,name,age_range').eq('is_active', true).order('position'),
       ])
       const m = { ...D }
       for (const r of content || []) m[r.key] = r.value
       if (logo?.url && !m.waitlist_logo_url) m.waitlist_logo_url = logo.url
       setCms(m)
+      setStages(stagesData || [])
     }
     load()
   }, [])
@@ -68,18 +73,11 @@ export default function WaitlistPage() {
       parent_name: form.name.trim(),
       baby_name: form.baby.trim() || null,
       whatsapp: form.wa.trim(),
-      baby_age: form.age || null,
+      baby_age: form.birthday || null,
       language: lang,
     })
     if (error) {
       console.error('Waitlist insert error:', error)
-      // If it's a permission/policy error but data may still have saved, show success
-      // To fix: run in Supabase SQL Editor: GRANT INSERT ON waitlist_submissions TO anon;
-      if (error.code === '42501' || error.message?.includes('permission') || error.message?.includes('policy')) {
-        setDone(true)
-        setSubmitting(false)
-        return
-      }
       alert('Something went wrong. Please try again.')
       setSubmitting(false)
       return
@@ -88,130 +86,239 @@ export default function WaitlistPage() {
     setSubmitting(false)
   }
 
-  const btnColor = g('waitlist_btn_color')
+  const btnColor = g('waitlist_btn_color') || '#C84B0F'
   const bgUrl = g('waitlist_bg_url') || g('hero_image_url')
   const logoUrl = g('waitlist_logo_url')
   const logoHeight = parseInt(g('waitlist_logo_height') || '40')
-  const showBabyName = g('waitlist_show_baby_name') !== 'false'
-  const showBabyAge = g('waitlist_show_baby_age') !== 'false'
-  const badges = [1, 2, 3, 4].map(n => ({ icon: g(`waitlist_badge${n}_icon`), label: g(isAR ? `waitlist_badge${n}_ar` : `waitlist_badge${n}_en`) }))
-  const ages = isAR ? AGES_AR : AGES_EN
+  const badges = [1, 2, 3, 4].map(n => ({
+    icon: g(`waitlist_badge${n}_icon`),
+    label: g(isAR ? `waitlist_badge${n}_ar` : `waitlist_badge${n}_en`)
+  }))
 
-  const fieldFont = isAR ? "'Tajawal', 'Nunito', sans-serif" : "'Nunito', sans-serif"
-  const inputStyle = (hasError?: boolean): React.CSSProperties => ({
-    width: '100%', padding: '13px 16px', borderRadius: 14,
-    border: hasError ? '2px solid #ff5555' : '1.5px solid rgba(255,255,255,0.22)',
-    background: 'rgba(255,255,255,0.1)', color: 'white', fontSize: 14,
-    outline: 'none', boxSizing: 'border-box', fontFamily: fieldFont,
+  const ff = isAR ? "'Tajawal','Nunito',sans-serif" : "'Nunito',sans-serif"
+
+  const inp = (hasError?: boolean): React.CSSProperties => ({
+    width: '100%', padding: '14px 16px', borderRadius: 12,
+    border: hasError ? '2px solid #ff6b6b' : '1.5px solid rgba(255,255,255,0.18)',
+    background: 'rgba(255,255,255,0.08)', color: 'white', fontSize: 15,
+    outline: 'none', boxSizing: 'border-box', fontFamily: ff,
     textAlign: isAR ? 'right' : 'left', direction: isAR ? 'rtl' : 'ltr',
+    backdropFilter: 'blur(4px)',
   })
 
   return (
     <div style={{
-        minHeight: '100vh', fontFamily: isAR ? "'Tajawal','Nunito',sans-serif" : "'Nunito',sans-serif",
-        direction: isAR ? 'rtl' : 'ltr', position: 'relative',
-        backgroundImage: bgUrl ? `linear-gradient(rgba(15,7,3,0.65),rgba(15,7,3,0.65)), url(${bgUrl})` : undefined,
-        backgroundSize: 'cover', backgroundPosition: 'center',
-        backgroundColor: bgUrl ? undefined : '#1C0A04',
-      }}>
+      minHeight: '100vh', fontFamily: ff, direction: isAR ? 'rtl' : 'ltr',
+      backgroundImage: bgUrl
+        ? `linear-gradient(rgba(10,5,2,0.72),rgba(10,5,2,0.72)), url(${bgUrl})`
+        : 'linear-gradient(rgba(10,5,2,0.72),rgba(10,5,2,0.72))',
+      backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed',
+      backgroundColor: '#1C0A04',
+    }}>
 
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-
-        {/* Header — fixed height so logo scaling never shifts content below */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 22px', height: Math.max(logoHeight + 28, 68), flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', maxWidth: '60%' }}>
-            {logoUrl
-              ? <img src={logoUrl} alt="Ninoz" style={{ height: logoHeight, maxWidth: 200, width: 'auto', objectFit: 'contain', display: 'block' }} />
-              : <span style={{ fontFamily: "'Nunito',sans-serif", fontWeight: 900, fontSize: 24, color: btnColor, whiteSpace: 'nowrap' }}>Ninoz</span>
-            }
-          </div>
-          <button onClick={() => setLang(isAR ? 'en' : 'ar')} style={{ background: 'rgba(255,255,255,0.14)', border: '1.5px solid rgba(255,255,255,0.28)', borderRadius: 22, padding: '6px 16px', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, whiteSpace: 'nowrap' }}>
-            {isAR ? 'English' : 'عربي'}
-          </button>
+      {/* Nav */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px' }}>
+        <div>
+          {logoUrl
+            ? <img src={logoUrl} alt="Ninoz" style={{ height: logoHeight, maxWidth: 160, objectFit: 'contain' }} />
+            : <span style={{ fontWeight: 900, fontSize: 22, color: btnColor }}>Ninoz</span>}
         </div>
+        <button onClick={() => setLang(isAR ? 'en' : 'ar')} style={{
+          background: 'rgba(255,255,255,0.12)', border: '1.5px solid rgba(255,255,255,0.25)',
+          borderRadius: 20, padding: '6px 18px', color: 'white', fontSize: 13,
+          fontWeight: 700, cursor: 'pointer', fontFamily: ff,
+        }}>
+          {isAR ? 'English' : 'عربي'}
+        </button>
+      </div>
 
-        {/* Hero */}
-        <div style={{ textAlign: 'center', padding: '18px 22px 10px' }}>
-          <h1 style={{ margin: 0, lineHeight: 1.1 }}>
-            <span style={{ display: 'block', fontSize: 'clamp(32px,9vw,52px)', fontWeight: 900, color: 'white' }}>{g(isAR ? 'waitlist_h1_ar' : 'waitlist_h1_en')}</span>
-            <span style={{ display: 'block', fontSize: 'clamp(32px,9vw,52px)', fontWeight: 900, color: btnColor }}>{g(isAR ? 'waitlist_h2_ar' : 'waitlist_h2_en')}</span>
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '0 20px 48px' }}>
+
+        {/* Hero text */}
+        <div style={{ textAlign: 'center', padding: '8px 0 24px' }}>
+          <h1 style={{ margin: '0 0 16px', lineHeight: 1.1 }}>
+            <span style={{ display: 'block', fontSize: 'clamp(36px,10vw,56px)', fontWeight: 900, color: 'white' }}>
+              {g(isAR ? 'waitlist_h1_ar' : 'waitlist_h1_en')}
+            </span>
+            <span style={{ display: 'block', fontSize: 'clamp(36px,10vw,56px)', fontWeight: 900, color: btnColor }}>
+              {g(isAR ? 'waitlist_h2_ar' : 'waitlist_h2_en')}
+            </span>
           </h1>
-          <p style={{ color: 'rgba(255,255,255,0.78)', fontSize: 15, maxWidth: 300, margin: '12px auto 0', lineHeight: 1.6 }}>
+
+          {/* Founding Mamas badge */}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: btnColor, borderRadius: 50, padding: '10px 28px', marginBottom: 18 }}>
+            <span style={{ fontSize: 18 }}>👑</span>
+            <span style={{ color: 'white', fontWeight: 900, fontSize: 17 }}>
+              {g(isAR ? 'waitlist_badge_title_ar' : 'waitlist_badge_title_en')}
+            </span>
+          </div>
+
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 15, maxWidth: 360, margin: '0 auto', lineHeight: 1.65 }}>
             {g(isAR ? 'waitlist_sub_ar' : 'waitlist_sub_en')}
           </p>
         </div>
 
-        {/* Badges */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 10, padding: '16px 20px', flexWrap: 'wrap' }}>
+        {/* 3 Benefit cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginBottom: 20 }}>
+          {/* Card 1 — 25% */}
+          <div style={{ background: 'rgba(255,255,255,0.09)', backdropFilter: 'blur(12px)', borderRadius: 14, padding: '16px 12px', border: '1px solid rgba(255,255,255,0.14)', textAlign: 'center' }}>
+            <div style={{ fontSize: 26, fontWeight: 900, color: btnColor, marginBottom: 6 }}>
+              {g(isAR ? 'waitlist_benefit1_value_ar' : 'waitlist_benefit1_value_en')}%
+            </div>
+            <div style={{ color: 'rgba(255,255,255,0.78)', fontSize: 11, lineHeight: 1.4 }}>
+              {g(isAR ? 'waitlist_benefit1_label_ar' : 'waitlist_benefit1_label_en')}
+            </div>
+          </div>
+          {/* Card 2 — locked price */}
+          <div style={{ background: 'rgba(255,255,255,0.09)', backdropFilter: 'blur(12px)', borderRadius: 14, padding: '16px 12px', border: '1px solid rgba(255,255,255,0.14)', textAlign: 'center' }}>
+            <div style={{ fontSize: 26, marginBottom: 6 }}>{g('waitlist_benefit2_icon')}</div>
+            <div style={{ color: 'rgba(255,255,255,0.78)', fontSize: 11, lineHeight: 1.4 }}>
+              {g(isAR ? 'waitlist_benefit2_label_ar' : 'waitlist_benefit2_label_en')}
+            </div>
+          </div>
+          {/* Card 3 — specialist */}
+          <div style={{ background: 'rgba(255,255,255,0.09)', backdropFilter: 'blur(12px)', borderRadius: 14, padding: '16px 12px', border: '1px solid rgba(255,255,255,0.14)', textAlign: 'center' }}>
+            <div style={{ fontSize: 26, marginBottom: 6 }}>{g('waitlist_benefit3_icon')}</div>
+            <div style={{ color: 'rgba(255,255,255,0.78)', fontSize: 11, lineHeight: 1.4 }}>
+              {g(isAR ? 'waitlist_benefit3_label_ar' : 'waitlist_benefit3_label_en')}
+            </div>
+          </div>
+        </div>
+
+        {/* 4 circular badges */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 28, flexWrap: 'wrap' }}>
           {badges.map((b, i) => (
-            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 66 }}>
-              <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(255,255,255,0.13)', border: '1.5px solid rgba(255,255,255,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 21 }}>
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
+              <div style={{ width: 54, height: 54, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: '1.5px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
                 {b.icon}
               </div>
-              <span style={{ color: 'rgba(255,255,255,0.88)', fontSize: 11, fontWeight: 700, textAlign: 'center', lineHeight: 1.3, maxWidth: 70 }}>{b.label}</span>
+              <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: 700, textAlign: 'center', maxWidth: 72, lineHeight: 1.3 }}>{b.label}</span>
             </div>
           ))}
         </div>
 
-        {/* Form */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 18px 28px' }}>
-          <div style={{ width: '100%', maxWidth: 400, background: 'rgba(15,7,3,0.58)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: 26, padding: '26px 22px', border: '1px solid rgba(255,255,255,0.11)' }}>
+        {/* Form card */}
+        <div style={{ background: 'rgba(20,10,5,0.55)', backdropFilter: 'blur(28px)', WebkitBackdropFilter: 'blur(28px)', borderRadius: 24, padding: '28px 24px', border: '1px solid rgba(255,255,255,0.12)' }}>
 
-            {done ? (
-              <div style={{ textAlign: 'center', padding: '16px 0' }}>
-                <div style={{ fontSize: 52, marginBottom: 12 }}>🎉</div>
-                <h2 style={{ color: 'white', fontSize: 19, fontWeight: 900, margin: '0 0 10px' }}>{g(isAR ? 'waitlist_success_title_ar' : 'waitlist_success_title_en')}</h2>
-                <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.6, margin: 0 }}>{g(isAR ? 'waitlist_success_sub_ar' : 'waitlist_success_sub_en')}</p>
-              </div>
-            ) : (
-              <>
-                <h2 style={{ color: 'white', fontSize: 19, fontWeight: 900, margin: '0 0 4px', textAlign: 'center' }}>{g(isAR ? 'waitlist_form_title_ar' : 'waitlist_form_title_en')}</h2>
-                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, margin: '0 0 20px', textAlign: 'center', lineHeight: 1.5 }}>{g(isAR ? 'waitlist_form_sub_ar' : 'waitlist_form_sub_en')}</p>
+          {done ? (
+            <div style={{ textAlign: 'center', padding: '24px 0' }}>
+              <div style={{ fontSize: 56, marginBottom: 14 }}>🎉</div>
+              <h2 style={{ color: 'white', fontSize: 20, fontWeight: 900, margin: '0 0 12px' }}>
+                {g(isAR ? 'waitlist_success_title_ar' : 'waitlist_success_title_en')}
+              </h2>
+              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: 1.65, margin: 0 }}>
+                {g(isAR ? 'waitlist_success_sub_ar' : 'waitlist_success_sub_en')}
+              </p>
+            </div>
+          ) : (
+            <>
+              <h2 style={{ color: 'white', fontSize: 20, fontWeight: 900, margin: '0 0 6px', textAlign: 'center' }}>
+                {g(isAR ? 'waitlist_form_title_ar' : 'waitlist_form_title_en')}
+              </h2>
+              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, margin: '0 0 22px', textAlign: 'center' }}>
+                {g(isAR ? 'waitlist_form_sub_ar' : 'waitlist_form_sub_en')}
+              </p>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                {/* Name row — 2 columns */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <div>
-                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: 700, marginBottom: 5 }}>{isAR ? 'اسمك' : 'Your Name'}</label>
-                    <input placeholder={isAR ? 'اسم الأم / الأب' : 'Mom / Dad name'} value={form.name} onChange={e => { setForm(p => ({ ...p, name: e.target.value })); setErrors(p => ({ ...p, name: false })) }} style={inputStyle(errors.name)} />
+                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, marginBottom: 6, textAlign: isAR ? 'right' : 'left' }}>
+                      {isAR ? 'اسمك' : 'Your Name'}
+                    </label>
+                    <input
+                      placeholder={isAR ? 'أم سارة' : 'Mom name'}
+                      value={form.name}
+                      onChange={e => { setForm(p => ({ ...p, name: e.target.value })); setErrors(p => ({ ...p, name: false })) }}
+                      style={inp(errors.name)}
+                    />
                   </div>
-
-                  {showBabyName && (
-                    <div>
-                      <label style={{ display: 'block', color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: 700, marginBottom: 5 }}>{isAR ? 'اسم الطفل' : "Baby's Name"}</label>
-                      <input placeholder={isAR ? 'اسم الطفل' : 'Baby name'} value={form.baby} onChange={e => setForm(p => ({ ...p, baby: e.target.value }))} style={inputStyle()} />
-                    </div>
-                  )}
-
                   <div>
-                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: 700, marginBottom: 5 }}>{isAR ? 'واتساب' : 'WhatsApp'}</label>
-                    <input placeholder={isAR ? '966+ 5x xxxx xxx' : '966+ 5x xxx xxxx'} value={form.wa} onChange={e => { setForm(p => ({ ...p, wa: e.target.value })); setErrors(p => ({ ...p, wa: false })) }} style={{ ...inputStyle(errors.wa), direction: 'ltr', textAlign: 'left' }} type="tel" inputMode="tel" />
+                    <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, marginBottom: 6, textAlign: isAR ? 'right' : 'left' }}>
+                      {isAR ? 'اسم طفلك' : "Baby's Name"}
+                    </label>
+                    <input
+                      placeholder={isAR ? 'سارة' : 'Baby name'}
+                      value={form.baby}
+                      onChange={e => setForm(p => ({ ...p, baby: e.target.value }))}
+                      style={inp()}
+                    />
                   </div>
-
-                  {showBabyAge && (
-                    <div>
-                      <label style={{ display: 'block', color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: 700, marginBottom: 5 }}>{isAR ? 'عمر الطفل' : "Baby's Age"}</label>
-                      <select value={form.age} onChange={e => setForm(p => ({ ...p, age: e.target.value }))} style={{ ...inputStyle(), cursor: 'pointer' }}>
-                        <option value="" style={{ background: '#1C0A04' }}>{isAR ? 'اختر العمر' : 'Select age'}</option>
-                        {ages.map(o => <option key={o} value={o} style={{ background: '#1C0A04' }}>{o}</option>)}
-                      </select>
-                    </div>
-                  )}
-
-                  <button onClick={submit} disabled={submitting} style={{ marginTop: 4, padding: 15, background: btnColor, color: 'white', border: 'none', borderRadius: 14, fontSize: 16, fontWeight: 900, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1, fontFamily: 'inherit', transition: 'opacity 0.15s,transform 0.15s' }} onMouseEnter={e => { if (!submitting) e.currentTarget.style.transform = 'scale(1.02)' }} onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}>
-                    {submitting ? '...' : g(isAR ? 'waitlist_btn_ar' : 'waitlist_btn_en')}
-                  </button>
-
-                  <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.38)', fontSize: 11, margin: 0 }}>
-                    {isAR ? 'بياناتك آمنة ولن تُشارك مع أي جهة.' : 'Your data is safe and will never be shared.'}
-                  </p>
                 </div>
-              </>
-            )}
-          </div>
-        </div>
 
-        {/* Footer */}
-        <div style={{ textAlign: 'center', padding: '12px 22px 20px' }}>
-          <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, margin: 0 }}>{g(isAR ? 'waitlist_footer_ar' : 'waitlist_footer_en')}</p>
+                {/* WhatsApp */}
+                <div>
+                  <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, marginBottom: 6, textAlign: isAR ? 'right' : 'left' }}>
+                    {isAR ? 'رقم الواتساب' : 'WhatsApp'}
+                  </label>
+                  <input
+                    placeholder={isAR ? '05xxxxxxxx' : '5x xxx xxxx 966+'}
+                    value={form.wa}
+                    onChange={e => { setForm(p => ({ ...p, wa: e.target.value })); setErrors(p => ({ ...p, wa: false })) }}
+                    style={{ ...inp(errors.wa), direction: 'ltr', textAlign: 'left' }}
+                    type="tel" inputMode="tel"
+                  />
+                </div>
+
+                {/* Baby's Birthday */}
+                <div>
+                  <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, marginBottom: 6, textAlign: isAR ? 'right' : 'left' }}>
+                    {isAR ? 'تاريخ ميلاد طفلك' : "Baby's Birthday"}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="DD/MM/YYYY"
+                    value={form.birthday}
+                    onChange={e => setForm(p => ({ ...p, birthday: e.target.value }))}
+                    style={{ ...inp(), direction: 'ltr', textAlign: 'left' }}
+                  />
+                </div>
+
+                {/* Baby's Stage */}
+                <div>
+                  <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, marginBottom: 6, textAlign: isAR ? 'right' : 'left' }}>
+                    {isAR ? 'مرحلة طفلك' : "Baby's Stage"}
+                  </label>
+                  <select
+                    value={form.stage}
+                    onChange={e => setForm(p => ({ ...p, stage: e.target.value }))}
+                    style={{ ...inp(), cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' }}
+                  >
+                    <option value="" style={{ background: '#1C0A04', color: 'white' }}>
+                      {isAR ? 'اختر المرحلة' : 'Select stage'}
+                    </option>
+                    {stages.map(s => (
+                      <option key={s.id} value={s.id} style={{ background: '#1C0A04', color: 'white' }}>
+                        {s.name} — {s.age_range}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Submit */}
+                <button
+                  onClick={submit}
+                  disabled={submitting}
+                  style={{
+                    marginTop: 4, padding: '16px', background: btnColor, color: 'white',
+                    border: 'none', borderRadius: 14, fontSize: 17, fontWeight: 900,
+                    cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1,
+                    fontFamily: ff, transition: 'transform 0.15s, opacity 0.15s',
+                    boxShadow: `0 4px 20px ${btnColor}66`,
+                  }}
+                  onMouseEnter={e => { if (!submitting) e.currentTarget.style.transform = 'scale(1.02)' }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                >
+                  {submitting ? '...' : g(isAR ? 'waitlist_btn_ar' : 'waitlist_btn_en')}
+                </button>
+
+                <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.35)', fontSize: 11, margin: 0 }}>
+                  {g(isAR ? 'waitlist_footer_ar' : 'waitlist_footer_en')}
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

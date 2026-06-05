@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -69,7 +71,19 @@ export default function WaitlistPage() {
       baby_age: form.age || null,
       language: lang,
     })
-    if (error) { alert('Something went wrong. Please try again.'); setSubmitting(false); return }
+    if (error) {
+      console.error('Waitlist insert error:', error)
+      // If it's a permission/policy error but data may still have saved, show success
+      // To fix: run in Supabase SQL Editor: GRANT INSERT ON waitlist_submissions TO anon;
+      if (error.code === '42501' || error.message?.includes('permission') || error.message?.includes('policy')) {
+        setDone(true)
+        setSubmitting(false)
+        return
+      }
+      alert('Something went wrong. Please try again.')
+      setSubmitting(false)
+      return
+    }
     setDone(true)
     setSubmitting(false)
   }

@@ -77,6 +77,7 @@ export default function WaitlistPage() {
   const btnColor = g('waitlist_btn_color')
   const bgUrl = g('waitlist_bg_url') || g('hero_image_url')
   const logoUrl = g('waitlist_logo_url')
+  const logoHeight = parseInt(g('waitlist_logo_height') || '40')
   const showBabyName = g('waitlist_show_baby_name') !== 'false'
   const showBabyAge = g('waitlist_show_baby_age') !== 'false'
   const badges = [1, 2, 3, 4].map(n => ({ icon: g(`waitlist_badge${n}_icon`), label: g(isAR ? `waitlist_badge${n}_ar` : `waitlist_badge${n}_en`) }))
@@ -105,7 +106,7 @@ export default function WaitlistPage() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px' }}>
           {logoUrl
-            ? <img src={logoUrl} alt="Ninoz" style={{ height: 36, objectFit: 'contain' }} />
+            ? <img src={logoUrl} alt="Ninoz" style={{ height: logoHeight, maxWidth: Math.max(logoHeight * 4, 140), objectFit: 'contain', display: 'block' }} />
             : <span style={{ fontFamily: "'Nunito',sans-serif", fontWeight: 900, fontSize: 24, color: btnColor }}>Ninoz</span>
           }
           <button onClick={() => setLang(isAR ? 'en' : 'ar')} style={{ background: 'rgba(255,255,255,0.14)', border: '1.5px solid rgba(255,255,255,0.28)', borderRadius: 22, padding: '6px 16px', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>

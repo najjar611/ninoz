@@ -1,12 +1,14 @@
 'use client'
 
-// src/app/admin/layout.tsx — Premium Calibrated Non-Intrusive Layout Shell v9.6
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
   const pathname = usePathname()
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const navItems = [
@@ -16,7 +18,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { label: '🍼 Manage Stages', href: '/admin/stages' },
     { label: '👥 Subscribers', href: '/admin/subscribers' },
     { label: '⏳ Waitlist', href: '/admin/waitlist' },
+    { label: '⚙️ Settings', href: '/admin/settings' },
   ]
+
+  async function logout() {
+    await supabase.auth.signOut()
+    router.push('/admin/login')
+    router.refresh()
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#F7F4F0', display: 'flex', flexDirection: 'column' }}>
@@ -107,8 +116,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               )
             })}
           </ul>
-          <div style={{ marginTop: 'auto', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '1.5rem' }}>
+          <div style={{ marginTop: 'auto', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <Link href="/" style={{ fontSize: '13px', fontWeight: 700, color: '#A0958D', textDecoration: 'none' }}>← View Website</Link>
+            <button onClick={logout} style={{ background: 'none', border: 'none', fontSize: '13px', fontWeight: 700, color: '#DC2626', cursor: 'pointer', textAlign: 'left', padding: 0, fontFamily: 'inherit' }}>Sign Out</button>
           </div>
         </aside>
 

@@ -17,6 +17,8 @@ export default function SettingsAdmin() {
   const [logoUrl, setLogoUrl] = useState('')
   const [waitlistBgUrl, setWaitlistBgUrl] = useState('')
   const [waitlistBtnColor, setWaitlistBtnColor] = useState('#C84B0F')
+  const [colorPrimary, setColorPrimary] = useState('#C84B0F')
+  const [colorBlue, setColorBlue] = useState('#0A429B')
   const [tickerItems, setTickerItems] = useState<TickerItem[]>([])
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState('')
@@ -31,7 +33,7 @@ export default function SettingsAdmin() {
 
   async function load() {
     const [content, logo, ticker] = await Promise.all([
-      supabase.from('site_content').select('key,value').in('key',['site_font','ticker_animated','hero_image_url','why_image_url','waitlist_bg_url','waitlist_btn_color']),
+      supabase.from('site_content').select('key,value').in('key',['site_font','ticker_animated','hero_image_url','why_image_url','waitlist_bg_url','waitlist_btn_color','theme_color_primary','theme_color_deep_blue']),
       supabase.from('logo').select('*').limit(1).single(),
       supabase.from('ticker_items').select('*').order('position'),
     ])
@@ -43,6 +45,8 @@ export default function SettingsAdmin() {
     setWhyUrl(m['why_image_url'] || '')
     setWaitlistBgUrl(m['waitlist_bg_url'] || '')
     setWaitlistBtnColor(m['waitlist_btn_color'] || '#C84B0F')
+    setColorPrimary(m['theme_color_primary'] || '#C84B0F')
+    setColorBlue(m['theme_color_deep_blue'] || '#0A429B')
     setLogoUrl(logo.data?.url || '')
     setTickerItems(ticker.data || [])
   }
@@ -60,6 +64,8 @@ export default function SettingsAdmin() {
       saveKey('why_image_url', whyUrl),
       saveKey('waitlist_bg_url', waitlistBgUrl),
       saveKey('waitlist_btn_color', waitlistBtnColor),
+      saveKey('theme_color_primary', colorPrimary),
+      saveKey('theme_color_deep_blue', colorBlue),
     ])
     setSaving(false)
     flash('Saved! Refresh the site to see changes.')
@@ -180,6 +186,23 @@ export default function SettingsAdmin() {
           <input ref={whyRef} type="file" accept="image/*" style={{ display:'none' }} onChange={e => { const f=e.target.files?.[0]; if(f) uploadImg('why-section',f,setWhyUrl,'why_image_url') }} />
         </div>
         <p style={{ fontSize:12, color:'#A08070' }}>Right side of the ingredients section. Best: 3:4 portrait.</p>
+      </div>
+
+      {/* Brand Colors */}
+      <div style={card}>
+        <label style={lbl}>Brand Colors — Main Website</label>
+        <p style={{ fontSize: 12, color: '#A08070', margin: '0 0 16px' }}>These control button colors, headline colors, and accents across the entire site.</p>
+        {[
+          { label: 'Primary Color (buttons, accents)', val: colorPrimary, set: setColorPrimary },
+          { label: 'Secondary Color (headlines, blue tones)', val: colorBlue, set: setColorBlue },
+        ].map(c => (
+          <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <input type="color" value={c.val} onChange={e => c.set(e.target.value)} style={{ width: 42, height: 42, border: 'none', borderRadius: 9, cursor: 'pointer', padding: 2, background: 'none', flexShrink: 0 }} />
+            <input value={c.val} onChange={e => c.set(e.target.value)} style={{ ...inp, width: 110 }} />
+            <div style={{ width: 42, height: 42, borderRadius: 9, background: c.val, border: '1px solid rgba(0,0,0,0.08)', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: '#5A5048', fontWeight: 600 }}>{c.label}</span>
+          </div>
+        ))}
       </div>
 
       {/* Waitlist Page */}

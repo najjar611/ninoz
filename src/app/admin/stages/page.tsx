@@ -8,6 +8,7 @@ type Stage = {
   emoji: string; card_bg: string; image_url: string | null
   tag: string | null; tag_color: string; is_clickable: boolean
   is_active: boolean; position: number
+  min_age_months: number | null; max_age_months: number | null
 }
 
 export default function StagesAdmin() {
@@ -37,6 +38,7 @@ export default function StagesAdmin() {
       name: stage.name, age_range: stage.age_range, description: stage.description,
       emoji: stage.emoji, card_bg: stage.card_bg, tag: stage.tag,
       tag_color: stage.tag_color, is_clickable: stage.is_clickable, is_active: stage.is_active,
+      min_age_months: stage.min_age_months, max_age_months: stage.max_age_months,
     }).eq('id', stage.id)
     setSaving(null)
     if (error) flash('Error: ' + error.message)
@@ -92,7 +94,7 @@ export default function StagesAdmin() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: 20 }}>
         {stages.map(stage => (
           <div key={stage.id} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.06)', opacity: stage.is_active ? 1 : 0.6 }}>
             <div style={{ height: 180, background: stage.card_bg, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 64 }}>
@@ -127,6 +129,18 @@ export default function StagesAdmin() {
 
               <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Description</label>
               <textarea style={{ ...inp, height: 70, resize: 'vertical' }} value={stage.description} onChange={e => update(stage.id, 'description', e.target.value)} />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Min Age (months)</label>
+                  <input type="number" min={0} style={inp} value={stage.min_age_months ?? ''} onChange={e => update(stage.id, 'min_age_months', e.target.value === '' ? null : parseInt(e.target.value))} placeholder="0" />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Max Age (months)</label>
+                  <input type="number" min={0} style={inp} value={stage.max_age_months ?? ''} onChange={e => update(stage.id, 'max_age_months', e.target.value === '' ? null : parseInt(e.target.value))} placeholder="6" />
+                </div>
+              </div>
+              <p style={{ fontSize: 11, color: '#A08070', margin: '-6px 0 12px' }}>Used to auto-recommend this stage on the waitlist page based on baby's age.</p>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>

@@ -108,7 +108,7 @@ export default function MealsAdmin() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(320px, 100%), 1fr))', gap: 20 }}>
         {displayed.map(meal => (
           <div key={meal.id} style={{ background: 'white', borderRadius: 16, overflow: 'hidden', border: '1px solid rgba(0,0,0,0.06)', opacity: meal.is_active === false ? 0.6 : 1 }}>
             <div style={{ height: 160, background: '#F5EDE0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48 }}>

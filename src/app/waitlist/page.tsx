@@ -6,10 +6,21 @@ import React, { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 type Lang = 'en' | 'ar'
-type Stage = { id: string; name: string; age_range: string }
+type Stage = { id: string; name: string; age_range: string; min_age_months: number | null; max_age_months: number | null }
+
+function ageInMonths(dateStr: string): number | null {
+  if (!dateStr) return null
+  const birth = new Date(dateStr)
+  if (isNaN(birth.getTime())) return null
+  const now = new Date()
+  let months = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth())
+  if (now.getDate() < birth.getDate()) months--
+  return Math.max(0, months)
+}
 
 const D: Record<string, string> = {
   waitlist_btn_color: '#C84B0F',
+  waitlist_font: 'Quicksand',
   waitlist_h1_en: 'You Care.', waitlist_h1_ar: 'أنت تهتم.',
   waitlist_h2_en: 'We Prepare.', waitlist_h2_ar: 'نحن نُعِد.',
   waitlist_badge_title_en: 'Founding Mamas', waitlist_badge_title_ar: 'أمهات نينوز',
@@ -43,6 +54,7 @@ export default function WaitlistPage() {
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
   const [errors, setErrors] = useState<Record<string, boolean>>({})
+  const [recommended, setRecommended] = useState<Stage | null>(null)
 
   const isAR = lang === 'ar'
   const g = (k: string) => cms[k] || D[k] || ''
@@ -52,7 +64,7 @@ export default function WaitlistPage() {
       const [{ data: content }, { data: logo }, { data: stagesData }] = await Promise.all([
         supabase.from('site_content').select('key,value'),
         supabase.from('logo').select('url').limit(1).single(),
-        supabase.from('stages').select('id,name,age_range').eq('is_active', true).order('position'),
+        supabase.from('stages').select('id,name,age_range,min_age_months,max_age_months').eq('is_active', true).order('position'),
       ])
       const m = { ...D }
       for (const r of content || []) m[r.key] = r.value
@@ -63,10 +75,35 @@ export default function WaitlistPage() {
     load()
   }, [])
 
+  useEffect(() => {
+    const font = cms.waitlist_font || D.waitlist_font || 'Quicksand'
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = `https://fonts.googleapis.com/css2?family=${font.replace(/ /g, '+')}:wght@400;500;600;700;800;900&display=swap`
+    document.head.appendChild(link)
+    return () => { document.head.removeChild(link) }
+  }, [cms.waitlist_font])
+
+  useEffect(() => {
+    const months = ageInMonths(form.birthday)
+    if (months === null || stages.length === 0) { setRecommended(null); return }
+    const match = stages.find(s =>
+      s.min_age_months !== null && s.max_age_months !== null &&
+      months >= s.min_age_months && months <= s.max_age_months
+    )
+    if (match) {
+      setRecommended(match)
+      setForm(p => ({ ...p, stage: match.id }))
+    } else {
+      setRecommended(null)
+    }
+  }, [form.birthday, stages])
+
   const submit = async () => {
     const e: Record<string, boolean> = {}
     if (!form.name.trim()) e.name = true
     if (!form.wa.trim()) e.wa = true
+    else if (!/^0\d{9}$/.test(form.wa.trim())) e.wa = true
     if (Object.keys(e).length) { setErrors(e); return }
     setSubmitting(true)
     const { error } = await supabase.from('waitlist_submissions').insert({
@@ -95,16 +132,34 @@ export default function WaitlistPage() {
     label: g(isAR ? `waitlist_badge${n}_ar` : `waitlist_badge${n}_en`)
   }))
 
-  const ff = isAR ? "'Tajawal','Nunito',sans-serif" : "'Nunito',sans-serif"
+  const waitlistFont = g('waitlist_font') || 'Quicksand'
+  const ff = isAR ? `'Tajawal','${waitlistFont}',sans-serif` : `'${waitlistFont}',sans-serif`
 
   const inp = (hasError?: boolean): React.CSSProperties => ({
-    width: '100%', padding: '14px 16px', borderRadius: 12,
-    border: hasError ? '2px solid #ff6b6b' : '1.5px solid rgba(255,255,255,0.18)',
-    background: 'rgba(255,255,255,0.08)', color: 'white', fontSize: 15,
+    width: '100%', padding: '14px 16px', borderRadius: 16,
+    border: hasError ? '2px solid #ff6b6b' : '1.5px solid rgba(255,255,255,0.16)',
+    background: 'rgba(255,255,255,0.07)', color: 'white', fontSize: 15,
     outline: 'none', boxSizing: 'border-box', fontFamily: ff,
     textAlign: isAR ? 'right' : 'left', direction: isAR ? 'rtl' : 'ltr',
-    backdropFilter: 'blur(4px)',
+    backdropFilter: 'blur(4px)', transition: 'border-color 0.18s, background 0.18s, transform 0.12s',
   })
+
+  const selectStyle: React.CSSProperties = {
+    ...inp(), cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9' fill='none'%3E%3Cpath d='M1 1L7 7L13 1' stroke='${encodeURIComponent(btnColor)}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: isAR ? '16px center' : 'calc(100% - 16px) center',
+    paddingInlineEnd: isAR ? 16 : 42, paddingInlineStart: isAR ? 42 : 16,
+  }
+
+  const focusGlow = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    e.currentTarget.style.borderColor = btnColor
+    e.currentTarget.style.background = 'rgba(255,255,255,0.11)'
+  }
+  const blurGlow = (hasError?: boolean) => (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    e.currentTarget.style.borderColor = hasError ? '#ff6b6b' : 'rgba(255,255,255,0.16)'
+    e.currentTarget.style.background = 'rgba(255,255,255,0.07)'
+  }
 
   return (
     <div style={{
@@ -115,6 +170,14 @@ export default function WaitlistPage() {
       backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed',
       backgroundColor: '#1C0A04',
     }}>
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        .ninoz-lang-btn:hover { background: rgba(255,255,255,0.2) !important; transform: scale(1.05); }
+        .ninoz-submit-btn:active { transform: scale(0.97) !important; }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; opacity: 0.7; }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+        select option { padding: 10px; }
+      `}</style>
 
       {/* Nav */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px' }}>
@@ -123,10 +186,10 @@ export default function WaitlistPage() {
             ? <img src={logoUrl} alt="Ninoz" style={{ height: logoHeight, maxWidth: 160, objectFit: 'contain' }} />
             : <span style={{ fontWeight: 900, fontSize: 22, color: btnColor }}>Ninoz</span>}
         </div>
-        <button onClick={() => setLang(isAR ? 'en' : 'ar')} style={{
+        <button className="ninoz-lang-btn" onClick={() => setLang(isAR ? 'en' : 'ar')} style={{
           background: 'rgba(255,255,255,0.12)', border: '1.5px solid rgba(255,255,255,0.25)',
           borderRadius: 20, padding: '6px 18px', color: 'white', fontSize: 13,
-          fontWeight: 700, cursor: 'pointer', fontFamily: ff,
+          fontWeight: 700, cursor: 'pointer', fontFamily: ff, transition: 'transform 0.15s, background 0.15s',
         }}>
           {isAR ? 'English' : 'عربي'}
         </button>
@@ -253,12 +316,23 @@ export default function WaitlistPage() {
                     {isAR ? 'رقم الواتساب' : 'WhatsApp'}
                   </label>
                   <input
-                    placeholder={isAR ? '05xxxxxxxx' : '5x xxx xxxx 966+'}
+                    placeholder={isAR ? '05xxxxxxxx' : '05xxxxxxxx'}
                     value={form.wa}
-                    onChange={e => { setForm(p => ({ ...p, wa: e.target.value })); setErrors(p => ({ ...p, wa: false })) }}
+                    onChange={e => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
+                      setForm(p => ({ ...p, wa: digits }))
+                      setErrors(p => ({ ...p, wa: false }))
+                    }}
+                    onFocus={focusGlow}
+                    onBlur={blurGlow(errors.wa)}
                     style={{ ...inp(errors.wa), direction: 'ltr', textAlign: 'left' }}
-                    type="tel" inputMode="tel"
+                    type="tel" inputMode="numeric" pattern="[0-9]*" maxLength={10}
                   />
+                  {errors.wa && form.wa && (
+                    <p style={{ color: '#FCA5A5', fontSize: 11, marginTop: 6 }}>
+                      {isAR ? 'يجب أن يبدأ الرقم بـ 0 ويتكون من 10 أرقام' : 'Number must start with 0 and be 10 digits'}
+                    </p>
+                  )}
                 </div>
 
                 {/* Baby's Birthday */}
@@ -267,26 +341,49 @@ export default function WaitlistPage() {
                     {isAR ? 'تاريخ ميلاد طفلك' : "Baby's Birthday"}
                   </label>
                   <input
-                    type="text"
-                    placeholder="DD/MM/YYYY"
+                    type="date"
                     value={form.birthday}
                     onChange={e => setForm(p => ({ ...p, birthday: e.target.value }))}
-                    style={{ ...inp(), direction: 'ltr', textAlign: 'left' }}
+                    onFocus={focusGlow}
+                    onBlur={blurGlow()}
+                    max={new Date().toISOString().split('T')[0]}
+                    style={{ ...inp(), direction: 'ltr', textAlign: 'left', colorScheme: 'dark' }}
                   />
                 </div>
 
+                {/* Recommended stage banner — shown even if the dropdown itself is hidden */}
+                {recommended && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    background: `${btnColor}26`, border: `1.5px solid ${btnColor}55`,
+                    borderRadius: 14, padding: '10px 14px', marginBottom: 10,
+                    animation: 'fadeIn 0.3s ease',
+                  }}>
+                    <span style={{ fontSize: 17 }}>✨</span>
+                    <span style={{ color: 'white', fontSize: 13, fontWeight: 700, lineHeight: 1.4 }}>
+                      {isAR
+                        ? <>المرحلة الموصى بها هي: <span style={{ color: btnColor }}>{recommended.name}</span></>
+                        : <>Our recommended stage is: <span style={{ color: btnColor }}>{recommended.name}</span></>}
+                    </span>
+                  </div>
+                )}
+
                 {/* Baby's Stage */}
+                {g('waitlist_show_stage') !== 'false' && (
                 <div>
                   <label style={{ display: 'block', color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, marginBottom: 6, textAlign: isAR ? 'right' : 'left' }}>
                     {isAR ? 'مرحلة طفلك' : "Baby's Stage"}
                   </label>
+
                   <select
                     value={form.stage}
                     onChange={e => setForm(p => ({ ...p, stage: e.target.value }))}
-                    style={{ ...inp(), cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none' }}
+                    onFocus={focusGlow}
+                    onBlur={blurGlow()}
+                    style={selectStyle}
                   >
                     <option value="" style={{ background: '#1C0A04', color: 'white' }}>
-                      {isAR ? 'اختر المرحلة' : 'Select stage'}
+                      {isAR ? '🍼 اختر المرحلة' : '🍼 Select stage'}
                     </option>
                     {stages.map(s => (
                       <option key={s.id} value={s.id} style={{ background: '#1C0A04', color: 'white' }}>
@@ -295,20 +392,22 @@ export default function WaitlistPage() {
                     ))}
                   </select>
                 </div>
+                )}
 
                 {/* Submit */}
                 <button
+                  className="ninoz-submit-btn"
                   onClick={submit}
                   disabled={submitting}
                   style={{
-                    marginTop: 4, padding: '16px', background: btnColor, color: 'white',
-                    border: 'none', borderRadius: 14, fontSize: 17, fontWeight: 900,
+                    marginTop: 4, padding: '17px', background: btnColor, color: 'white',
+                    border: 'none', borderRadius: 16, fontSize: 17, fontWeight: 900,
                     cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1,
-                    fontFamily: ff, transition: 'transform 0.15s, opacity 0.15s',
-                    boxShadow: `0 4px 20px ${btnColor}66`,
+                    fontFamily: ff, transition: 'transform 0.18s cubic-bezier(.34,1.56,.64,1), opacity 0.15s, box-shadow 0.18s',
+                    boxShadow: `0 6px 24px ${btnColor}77`,
                   }}
-                  onMouseEnter={e => { if (!submitting) e.currentTarget.style.transform = 'scale(1.02)' }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                  onMouseEnter={e => { if (!submitting) { e.currentTarget.style.transform = 'scale(1.035) translateY(-2px)'; e.currentTarget.style.boxShadow = `0 10px 30px ${btnColor}99` } }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1) translateY(0)'; e.currentTarget.style.boxShadow = `0 6px 24px ${btnColor}77` }}
                 >
                   {submitting ? '...' : g(isAR ? 'waitlist_btn_ar' : 'waitlist_btn_en')}
                 </button>

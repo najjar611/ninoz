@@ -39,12 +39,13 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.from('site_content').select('value').eq('key', 'logo_url').single()
-      .then(({ data }) => { if (data?.value) setLogoUrl(data.value) })
-      .catch(() => {
-        supabase.from('logo').select('url').limit(1).single()
-          .then(({ data }) => { if (data?.url) setLogoUrl(data.url) })
-      })
+    async function fetchLogo() {
+      const { data: content } = await supabase.from('site_content').select('value').eq('key', 'logo_url').single()
+      if (content?.value) { setLogoUrl(content.value); return }
+      const { data: logoTable } = await supabase.from('logo').select('url').limit(1).single()
+      if (logoTable?.url) setLogoUrl(logoTable.url)
+    }
+    fetchLogo()
   }, [])
 
   async function logout() {

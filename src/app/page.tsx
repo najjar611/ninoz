@@ -41,6 +41,24 @@ export default async function HomePage() {
 
   const logo = logoRow ? { url: logoRow.value, alt_text: 'Ninoz' } : null
 
+  if (content['site_coming_soon'] === 'true') {
+    return (
+      <div style={{
+        minHeight: '100vh', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        background: '#1C0A04', fontFamily: 'Nunito, sans-serif',
+      }}>
+        {logo?.url
+          ? <img src={logo.url} alt="Ninoz" style={{ height: 80, maxWidth: 260, objectFit: 'contain' }} />
+          : <span style={{ fontSize: 52, fontWeight: 900, color: '#C84B0F', letterSpacing: '-0.03em' }}>Ninoz</span>
+        }
+        <p style={{ color: 'rgba(255,255,255,0.45)', marginTop: 28, fontSize: 15, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          Coming Soon
+        </p>
+      </div>
+    )
+  }
+
   return (
     <HomeClient
       stages={stages ?? []}

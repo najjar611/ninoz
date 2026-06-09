@@ -37,6 +37,7 @@ export default function SettingsAdmin() {
   const [waitlistBgUrl, setWaitlistBgUrl] = useState('')
   const [waitlistBtnColor, setWaitlistBtnColor] = useState('#C84B0F')
   const [tickerAnimated, setTickerAnimated] = useState(true)
+  const [comingSoon, setComingSoon] = useState(false)
   const waitlistBgRef = useRef<HTMLInputElement>(null)
 
   // Ticker
@@ -49,7 +50,7 @@ export default function SettingsAdmin() {
       supabase.from('site_content').select('key,value').in('key', [
         'site_font', 'ticker_animated', 'hero_image_url', 'why_image_url',
         'waitlist_bg_url', 'waitlist_btn_color', 'theme_color_primary', 'theme_color_deep_blue',
-        'logo_height',
+        'logo_height', 'site_coming_soon',
       ]),
       supabase.from('logo').select('*').limit(1).single(),
       supabase.from('ticker_items').select('*').order('position'),
@@ -66,6 +67,7 @@ export default function SettingsAdmin() {
     setWaitlistBgUrl(m['waitlist_bg_url'] || '')
     setWaitlistBtnColor(m['waitlist_btn_color'] || '#C84B0F')
     setTickerAnimated(m['ticker_animated'] !== 'false')
+    setComingSoon(m['site_coming_soon'] === 'true')
     setLogoUrl(logo.data?.url || '')
     setLogoHeight(parseInt(m['logo_height'] || '42'))
     setTickerItems(ticker.data || [])
@@ -166,6 +168,24 @@ export default function SettingsAdmin() {
           <p style={{ fontSize: 13, color: '#7A7068', margin: '4px 0 0' }}>Logo, fonts, colors, images, and more.</p>
         </div>
         {msg && <span style={{ background: '#E8F5EE', color: '#2D6A4F', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>{msg}</span>}
+      </div>
+
+      {/* Coming Soon toggle */}
+      <div style={{ background: comingSoon ? '#FFF4ED' : 'white', border: `1.5px solid ${comingSoon ? '#C84B0F' : '#EDEBE8'}`, borderRadius: 14, padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 14, color: '#1C1C1A' }}>🚧 Coming Soon Mode</div>
+          <div style={{ fontSize: 12, color: '#7A7068', marginTop: 3 }}>Hides the full homepage and shows only your logo. The waitlist page stays accessible.</div>
+        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: comingSoon ? '#C84B0F' : '#A08070' }}>{comingSoon ? 'ON' : 'OFF'}</span>
+          <input type="checkbox" checked={comingSoon} style={{ accentColor: '#C84B0F', width: 18, height: 18, cursor: 'pointer' }}
+            onChange={async e => {
+              setComingSoon(e.target.checked)
+              await upsert('site_coming_soon', e.target.checked ? 'true' : 'false')
+              flash(e.target.checked ? 'Coming Soon mode ON — homepage is now hidden' : 'Coming Soon mode OFF — homepage is live again')
+            }}
+          />
+        </label>
       </div>
 
       {/* Tabs */}

@@ -72,7 +72,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
+      <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>
         {STATS.map(s => (
           <Link key={s.label} href={s.href} style={{ textDecoration: 'none' }}>
             <div style={{
@@ -98,10 +98,10 @@ export default function AdminDashboard() {
       </div>
 
       {/* Bottom two-panel layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
+      <div className="dash-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
 
         {/* Recent Waitlist */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #EDEBE8', overflow: 'hidden' }}>
+        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #EDEBE8', overflow: 'hidden', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid #F5F0EB' }}>
             <div>
               <div style={{ fontSize: 15, fontWeight: 800, color: '#1C1C1A' }}>Recent Waitlist Signups</div>
@@ -184,6 +184,10 @@ export default function AdminDashboard() {
         @media (max-width: 900px) {
           .dash-grid { grid-template-columns: 1fr !important; }
           .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+        @media (max-width: 520px) {
+          .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .dash-table { overflow-x: auto; display: block; }
         }
       `}</style>
     </div>

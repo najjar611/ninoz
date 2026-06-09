@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -36,6 +36,16 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
   const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase.from('site_content').select('value').eq('key', 'logo_url').single()
+      .then(({ data }) => { if (data?.value) setLogoUrl(data.value) })
+      .catch(() => {
+        supabase.from('logo').select('url').limit(1).single()
+          .then(({ data }) => { if (data?.url) setLogoUrl(data.url) })
+      })
+  }, [])
 
   async function logout() {
     await supabase.auth.signOut()
@@ -124,7 +134,9 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
 
       <div className="topbar">
         <button className="ham" onClick={() => setOpen(o => !o)}>{open ? '✕' : '☰'}</button>
-        <span style={{ fontWeight: 900, fontSize: 16, color: '#C84B0F' }}>Ninoz Admin</span>
+        {logoUrl
+          ? <img src={logoUrl} alt="Ninoz" style={{ height: 28, maxWidth: 100, objectFit: 'contain' }} />
+          : <span style={{ fontWeight: 900, fontSize: 16, color: '#C84B0F' }}>Ninoz Admin</span>}
         <div style={{ width: 32 }} />
       </div>
 
@@ -132,7 +144,11 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
 
       <aside className={`sb ${open ? 'open' : ''}`}>
         <div className="sb-brand">
-          <Link href="/admin" className="sb-logo">Ninoz</Link>
+          <Link href="/admin" className="sb-logo">
+            {logoUrl
+              ? <img src={logoUrl} alt="Ninoz" style={{ height: 36, maxWidth: 140, objectFit: 'contain', display: 'block' }} />
+              : 'Ninoz'}
+          </Link>
           <div className="sb-sub">Admin Console</div>
         </div>
 

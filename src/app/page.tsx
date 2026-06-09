@@ -15,6 +15,7 @@ export default async function HomePage() {
     { data: ingredients },
     { data: footerLinks },
     { data: logoRow },
+    { data: logoTableRow },
     { data: paymentCycles },
     { data: faqs },
     { data: tickerItems },
@@ -28,6 +29,7 @@ export default async function HomePage() {
     supabase.from('ingredients').select('*').order('id'),
     supabase.from('footer_links').select('*').order('id'),
     supabase.from('site_content').select('value').eq('key', 'logo_url').single(),
+    supabase.from('logo').select('url').limit(1).single(),
     supabase.from('payment_cycles').select('*').order('id'),
     supabase.from('faqs').select('*').order('id'),
     supabase.from('ticker_items').select('*').order('id'),
@@ -39,7 +41,8 @@ export default async function HomePage() {
     content[row.key] = row.value
   }
 
-  const logo = logoRow ? { url: logoRow.value, alt_text: 'Ninoz' } : null
+  const logoUrl = logoRow?.value || logoTableRow?.url || null
+  const logo = logoUrl ? { url: logoUrl, alt_text: 'Ninoz' } : null
 
   if (content['site_coming_soon'] === 'true') {
     return (

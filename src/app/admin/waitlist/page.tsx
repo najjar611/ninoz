@@ -136,7 +136,7 @@ export default function WaitlistAdmin() {
   const logoHeight = parseInt(settings.waitlist_logo_height || '40')
 
   return (
-    <div style={{ fontFamily: 'sans-serif', maxWidth: '100%', overflowX: 'hidden' }}>
+    <div style={{ fontFamily: 'sans-serif', maxWidth: '100%' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>

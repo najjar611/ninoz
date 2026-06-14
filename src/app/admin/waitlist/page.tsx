@@ -186,8 +186,8 @@ export default function WaitlistAdmin() {
           {loadingData ? (
             <div style={{ padding: 40, textAlign: 'center', color: '#7A7068', fontSize: 14 }}>Loading…</div>
           ) : (
-            <div style={{ background: 'white', borderRadius: 14, border: '1px solid #EDEBE8', overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <div style={{ background: 'white', borderRadius: 14, border: '1px solid #EDEBE8', overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100vw' }}>
+              <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: '#FAF5EE', borderBottom: '1px solid #eee' }}>
                     {['#', 'Name', "Baby's Name", 'WhatsApp', "Baby's Age", 'Lang', 'Date'].map(h => (
@@ -335,7 +335,7 @@ export default function WaitlistAdmin() {
           <div style={card}>
             <label style={{ ...lbl, marginBottom: 16 }}>Feature Badges</label>
             {[1, 2, 3, 4].map(n => (
-              <div key={n} style={{ display: 'grid', gridTemplateColumns: 'minmax(56px, 80px) 1fr 1fr', gap: 8, marginBottom: 10, alignItems: 'end', minWidth: 0 }}>
+              <div key={n} className="badge-row" style={{ display: 'grid', gridTemplateColumns: 'minmax(56px, 80px) 1fr 1fr', gap: 8, marginBottom: 10, alignItems: 'end', minWidth: 0 }}>
                 <div>
                   <div style={{ fontSize: 10, color: '#A08070', fontWeight: 600, marginBottom: 4 }}>ICON</div>
                   <input value={settings[`waitlist_badge${n}_icon`] || ''} onChange={e => set(`waitlist_badge${n}_icon`, e.target.value)} style={{ ...inp, textAlign: 'center', fontSize: 18, padding: '7px 4px' }} />
@@ -370,6 +370,13 @@ export default function WaitlistAdmin() {
 
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 600px) {
+          .ticker-row { flex-wrap: wrap; }
+          .badge-row { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   )
 }

@@ -133,7 +133,7 @@ export default function MealsAdmin() {
               <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Description</label>
               <textarea style={{ ...inp, height: 60, resize: 'vertical' }} value={meal.description} onChange={e => update(meal.id, 'description', e.target.value)} />
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div className="meal-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Type</label>
                   <select style={{ ...inp, marginBottom: 0 }} value={meal.meal_type} onChange={e => update(meal.id, 'meal_type', e.target.value)}>
@@ -146,7 +146,7 @@ export default function MealsAdmin() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 10 }}>
+              <div className="meal-3col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 10 }}>
                 {[
                   { label: 'Protein (g)', key: 'protein_g' as keyof Meal },
                   { label: 'Carbs (g)', key: 'carbs_g' as keyof Meal },
@@ -187,6 +187,12 @@ export default function MealsAdmin() {
           <div style={{ color: '#B0A098', fontSize: 13, marginTop: 4 }}>Click "+ Add Meal" to add your first meal.</div>
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 480px) {
+          .meal-2col, .meal-3col { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
     </div>
   )
 }

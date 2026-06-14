@@ -400,7 +400,7 @@ export default function SettingsAdmin() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {tickerItems.length === 0 && <p style={{ fontSize: 13, color: '#A08070', textAlign: 'center', padding: '16px 0' }}>No items yet.</p>}
               {tickerItems.map(item => (
-                <div key={item.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div key={item.id} className="ticker-row" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <input style={{ ...inp, width: 80, flexShrink: 0 }} placeholder="Bold" value={item.highlight} onChange={e => updateTicker(item.id, 'highlight', e.target.value)} title="Highlight word (e.g. 100%)" />
                   <input style={{ ...inp, flex: 1 }} placeholder="Fresh Ingredients" value={item.text} onChange={e => updateTicker(item.id, 'text', e.target.value)} />
                   <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#2C1A0E', flexShrink: 0, whiteSpace: 'nowrap' }}>
@@ -416,6 +416,11 @@ export default function SettingsAdmin() {
         </>
       )}
 
+      <style>{`
+        @media (max-width: 480px) {
+          .ticker-row input { flex: 1 1 100% !important; width: 100% !important; }
+        }
+      `}</style>
     </div>
   )
 }

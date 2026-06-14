@@ -113,7 +113,7 @@ export default function StagesAdmin() {
             </div>
 
             <div style={{ padding: 18 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px', gap: 10, marginBottom: 0 }}>
+              <div className="stage-name-emoji" style={{ display: 'grid', gridTemplateColumns: '1fr 60px', gap: 10, marginBottom: 0 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Stage Name</label>
                   <input style={inp} value={stage.name} onChange={e => update(stage.id, 'name', e.target.value)} />
@@ -130,7 +130,7 @@ export default function StagesAdmin() {
               <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Description</label>
               <textarea style={{ ...inp, height: 70, resize: 'vertical' }} value={stage.description} onChange={e => update(stage.id, 'description', e.target.value)} />
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="stage-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Min Age (months)</label>
                   <input type="number" min={0} style={inp} value={stage.min_age_months ?? ''} onChange={e => update(stage.id, 'min_age_months', e.target.value === '' ? null : parseInt(e.target.value))} placeholder="0" />
@@ -142,7 +142,7 @@ export default function StagesAdmin() {
               </div>
               <p style={{ fontSize: 11, color: '#A08070', margin: '-6px 0 12px' }}>Used to auto-recommend this stage on the waitlist page based on baby's age.</p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div className="stage-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Card Background</label>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -190,6 +190,13 @@ export default function StagesAdmin() {
           <div style={{ color: '#B0A098', fontSize: 13, marginTop: 4 }}>Click "+ Add Stage" to create your first meal stage.</div>
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 400px) {
+          .stage-2col { grid-template-columns: 1fr !important; }
+          .stage-name-emoji { grid-template-columns: 1fr 50px !important; }
+        }
+      `}</style>
     </div>
   )
 }

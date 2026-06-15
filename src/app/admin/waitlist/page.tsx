@@ -148,7 +148,7 @@ export default function WaitlistAdmin() {
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           {msg && <span style={{ background: '#E8F5EE', color: '#2D6A4F', padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{msg}</span>}
-          <a href="/waitlist" target="_blank" rel="noreferrer" style={{ padding: '9px 16px', background: '#FAF5EE', color: '#C84B0F', border: '1.5px solid #EDE8E0', borderRadius: 9, textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>
+          <a href="/foundingmams" target="_blank" rel="noreferrer" style={{ padding: '9px 16px', background: '#FAF5EE', color: '#C84B0F', border: '1.5px solid #EDE8E0', borderRadius: 9, textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>
             Preview ↗
           </a>
           {tab === 'submissions' && entries.length > 0 && (

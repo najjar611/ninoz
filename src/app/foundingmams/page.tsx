@@ -383,7 +383,7 @@ export default function WaitlistPage() {
                     style={selectStyle}
                   >
                     <option value="" style={{ background: '#1C0A04', color: 'white' }}>
-                      {isAR ? ' اختر المرحلة' : ' Select stage'}
+                      {isAR ? 'اختر المرحلة' : 'Select stage'}
                     </option>
                     {stages.map(s => (
                       <option key={s.id} value={s.id} style={{ background: '#1C0A04', color: 'white' }}>

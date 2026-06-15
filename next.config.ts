@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/waitlist',
-        destination: '/foundingmams',
+        destination: '/foundingmamas',
         permanent: true,
       },
     ];

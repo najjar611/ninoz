@@ -118,7 +118,7 @@ export default function AdminDashboard() {
             <div style={{ padding: '48px 24px', textAlign: 'center' }}>
               <div style={{ fontSize: 38, marginBottom: 12 }}>📋</div>
               <div style={{ fontWeight: 700, color: '#5A5048', fontSize: 14 }}>No signups yet</div>
-              <div style={{ color: '#B0A098', fontSize: 13, marginTop: 4 }}>Share /foundingmams on your Instagram bio</div>
+              <div style={{ color: '#B0A098', fontSize: 13, marginTop: 4 }}>Share /foundingmamas on your Instagram bio</div>
             </div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>

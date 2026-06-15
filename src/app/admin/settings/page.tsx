@@ -364,7 +364,7 @@ export default function SettingsAdmin() {
               <input type="color" value={waitlistBtnColor} onChange={e => setWaitlistBtnColor(e.target.value)} style={{ width: 44, height: 44, border: 'none', borderRadius: 9, cursor: 'pointer', padding: 3, background: 'none' }} />
               <input value={waitlistBtnColor} onChange={e => setWaitlistBtnColor(e.target.value)} style={{ ...inp, width: 110 }} maxLength={7} />
               <div style={{ width: 44, height: 44, borderRadius: 9, background: waitlistBtnColor, border: '1px solid rgba(0,0,0,0.08)' }} />
-              <a href="/foundingmams" target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#C84B0F', fontWeight: 700, textDecoration: 'none', marginLeft: 4 }}>Preview →</a>
+              <a href="/foundingmamas" target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#C84B0F', fontWeight: 700, textDecoration: 'none', marginLeft: 4 }}>Preview →</a>
             </div>
           </div>
 

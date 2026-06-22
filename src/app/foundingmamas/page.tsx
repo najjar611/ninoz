@@ -30,7 +30,7 @@ const D: Record<string, string> = {
   waitlist_form_sub_en: 'Limited to 20 mamas only', waitlist_form_sub_ar: 'أماكن محدودة · 20 فقط',
   waitlist_btn_en: 'Join Now 👑', waitlist_btn_ar: 'انضمي الآن 👑',
   waitlist_footer_en: 'Your data is safe · Limited to 20 mamas', waitlist_footer_ar: 'بياناتك محمية · أماكن محدودة',
-  waitlist_benefit1_value_en: '25', waitlist_benefit1_value_ar: '25',
+  waitlist_benefit1_value_en: '25%', waitlist_benefit1_value_ar: '25%',
   waitlist_benefit1_label_en: 'Founding Mamas discount', waitlist_benefit1_label_ar: 'خصم أمهات نينوز',
   waitlist_benefit2_icon: '🔒',
   waitlist_benefit2_label_en: 'Price locked for life', waitlist_benefit2_label_ar: 'سعر مجمّد للأبد',
@@ -383,7 +383,7 @@ export default function WaitlistPage() {
                     style={selectStyle}
                   >
                     <option value="" style={{ background: '#1C0A04', color: 'white' }}>
-                      {isAR ? ' اختر المرحلة' : ' Select stage'}
+                      {isAR ? '🍼 اختر المرحلة' : '🍼 Select stage'}
                     </option>
                     {stages.map(s => (
                       <option key={s.id} value={s.id} style={{ background: '#1C0A04', color: 'white' }}>

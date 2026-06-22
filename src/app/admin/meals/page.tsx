@@ -7,13 +7,17 @@ type Meal = {
   id: string; name: string; description: string; meal_type: string
   image_url: string | null; allergens: string; weight_g: string
   protein_g: string; carbs_g: string; fiber_g: string; is_active?: boolean; position?: number
+  stage_id: string | null
 }
 
-const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack', 'puree']
+type Stage = { id: string; name: string }
+type Category = { id: string; name: string; slug: string; is_visible: boolean; position: number }
 
 export default function MealsAdmin() {
   const supabase = createClient()
   const [meals, setMeals] = useState<Meal[]>([])
+  const [stages, setStages] = useState<Stage[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [uploading, setUploading] = useState<string | null>(null)
@@ -24,8 +28,14 @@ export default function MealsAdmin() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    const { data } = await supabase.from('meals').select('*').order('position').order('name')
-    setMeals(data || [])
+    const [mealsRes, stagesRes, categoriesRes] = await Promise.all([
+      supabase.from('meals').select('*').order('position').order('name'),
+      supabase.from('stages').select('id,name').order('id'),
+      supabase.from('categories').select('*').order('position'),
+    ])
+    setMeals(mealsRes.data || [])
+    setStages(stagesRes.data || [])
+    setCategories(categoriesRes.data || [])
     setLoading(false)
   }
 
@@ -39,6 +49,7 @@ export default function MealsAdmin() {
       name: meal.name, description: meal.description, meal_type: meal.meal_type,
       allergens: meal.allergens, weight_g: meal.weight_g, protein_g: meal.protein_g,
       carbs_g: meal.carbs_g, fiber_g: meal.fiber_g, is_active: meal.is_active,
+      stage_id: meal.stage_id,
     }).eq('id', meal.id)
     setSaving(null)
     if (error) flash('Error: ' + error.message)
@@ -59,11 +70,15 @@ export default function MealsAdmin() {
   }
 
   async function addMeal() {
-    const { data } = await supabase.from('meals').insert({
-      name: 'New Meal', description: '', meal_type: 'lunch',
-      allergens: '', weight_g: '0', protein_g: '0', carbs_g: '0', fiber_g: '0',
-      is_active: true, position: meals.length + 1,
+    if (!stages.length) { flash('Error: add a stage first under "Stages"'); return }
+    if (!categories.length) { flash('Error: add a category first under "Categories"'); return }
+    const newType = filter === 'all' ? categories[0].slug : filter
+    const { data, error } = await supabase.from('meals').insert({
+      name: 'New Meal', description: '', meal_type: newType,
+      allergens: '', weight_g: 0, protein_g: 0, carbs_g: 0, fiber_g: 0,
+      is_active: true, position: meals.length + 1, stage_id: stages[0].id,
     }).select().single()
+    if (error) { flash('Error: ' + error.message); return }
     if (data) setMeals(prev => [...prev, data])
   }
 
@@ -98,13 +113,19 @@ export default function MealsAdmin() {
 
       {/* Filter */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
-        {['all', ...MEAL_TYPES].map(t => (
-          <button key={t} onClick={() => setFilter(t)} style={{
+        <button onClick={() => setFilter('all')} style={{
+          padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+          fontSize: 12, fontWeight: 700, textTransform: 'capitalize',
+          background: filter === 'all' ? '#C84B0F' : '#F2EDE8',
+          color: filter === 'all' ? 'white' : '#5A5048',
+        }}>all</button>
+        {categories.map(c => (
+          <button key={c.id} onClick={() => setFilter(c.slug)} style={{
             padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-            fontSize: 12, fontWeight: 700, textTransform: 'capitalize',
-            background: filter === t ? '#C84B0F' : '#F2EDE8',
-            color: filter === t ? 'white' : '#5A5048',
-          }}>{t}</button>
+            fontSize: 12, fontWeight: 700,
+            background: filter === c.slug ? '#C84B0F' : '#F2EDE8',
+            color: filter === c.slug ? 'white' : '#5A5048',
+          }}>{c.name}</button>
         ))}
       </div>
 
@@ -137,13 +158,20 @@ export default function MealsAdmin() {
                 <div>
                   <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Type</label>
                   <select style={{ ...inp, marginBottom: 0 }} value={meal.meal_type} onChange={e => update(meal.id, 'meal_type', e.target.value)}>
-                    {MEAL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    {categories.map(c => <option key={c.id} value={c.slug}>{c.name}</option>)}
                   </select>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Weight (g)</label>
                   <input style={{ ...inp, marginBottom: 0 }} value={meal.weight_g} onChange={e => update(meal.id, 'weight_g', e.target.value)} placeholder="150" />
                 </div>
+              </div>
+
+              <div style={{ marginTop: 10 }}>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Stage</label>
+                <select style={{ ...inp, marginBottom: 0 }} value={meal.stage_id ?? ''} onChange={e => update(meal.id, 'stage_id', e.target.value)}>
+                  {stages.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
               </div>
 
               <div className="meal-3col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 10 }}>

@@ -15,21 +15,23 @@ type Logo = { url: string | null; alt_text: string }
 type PaymentCycle = { id: string; label: string; days: number; meals_total: number; price_sar: number }
 type Faq = { id: string; question: string; answer: string }
 type TickerItem = { id: string; text: string; highlight: string }
+type Category = { id: string; name: string; slug: string }
 
 type Props = {
   stages: Stage[]; meals: Meal[]; content: Record<string, string>
   howSteps: HowStep[]; whyPoints: WhyPoint[]; ingredients: Ingredient[]
   footerLinks: FooterLink[]; logo: Logo | null; paymentCycles: PaymentCycle[]
   faqs: Faq[]; tickerItems: TickerItem[]; subscriberCount?: number
+  categories: Category[]
 }
 
 const g = (c: Record<string, string>, k: string, f = '') => c[k] || f
 
 export default function HomeClient(p: Props) {
-  const { stages, meals, content, howSteps, whyPoints, ingredients, footerLinks, logo, paymentCycles, faqs, tickerItems } = p
+  const { stages, meals, content, howSteps, whyPoints, ingredients, footerLinks, logo, paymentCycles, faqs, tickerItems, categories } = p
 
   const [popup, setPopup] = useState(true)
-  const [tab, setTab] = useState('breakfast')
+  const [tab, setTab] = useState(categories[0]?.slug || 'breakfast')
   const [mealI, setMealI] = useState(0)
   const [stageI, setStageI] = useState(0)
   const [howI, setHowI] = useState(0)
@@ -52,6 +54,9 @@ export default function HomeClient(p: Props) {
   const menuBoxBgOpacity = g(content, 'menu_box_bg_opacity', '0.45')
   const macrosLayoutFormat = g(content, 'menu_macros_layout_mobile', 'grid_2x2')
   const mealImageSizePct = parseFloat(g(content, 'menu_meal_image_size_pct', '100')) / 100
+  const menuBgColor = g(content, 'menu_bg_color', '')
+  const menuHeadingSizeDesktop = g(content, 'menu_heading_size_desktop', '3.2rem')
+  const menuHeadingSizeMobile = g(content, 'menu_heading_size_mobile', '2.2rem')
 
   const colorPrimary = g(content, 'theme_color_primary', '#C84B0F')
   const colorDeepBlue = g(content, 'theme_color_deep_blue', '#0A429B')
@@ -65,6 +70,17 @@ export default function HomeClient(p: Props) {
   }, [font])
 
   useEffect(() => { setMealI(0) }, [tab])
+
+  useEffect(() => {
+    const targets = document.querySelectorAll('.reveal')
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) entry.target.classList.add('in-view')
+      }
+    }, { threshold: 0.15 })
+    targets.forEach(el => observer.observe(el))
+    return () => observer.disconnect()
+  }, [])
 
   const mls = meals.filter(m => m.meal_type === tab)
   const totM = mls.length
@@ -112,11 +128,16 @@ export default function HomeClient(p: Props) {
           --deep-blue: ${colorDeepBlue};
         }
 
+        .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s cubic-bezier(.16,1,.3,1), transform 0.7s cubic-bezier(.16,1,.3,1); }
+        .reveal.in-view { opacity: 1; transform: translateY(0); }
+
+        #hero, #menu, #stages, #how, #ingredients, #faq { scroll-margin-top: 80px; }
+
         .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: var(--deep-blue); opacity: 0.96; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.08); }
         .nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; height: 80px; max-width: 1400px; margin: 0 auto; }
         .nav-logo { font-size: 1.6rem; font-weight: 900; color: white; text-decoration: none; }
         .nav-links { display: flex; gap: 2.5rem; align-items: center; }
-        .nav-link { font-size: 0.95rem; font-weight: 600; color: white; opacity: 0.85; background: none; border: none; cursor: pointer; }
+        .nav-link { font-size: 1.05rem; font-weight: 700; color: white; opacity: 0.9; background: none; border: none; cursor: pointer; }
         .nav-ham { display: none; background: none; border: none; font-size: 1.8rem; color: white; cursor: pointer; }
         .nav-mobile { display: none; flex-direction: column; background: var(--deep-blue); }
         .nav-mobile.open { display: flex; }
@@ -185,10 +206,10 @@ export default function HomeClient(p: Props) {
         .how-node-desc { font-size: 1.05rem; color: var(--deep-blue); font-weight: 800; line-height: 1.5; }
         .how-arrows { display: flex; gap: 1rem; justify-content: center; margin-top: 1rem; }
 
-        .menu-wrap { display: flex; min-height: 580px; background: white; position: relative; }
+        .menu-wrap { display: flex; min-height: 580px; background: var(--cream); position: relative; }
         /* FIXED: Wired Left Banner background opacity logic to color-mix safely */
-        .menu-left { width: 450px; background: color-mix(in srgb, var(--orange) 35%, #ffffff); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); display: flex; flex-direction: column; padding: 5rem 4rem; justify-content: space-between; flex-shrink: 0; border-radius: 0 120px 120px 0; z-index: 5; }
-        .menu-left h2 { font-size: 3.2rem; font-weight: 900; color: var(--deep-blue); line-height: 1.15; }
+        .menu-left { width: 450px; background: ${menuBgColor || 'color-mix(in srgb, var(--orange) 35%, #ffffff)'}; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); display: flex; flex-direction: column; padding: 5rem 4rem; justify-content: space-between; flex-shrink: 0; border-radius: 0 120px 120px 0; z-index: 5; }
+        .menu-left h2 { font-size: ${menuHeadingSizeDesktop}; font-weight: 900; color: var(--deep-blue); line-height: 1.15; }
         .menu-left h2 span { display: block; }
         .menu-tabs { display: flex; flex-direction: column; gap: 14px; width: 100%; margin-top: 3rem; }
         
@@ -248,19 +269,28 @@ export default function HomeClient(p: Props) {
 
         @media (max-width: 1100px) {
           .menu-wrap { flex-direction: column; min-height: auto; }
-          .menu-left { width: 100%; border-radius: 0 0 40px 40px; padding: 2.5rem 1.2rem; text-align: center; background: color-mix(in srgb, var(--orange) 35%, #ffffff); }
-          .menu-left h2 { font-size: 2.2rem; margin-bottom: 0.5rem; }
+          .menu-left { width: 100%; border-radius: 0 0 40px 40px; padding: 2.5rem 1.2rem; text-align: center; background: ${menuBgColor || 'color-mix(in srgb, var(--orange) 35%, #ffffff)'}; }
+          .menu-left h2 { font-size: ${menuHeadingSizeMobile}; margin-bottom: 0.5rem; }
           .menu-left h2 span { display: inline; margin-right: 6px; }
-          .menu-tabs { flex-direction: row; overflow-x: auto; padding-bottom: 4px; margin-top: 1.2rem; gap: 8px; justify-content: center; width: 100%; }
-          
-          .menu-tab { 
-            width: auto; 
-            white-space: nowrap; 
-            padding: 8px 14px !important; 
-            font-size: 0.82rem !important; 
-            border-radius: 12px !important; 
+          .menu-tabs {
+            flex-direction: row; overflow-x: auto; padding: 4px 28px 8px; margin-top: 1.2rem;
+            gap: 8px; justify-content: flex-start; width: 100%;
+            scroll-snap-type: x proximity; scrollbar-width: none;
+            -webkit-mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
+            mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
+          }
+          .menu-tabs::-webkit-scrollbar { display: none; }
+
+          .menu-tab {
+            width: auto;
+            white-space: nowrap;
+            padding: 8px 14px !important;
+            font-size: 0.82rem !important;
+            border-radius: 12px !important;
             font-weight: 800;
             gap: 4px;
+            scroll-snap-align: center;
+            flex-shrink: 0;
           }
           
           .plate-node.center { width: 230px; height: 230px; transform: translateX(0) scale(${mealImageSizePct}); }
@@ -268,7 +298,8 @@ export default function HomeClient(p: Props) {
           .plate-node.right-peek { width: 160px; height: 160px; transform: translateX(145px) scale(${mealImageSizePct * 0.75}); opacity: 0.5; }
           .carousel-view-area { height: 280px; }
           
-          .why { grid-template-columns: 1fr; text-align: center; gap: 4rem; }
+          .why { grid-template-columns: 1fr; text-align: center; gap: 4rem; padding: 3.5rem 1.25rem; }
+          .why-pt-d { max-width: 320px; margin: 0 auto; }
           .footer-cols { grid-template-columns: repeat(2, 1fr); gap: 3rem; }
         }
 
@@ -332,6 +363,22 @@ export default function HomeClient(p: Props) {
           .plate-node.center { width: 200px !important; height: 200px !important; transform: translateX(0) scale(${mealImageSizePct}) !important; }
           .plate-node.left-peek { width: 140px !important; height: 140px !important; transform: translateX(-120px) scale(${mealImageSizePct * 0.75}) !important; opacity: 0.35 !important; }
           .plate-node.right-peek { width: 140px !important; height: 140px !important; transform: translateX(120px) scale(${mealImageSizePct * 0.75}) !important; opacity: 0.35 !important; }
+
+          /* Compact the menu section so it fits in one view without scrolling */
+          .menu-left { padding: 1.5rem 1.2rem !important; }
+          .menu-left h2 { margin-bottom: 0 !important; }
+          .menu-tabs { margin-top: 0.8rem !important; padding: 4px 20px 4px !important; }
+          .menu-right { padding: 1rem 0 !important; }
+          .meal-counter { font-size: 0.8rem !important; margin-bottom: 0.2rem !important; }
+          .carousel-view-area { height: 190px !important; margin-bottom: 0.2rem !important; }
+          .meal-info { padding: 0 1rem !important; }
+          .meal-name { font-size: 1.3rem !important; margin-bottom: 0.2rem !important; }
+          .meal-desc { font-size: 0.82rem !important; margin-bottom: 0.8rem !important; line-height: 1.4 !important; }
+          .nutr-box { padding: 8px 6px !important; }
+          .nutr-val { font-size: 1rem !important; }
+          .allergen { margin-top: 0.6rem !important; margin-bottom: 0.4rem !important; padding: 4px 14px !important; font-size: 0.78rem !important; }
+          .meal-arrows { margin-top: 0.5rem !important; }
+          .meal-arrow-btn { width: 36px !important; height: 36px !important; font-size: 1rem !important; }
         }
       `}</style>
 
@@ -339,14 +386,14 @@ export default function HomeClient(p: Props) {
       <nav className="nav">
         <div className="nav-inner">
           <Link href="/" className="nav-logo">
-            {logo?.url ? <img src={logo.url} alt={logo.alt_text || 'Ninoz'} style={{ height: parseInt(g(content, 'logo_height', '42')), maxHeight: 80, width: 'auto', objectFit: 'contain' }} /> : 'Ninoz'}
+            {logo?.url ? <img src={logo.url} alt={logo.alt_text || 'Ninoz'} style={{ height: parseInt(g(content, 'logo_height', '56')), maxHeight: 80, width: 'auto', objectFit: 'contain' }} /> : 'Ninoz'}
           </Link>
           <div className="nav-links">
             {[['Menu', 'menu'], ['How It Works', 'how'], ['Plans', 'stages'], ['FAQ', 'faq']].map(([l, id]) => (
               <button key={id} className="nav-link" onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })}>{l}</button>
             ))}
           </div>
-          <button className="btn btn-primary" style={{ padding: '12px 24px', fontSize: '0.85rem', background: 'var(--orange)' }} onClick={() => setPopup(true)}>Start Your Plan</button>
+          <button className="btn btn-primary" style={{ padding: '14px 30px', fontSize: '0.95rem', background: 'var(--orange)' }} onClick={() => setPopup(true)}>Start Your Plan</button>
           <button className="nav-ham" onClick={() => setMenuOpen(o => !o)}>☰</button>
         </div>
         <div className={`nav-mobile ${menuOpen ? 'open' : ''}`}>
@@ -391,7 +438,7 @@ export default function HomeClient(p: Props) {
       </div>
 
       {/* STAGES WITH DYNAMIC CALCULATED PASTEL GRADES */}
-      <section className="stages-section" id="stages">
+      <section className="stages-section reveal" id="stages">
         <div className="stages-header-box">
           <h2 className="stages-h2">Built for <span>Their Stage</span></h2>
         </div>
@@ -446,7 +493,7 @@ export default function HomeClient(p: Props) {
       </section>
 
       {/* HOW IT WORKS WITH AUTOMATED ICON BG TINTS */}
-      <section className="how" id="how">
+      <section className="how reveal" id="how">
         <h2 className="how-h2">How Ninoz Works</h2>
         <p className="how-p">Three steps to peace of mind — and a well-fed baby.</p>
         
@@ -489,7 +536,7 @@ export default function HomeClient(p: Props) {
           <button className="stage-arrow-btn" onClick={nextH}>→</button>
         </div>
 
-        <button className="btn btn-primary" style={{ marginTop: '2.5rem', background: 'var(--orange)' }} onClick={() => setPopup(true)}>Get Started</button>
+        <a href="/foundingmamas" className="btn btn-primary" style={{ marginTop: '2.5rem', background: 'var(--orange)', textDecoration: 'none', display: 'inline-block' }}>Join Now</a>
       </section>
 
       {/* DIAL MENU */}
@@ -497,9 +544,9 @@ export default function HomeClient(p: Props) {
         <div className="menu-left">
           <h2><span>Real Food.</span><span>Real Ingredients.</span><span style={{ color: 'var(--deep-blue)' }}>Every Single Day.</span></h2>
           <div className="menu-tabs">
-            {(['breakfast', 'lunch', 'dinner'] as const).map(t => (
-              <button key={t} className={`menu-tab ${tab === t ? 'a' : ''}`} onClick={() => setTab(t)}>
-                {g(content, `menu_tab_${t}`, t.charAt(0).toUpperCase() + t.slice(1))}
+            {categories.map(c => (
+              <button key={c.id} className={`menu-tab ${tab === c.slug ? 'a' : ''}`} onClick={() => setTab(c.slug)}>
+                {c.name}
                 <span>→</span>
               </button>
             ))}
@@ -568,7 +615,7 @@ export default function HomeClient(p: Props) {
       </section>
 
       {/* INGREDIENTS */}
-      <section className="why" id="ingredients">
+      <section className="why reveal" id="ingredients">
         <div>
           <h2 className="why-title">Only Real<br/>Ingredients</h2>
           <div className="why-pts">
@@ -624,7 +671,7 @@ export default function HomeClient(p: Props) {
 
       {/* FAQ */}
       {faqs.length > 0 && (
-        <section id="faq" style={{ background: 'white', padding: '6rem 2rem', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+        <section id="faq" className="reveal" style={{ background: 'white', padding: '6rem 2rem', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
           <div style={{ maxWidth: 800, margin: '0 auto' }}>
             <h2 style={{ fontSize: '2.5rem', fontWeight: 900, textAlign: 'center', marginBottom: '3rem', color: 'var(--deep-blue)' }}>Common Questions</h2>
             {faqs.map(item => (
@@ -645,7 +692,7 @@ export default function HomeClient(p: Props) {
         <div className="footer-hero">
           <div className="footer-logo-big">Ninoz</div>
         </div>
-        <div className="footer-cols">
+        <div className="footer-cols reveal">
           <div>
             <span className="footer-col-t">About Ninoz</span>
             <p className="footer-text" style={{ marginBottom: '1rem' }}><strong>Hi. We\'re Ninoz.</strong> We cook fresh daily meals for babies and toddlers in Riyadh.</p>

@@ -14,6 +14,7 @@ const NAV = [
     items: [
       { label: 'Edit Text', href: '/admin/content' },
       { label: 'Meals', href: '/admin/meals' },
+      { label: 'Categories', href: '/admin/categories' },
       { label: 'Stages', href: '/admin/stages' },
       { label: 'FAQ', href: '/admin/faq' },
     ],

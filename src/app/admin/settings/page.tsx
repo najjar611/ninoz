@@ -27,6 +27,11 @@ export default function SettingsAdmin() {
   const [logoHeight, setLogoHeight] = useState(42)
   const logoRef = useRef<HTMLInputElement>(null)
 
+  // Menu section
+  const [menuBgColor, setMenuBgColor] = useState('')
+  const [menuHeadingDesktop, setMenuHeadingDesktop] = useState(3.2)
+  const [menuHeadingMobile, setMenuHeadingMobile] = useState(2.2)
+
   // Images
   const [heroUrl, setHeroUrl] = useState('')
   const [whyUrl, setWhyUrl] = useState('')
@@ -50,7 +55,7 @@ export default function SettingsAdmin() {
       supabase.from('site_content').select('key,value').in('key', [
         'site_font', 'ticker_animated', 'hero_image_url', 'why_image_url',
         'waitlist_bg_url', 'waitlist_btn_color', 'theme_color_primary', 'theme_color_deep_blue',
-        'logo_height', 'site_coming_soon',
+        'logo_height', 'site_coming_soon', 'menu_bg_color', 'menu_heading_size_desktop', 'menu_heading_size_mobile',
       ]),
       supabase.from('logo').select('*').limit(1).single(),
       supabase.from('ticker_items').select('*').order('position'),
@@ -70,6 +75,9 @@ export default function SettingsAdmin() {
     setComingSoon(m['site_coming_soon'] === 'true')
     setLogoUrl(logo.data?.url || '')
     setLogoHeight(parseInt(m['logo_height'] || '42'))
+    setMenuBgColor(m['menu_bg_color'] || '')
+    setMenuHeadingDesktop(parseFloat(m['menu_heading_size_desktop'] || '3.2'))
+    setMenuHeadingMobile(parseFloat(m['menu_heading_size_mobile'] || '2.2'))
     setTickerItems(ticker.data || [])
   }
 
@@ -87,6 +95,9 @@ export default function SettingsAdmin() {
       upsert('theme_color_primary', colorPrimary),
       upsert('theme_color_deep_blue', colorBlue),
       upsert('logo_height', String(logoHeight)),
+      upsert('menu_bg_color', menuBgColor),
+      upsert('menu_heading_size_desktop', `${menuHeadingDesktop}rem`),
+      upsert('menu_heading_size_mobile', `${menuHeadingMobile}rem`),
     ])
     setSaving(false)
     flash('Saved! Refresh the site to see the new font and colors.')
@@ -291,6 +302,37 @@ export default function SettingsAdmin() {
                 <span style={{ fontSize: 13, color: '#5A5048', fontWeight: 600 }}>{c.label}</span>
               </div>
             ))}
+          </div>
+
+          {/* Menu Section */}
+          <div style={card}>
+            <label style={lbl}>Menu Section Background</label>
+            <p style={{ fontSize: 12, color: '#A08070', margin: '0 0 14px' }}>The pink/peach panel behind the meal category tabs.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <input type="color" value={menuBgColor || '#F7D9C4'} onChange={e => setMenuBgColor(e.target.value)} style={{ width: 44, height: 44, border: 'none', borderRadius: 9, cursor: 'pointer', padding: 3, background: 'none', flexShrink: 0 }} />
+              <input value={menuBgColor} onChange={e => setMenuBgColor(e.target.value)} placeholder="default (auto from primary color)" style={{ ...inp, width: 220 }} maxLength={7} />
+              {menuBgColor && (
+                <button onClick={() => setMenuBgColor('')} style={{ ...uploadBtn, background: '#FEF2F2', color: '#DC2626', border: '1.5px solid #FCA5A5', fontSize: 12 }}>Reset to default</button>
+              )}
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <label style={{ ...lbl, marginBottom: 6 }}>Heading Size — Desktop ({menuHeadingDesktop.toFixed(1)}rem)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 11, color: '#A08070' }}>A</span>
+                <input type="range" min="2" max="4.5" step="0.1" value={menuHeadingDesktop} onChange={e => setMenuHeadingDesktop(parseFloat(e.target.value))} style={{ flex: 1, accentColor: '#C84B0F', cursor: 'pointer' }} />
+                <span style={{ fontSize: 18, color: '#A08070' }}>A</span>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <label style={{ ...lbl, marginBottom: 6 }}>Heading Size — Mobile ({menuHeadingMobile.toFixed(1)}rem)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 11, color: '#A08070' }}>A</span>
+                <input type="range" min="1.4" max="3.2" step="0.1" value={menuHeadingMobile} onChange={e => setMenuHeadingMobile(parseFloat(e.target.value))} style={{ flex: 1, accentColor: '#C84B0F', cursor: 'pointer' }} />
+                <span style={{ fontSize: 18, color: '#A08070' }}>A</span>
+              </div>
+            </div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

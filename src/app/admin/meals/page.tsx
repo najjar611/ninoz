@@ -5,9 +5,11 @@ import { createClient } from '@/lib/supabase/client'
 
 type Meal = {
   id: string; name: string; description: string; meal_type: string
+  name_ar: string | null; description_ar: string | null; allergens_ar: string | null
   image_url: string | null; allergens: string; weight_g: string
   protein_g: string; carbs_g: string; fiber_g: string; is_active?: boolean; position?: number
   stage_id: string | null
+  prep_instructions: string | null; prep_instructions_ar: string | null
 }
 
 type Stage = { id: string; name: string }
@@ -47,9 +49,11 @@ export default function MealsAdmin() {
     setSaving(meal.id)
     const { error } = await supabase.from('meals').update({
       name: meal.name, description: meal.description, meal_type: meal.meal_type,
+      name_ar: meal.name_ar, description_ar: meal.description_ar, allergens_ar: meal.allergens_ar,
       allergens: meal.allergens, weight_g: meal.weight_g, protein_g: meal.protein_g,
       carbs_g: meal.carbs_g, fiber_g: meal.fiber_g, is_active: meal.is_active,
       stage_id: meal.stage_id,
+      prep_instructions: meal.prep_instructions, prep_instructions_ar: meal.prep_instructions_ar,
     }).eq('id', meal.id)
     setSaving(null)
     if (error) flash('Error: ' + error.message)
@@ -148,11 +152,17 @@ export default function MealsAdmin() {
             </div>
 
             <div style={{ padding: 16 }}>
-              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Name</label>
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Name (English)</label>
               <input style={inp} value={meal.name} onChange={e => update(meal.id, 'name', e.target.value)} />
 
-              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Description</label>
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase', textAlign: 'right' }}>الاسم (عربي)</label>
+              <input style={{ ...inp, direction: 'rtl', textAlign: 'right' }} value={meal.name_ar || ''} onChange={e => update(meal.id, 'name_ar', e.target.value)} />
+
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Description (English)</label>
               <textarea style={{ ...inp, height: 60, resize: 'vertical' }} value={meal.description} onChange={e => update(meal.id, 'description', e.target.value)} />
+
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase', textAlign: 'right' }}>الوصف (عربي)</label>
+              <textarea style={{ ...inp, height: 60, resize: 'vertical', direction: 'rtl', textAlign: 'right' }} value={meal.description_ar || ''} onChange={e => update(meal.id, 'description_ar', e.target.value)} />
 
               <div className="meal-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 <div>
@@ -187,10 +197,22 @@ export default function MealsAdmin() {
                 ))}
               </div>
 
-              <div style={{ marginTop: 10 }}>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Allergens</label>
-                <input style={{ ...inp, marginBottom: 0 }} value={meal.allergens} onChange={e => update(meal.id, 'allergens', e.target.value)} placeholder="e.g. dairy, gluten" />
+              <div className="meal-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Allergens (English)</label>
+                  <input style={{ ...inp, marginBottom: 0 }} value={meal.allergens} onChange={e => update(meal.id, 'allergens', e.target.value)} placeholder="e.g. dairy, gluten" />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase', textAlign: 'right' }}>مسببات الحساسية (عربي)</label>
+                  <input style={{ ...inp, marginBottom: 0, direction: 'rtl', textAlign: 'right' }} value={meal.allergens_ar || ''} onChange={e => update(meal.id, 'allergens_ar', e.target.value)} placeholder="مثل: ألبان، جلوتين" />
+                </div>
               </div>
+
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, marginTop: 10, textTransform: 'uppercase' }}>How to Prepare (English)</label>
+              <textarea style={{ ...inp, height: 60, resize: 'vertical' }} value={meal.prep_instructions || ''} onChange={e => update(meal.id, 'prep_instructions', e.target.value)} placeholder="Steps the parent should follow before serving…" />
+
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase', textAlign: 'right' }}>طريقة التحضير (عربي)</label>
+              <textarea style={{ ...inp, height: 60, resize: 'vertical', direction: 'rtl', textAlign: 'right' }} value={meal.prep_instructions_ar || ''} onChange={e => update(meal.id, 'prep_instructions_ar', e.target.value)} placeholder="الخطوات التي يجب على الوالدين اتباعها قبل التقديم…" />
 
               <label style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#2C1A0E', margin: '12px 0' }}>
                 <input type="checkbox" checked={meal.is_active !== false} onChange={e => update(meal.id, 'is_active', e.target.checked)} style={{ accentColor: '#C84B0F' }} />

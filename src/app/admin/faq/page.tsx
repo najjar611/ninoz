@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-type Faq = { id: string; question: string; answer: string; position: number; is_active?: boolean }
+type Faq = { id: string; question: string; answer: string; question_ar: string | null; answer_ar: string | null; position: number; is_active?: boolean }
 
 export default function FaqAdmin() {
   const supabase = createClient()
@@ -27,7 +27,7 @@ export default function FaqAdmin() {
   async function save(faq: Faq) {
     setSaving(faq.id)
     const { error } = await supabase.from('faqs').update({
-      question: faq.question, answer: faq.answer, is_active: faq.is_active,
+      question: faq.question, answer: faq.answer, question_ar: faq.question_ar, answer_ar: faq.answer_ar, is_active: faq.is_active,
     }).eq('id', faq.id)
     setSaving(null)
     if (error) flash('Error: ' + error.message)
@@ -80,11 +80,27 @@ export default function FaqAdmin() {
               </label>
             </div>
 
-            <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#C9A98A', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Question</label>
-            <input style={{ ...inp, marginBottom: 12 }} value={faq.question} onChange={e => update(faq.id, 'question', e.target.value)} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginBottom: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#C9A98A', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Question (English)</label>
+                <input style={inp} value={faq.question} onChange={e => update(faq.id, 'question', e.target.value)} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#C9A98A', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6, textAlign: 'right' }}>السؤال (عربي)</label>
+                <input style={{ ...inp, direction: 'rtl', textAlign: 'right' }} value={faq.question_ar || ''} onChange={e => update(faq.id, 'question_ar', e.target.value)} />
+              </div>
+            </div>
 
-            <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#C9A98A', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Answer</label>
-            <textarea style={{ ...inp, height: 80, resize: 'vertical', marginBottom: 12 }} value={faq.answer} onChange={e => update(faq.id, 'answer', e.target.value)} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginBottom: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#C9A98A', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>Answer (English)</label>
+                <textarea style={{ ...inp, height: 80, resize: 'vertical' }} value={faq.answer} onChange={e => update(faq.id, 'answer', e.target.value)} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#C9A98A', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6, textAlign: 'right' }}>الإجابة (عربي)</label>
+                <textarea style={{ ...inp, height: 80, resize: 'vertical', direction: 'rtl', textAlign: 'right' }} value={faq.answer_ar || ''} onChange={e => update(faq.id, 'answer_ar', e.target.value)} />
+              </div>
+            </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button onClick={() => remove(faq.id)} style={{ padding: '7px 12px', background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>Delete</button>

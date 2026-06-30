@@ -13,9 +13,12 @@ const NAV = [
     title: 'Content',
     items: [
       { label: 'Edit Text', href: '/admin/content' },
+      { label: 'Sections', href: '/admin/sections' },
       { label: 'Meals', href: '/admin/meals' },
       { label: 'Categories', href: '/admin/categories' },
       { label: 'Stages', href: '/admin/stages' },
+      { label: 'Payment Plans', href: '/admin/payment-cycles' },
+      { label: 'Daily Menu', href: '/admin/daily-menu' },
       { label: 'FAQ', href: '/admin/faq' },
     ],
   },
@@ -23,14 +26,24 @@ const NAV = [
     title: 'Customers',
     items: [
       { label: 'Subscribers', href: '/admin/subscribers' },
+      { label: 'Reviews', href: '/admin/reviews' },
+      { label: 'Delivery Status', href: '/admin/delivery-status' },
       { label: 'Waitlist', href: '/admin/waitlist' },
+      { label: 'Profile Fields', href: '/admin/customer-fields' },
+      { label: 'Promo Codes', href: '/admin/promo-codes' },
     ],
   },
   {
     title: 'System',
-    items: [{ label: 'Settings', href: '/admin/settings' }],
+    items: [
+      { label: 'Notifications', href: '/admin/notifications' },
+      { label: 'Settings', href: '/admin/settings' },
+    ],
   },
 ]
+
+const SEEN_KEY = 'admin_notifications_last_seen'
+const UNREAD_KEY = 'admin_notifications_unread_ids'
 
 export default function AdminLayoutClient({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
@@ -38,6 +51,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [notifCount, setNotifCount] = useState(0)
 
   useEffect(() => {
     async function fetchLogo() {
@@ -47,6 +61,39 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
       if (logoTable?.url) setLogoUrl(logoTable.url)
     }
     fetchLogo()
+  }, [])
+
+  useEffect(() => {
+    function loadUnreadCount() {
+      const raw = localStorage.getItem(UNREAD_KEY)
+      if (raw == null) return null
+      try { return (JSON.parse(raw) as string[]).length } catch { return null }
+    }
+
+    async function loadNotifCount() {
+      // Once the notifications page has been visited at least once, the
+      // manually-managed unread list (which supports "mark as unread") is
+      // the source of truth. Before that, fall back to a since-last-seen
+      // count across the tracked tables.
+      const unread = loadUnreadCount()
+      if (unread !== null) { setNotifCount(unread); return }
+      const lastSeen = localStorage.getItem(SEEN_KEY) || new Date(0).toISOString()
+      const [r1, r2, r3, r4] = await Promise.all([
+        supabase.from('meal_reviews').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen),
+        supabase.from('subscriptions').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen).in('status', ['active', 'pending_payment']),
+        supabase.from('freeze_requests').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen),
+        supabase.from('payments').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen),
+      ])
+      setNotifCount((r1.count || 0) + (r2.count || 0) + (r3.count || 0) + (r4.count || 0))
+    }
+    loadNotifCount()
+    const handler = () => loadNotifCount()
+    window.addEventListener('admin-notif-seen', handler)
+    window.addEventListener('admin-notif-unread-changed', handler)
+    return () => {
+      window.removeEventListener('admin-notif-seen', handler)
+      window.removeEventListener('admin-notif-unread-changed', handler)
+    }
   }, [])
 
   async function logout() {
@@ -117,8 +164,12 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
           backdrop-filter: blur(2px);
         }
 
-        .main { margin-left: 232px; flex: 1; }
+        .main { margin-left: 232px; flex: 1; min-width: 0; max-width: 100vw; }
         .main-inner { padding: 36px 40px; max-width: 1100px; }
+        .main-inner img, .main-inner video { max-width: 100%; height: auto; }
+        /* Wide tables stay readable by scrolling inside their own card rather
+           than stretching the whole page on small screens. */
+        .main-inner table { width: 100%; }
 
         @media (max-width: 900px) {
           .topbar { display: flex; }
@@ -130,7 +181,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
           .sb.open { transform: none; box-shadow: 8px 0 32px rgba(0,0,0,0.1); }
           .overlay { display: block; }
           .main { margin-left: 0; }
-          .main-inner { padding: 80px 16px 32px; }
+          .main-inner { padding: 80px 16px 32px; overflow-x: hidden; }
         }
       `}</style>
 
@@ -164,8 +215,14 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
                   href={item.href}
                   className={`sb-link ${active(item.href) ? 'on' : ''}`}
                   onClick={() => setOpen(false)}
+                  style={{ justifyContent: 'space-between' }}
                 >
-                  {item.label}
+                  <span>{item.label}</span>
+                  {item.href === '/admin/notifications' && notifCount > 0 && (
+                    <span style={{ background: '#C84B0F', color: 'white', borderRadius: 99, fontSize: 10, fontWeight: 800, padding: '1px 6px', lineHeight: '16px' }}>
+                      {notifCount > 99 ? '99+' : notifCount}
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>

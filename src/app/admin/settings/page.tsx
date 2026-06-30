@@ -27,6 +27,9 @@ export default function SettingsAdmin() {
   const [logoHeight, setLogoHeight] = useState(42)
   const logoRef = useRef<HTMLInputElement>(null)
 
+  // Account pages
+  const [accountBgColor, setAccountBgColor] = useState('#F7F4F0')
+
   // Menu section
   const [menuBgColor, setMenuBgColor] = useState('')
   const [menuHeadingDesktop, setMenuHeadingDesktop] = useState(3.2)
@@ -56,6 +59,7 @@ export default function SettingsAdmin() {
         'site_font', 'ticker_animated', 'hero_image_url', 'why_image_url',
         'waitlist_bg_url', 'waitlist_btn_color', 'theme_color_primary', 'theme_color_deep_blue',
         'logo_height', 'site_coming_soon', 'menu_bg_color', 'menu_heading_size_desktop', 'menu_heading_size_mobile',
+        'account_bg_color',
       ]),
       supabase.from('logo').select('*').limit(1).single(),
       supabase.from('ticker_items').select('*').order('position'),
@@ -75,6 +79,7 @@ export default function SettingsAdmin() {
     setComingSoon(m['site_coming_soon'] === 'true')
     setLogoUrl(logo.data?.url || '')
     setLogoHeight(parseInt(m['logo_height'] || '42'))
+    setAccountBgColor(m['account_bg_color'] || '#F7F4F0')
     setMenuBgColor(m['menu_bg_color'] || '')
     setMenuHeadingDesktop(parseFloat(m['menu_heading_size_desktop'] || '3.2'))
     setMenuHeadingMobile(parseFloat(m['menu_heading_size_mobile'] || '2.2'))
@@ -95,6 +100,7 @@ export default function SettingsAdmin() {
       upsert('theme_color_primary', colorPrimary),
       upsert('theme_color_deep_blue', colorBlue),
       upsert('logo_height', String(logoHeight)),
+      upsert('account_bg_color', accountBgColor),
       upsert('menu_bg_color', menuBgColor),
       upsert('menu_heading_size_desktop', `${menuHeadingDesktop}rem`),
       upsert('menu_heading_size_mobile', `${menuHeadingMobile}rem`),
@@ -302,6 +308,17 @@ export default function SettingsAdmin() {
                 <span style={{ fontSize: 13, color: '#5A5048', fontWeight: 600 }}>{c.label}</span>
               </div>
             ))}
+          </div>
+
+          {/* Account Pages */}
+          <div style={card}>
+            <label style={lbl}>Account Pages Background</label>
+            <p style={{ fontSize: 12, color: '#A08070', margin: '0 0 14px' }}>The background behind sign-in, profile, plan, checkout, and dashboard pages.</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <input type="color" value={accountBgColor} onChange={e => setAccountBgColor(e.target.value)} style={{ width: 44, height: 44, border: 'none', borderRadius: 9, cursor: 'pointer', padding: 3, background: 'none', flexShrink: 0 }} />
+              <input value={accountBgColor} onChange={e => setAccountBgColor(e.target.value)} style={{ ...inp, width: 110 }} maxLength={7} />
+              <div style={{ width: 44, height: 44, borderRadius: 9, background: accountBgColor, border: '1px solid rgba(0,0,0,0.08)', flexShrink: 0 }} />
+            </div>
           </div>
 
           {/* Menu Section */}

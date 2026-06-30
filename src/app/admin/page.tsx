@@ -121,7 +121,8 @@ export default function AdminDashboard() {
               <div style={{ color: '#B0A098', fontSize: 13, marginTop: 4 }}>Share /foundingmamas on your Instagram bio</div>
             </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
+            <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #F5F0EB' }}>
                   {['Name', 'WhatsApp', "Baby's Age", 'Lang', 'Signed Up'].map(h => (
@@ -154,6 +155,7 @@ export default function AdminDashboard() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 

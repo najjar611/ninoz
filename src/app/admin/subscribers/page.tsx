@@ -46,7 +46,54 @@ export default function SubscribersAdmin() {
         <p style={{ fontSize: 13, color: '#7A7068', marginTop: 4 }}>{subs.length} registered {subs.length === 1 ? 'customer' : 'customers'}</p>
       </div>
 
-      <div style={{ background: 'white', borderRadius: 16, border: '1px solid #EDEBE8', overflow: 'hidden' }}>
+      <style>{`
+        @media (max-width: 768px) {
+          .subs-table-wrap { display: none !important; }
+          .subs-card-wrap { display: block !important; }
+        }
+      `}</style>
+
+      <div className="subs-card-wrap" style={{ display: 'none' }}>
+        {subs.map(s => {
+          const allergyNames = (s.subscriber_allergens?.map((a: any) => a.allergens?.name).filter(Boolean)) || []
+          return (
+            <div key={s.id} style={{ background: 'white', borderRadius: 14, border: '1px solid #EDEBE8', padding: '16px 18px', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#FDF0E8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: '#C84B0F', flexShrink: 0 }}>
+                  {(s.parent_name || '?').charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, color: '#1C1C1A', fontSize: 14.5 }}>{s.parent_name || '—'}</div>
+                  <div style={{ fontSize: 11.5, color: '#B0A098' }}>{new Date(s.created_at).toLocaleDateString('en-SA', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', rowGap: 6, fontSize: 13 }}>
+                <div style={{ color: '#B0A098', fontWeight: 700 }}>Email</div><div style={{ color: '#4A3C34' }}>{s.email || '—'}</div>
+                <div style={{ color: '#B0A098', fontWeight: 700 }}>Mobile</div><div style={{ color: '#4A3C34', fontFamily: 'monospace' }}>{s.mobile_number || '—'}</div>
+                <div style={{ color: '#B0A098', fontWeight: 700 }}>Child</div><div style={{ color: '#4A3C34' }}>{s.kid_name || '—'}</div>
+                <div style={{ color: '#B0A098', fontWeight: 700 }}>Address</div><div style={{ color: '#7A7068' }}>{s.delivery_address || '—'}</div>
+                <div style={{ color: '#B0A098', fontWeight: 700 }}>Allergies</div>
+                <div>
+                  {allergyNames.length > 0
+                    ? allergyNames.map((name: string) => (
+                      <span key={name} style={{ display: 'inline-block', background: '#FEF3E2', color: '#B45309', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, marginRight: 4 }}>{name}</span>
+                    ))
+                    : <span style={{ color: '#D0C8C0', fontSize: 12 }}>None</span>}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+        {subs.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '56px 24px', background: 'white', borderRadius: 14, border: '1px solid #EDEBE8' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>👥</div>
+            <div style={{ fontWeight: 700, color: '#5A5048', fontSize: 15 }}>No subscribers yet</div>
+            <div style={{ color: '#B0A098', fontSize: 13, marginTop: 4 }}>Subscribers who complete registration will appear here.</div>
+          </div>
+        )}
+      </div>
+
+      <div className="subs-table-wrap" style={{ background: 'white', borderRadius: 16, border: '1px solid #EDEBE8', overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
@@ -69,7 +116,7 @@ export default function SubscribersAdmin() {
                   </td>
                   <td style={{ padding: '14px 18px', color: '#4A3C34' }}>{s.email || '—'}</td>
                   <td style={{ padding: '14px 18px', fontFamily: 'monospace', color: '#4A3C34' }}>{s.mobile_number || '—'}</td>
-                  <td style={{ padding: '14px 18px', color: '#4A3C34' }}>{s.child_name || '—'}</td>
+                  <td style={{ padding: '14px 18px', color: '#4A3C34' }}>{s.kid_name || '—'}</td>
                   <td style={{ padding: '14px 18px', color: '#7A7068', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.delivery_address || '—'}</td>
                   <td style={{ padding: '14px 18px' }}>
                     {s.subscriber_allergens?.map((a: any) => a.allergens?.name).filter(Boolean).length > 0

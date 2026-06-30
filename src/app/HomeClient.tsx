@@ -3,19 +3,21 @@
 // src/app/HomeClient.tsx — v14.0 Intelligent Graded Color Shading Engine Map
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import Wizard from '@/components/registration/Wizard'
+import AccountModal from './AccountModal'
 
-type Stage = { id: string; name: string; age_range: string; description: string; emoji: string; card_bg: string; image_url: string | null }
-type Meal = { id: string; name: string; description: string; meal_type: string; image_url: string | null; allergens: string; weight_g: string; protein_g: string; carbs_g: string; fiber_g: string }
-type HowStep = { id: string; icon_url: string | null; icon_bg: string; description: string }
-type WhyPoint = { id: string; title: string; description: string; title_color: string }
-type Ingredient = { id: string; name: string; description: string; image_url: string | null }
+type Stage = { id: string; name: string; name_ar?: string | null; age_range: string; age_range_ar?: string | null; description: string; description_ar?: string | null; emoji: string; card_bg: string; image_url: string | null }
+type Meal = { id: string; name: string; name_ar?: string | null; description: string; description_ar?: string | null; meal_type: string; image_url: string | null; allergens: string; allergens_ar?: string | null; weight_g: string; protein_g: string; carbs_g: string; fiber_g: string }
+type HowStep = { id: string; icon_url: string | null; icon_bg: string; description: string; description_ar?: string | null }
+type WhyPoint = { id: string; title: string; description: string; title_color: string; title_ar?: string | null; description_ar?: string | null }
+type Ingredient = { id: string; name: string; description: string; image_url: string | null; name_ar?: string | null; description_ar?: string | null }
 type FooterLink = { id: string; label: string; url: string }
 type Logo = { url: string | null; alt_text: string }
 type PaymentCycle = { id: string; label: string; days: number; meals_total: number; price_sar: number }
-type Faq = { id: string; question: string; answer: string }
-type TickerItem = { id: string; text: string; highlight: string }
-type Category = { id: string; name: string; slug: string }
+type Faq = { id: string; question: string; answer: string; question_ar?: string | null; answer_ar?: string | null }
+type TickerItem = { id: string; text: string; highlight: string; text_ar?: string | null; highlight_ar?: string | null }
+type Category = { id: string; name: string; name_ar?: string | null; slug: string }
 
 type Props = {
   stages: Stage[]; meals: Meal[]; content: Record<string, string>
@@ -29,6 +31,40 @@ const g = (c: Record<string, string>, k: string, f = '') => c[k] || f
 
 export default function HomeClient(p: Props) {
   const { stages, meals, content, howSteps, whyPoints, ingredients, footerLinks, logo, paymentCycles, faqs, tickerItems, categories } = p
+
+  const router = useRouter()
+  const [lang, setLang] = useState<'en' | 'ar'>('ar')
+  const isAR = lang === 'ar'
+  const [accountModalOpen, setAccountModalOpen] = useState(false)
+
+  // Profile icon = "manage my account" only — never forces a subscription.
+  // The dashboard itself redirects to /account/signin if not authenticated yet,
+  // and shows a "not subscribed" prompt instead of forcing payment.
+  function goToAccount() {
+    router.push('/account/dashboard')
+  }
+
+  // Orange CTA = the actual subscribe funnel (auth -> profile -> plan -> pay).
+  function startPlan() {
+    setAccountModalOpen(true)
+  }
+  const gg = (key: string, fallback = '') => isAR ? (content[`${key}_ar`] || content[key] || fallback) : (content[key] || fallback)
+  const sName = (s: Stage) => (isAR && s.name_ar) || s.name
+  const sAge = (s: Stage) => (isAR && s.age_range_ar) || s.age_range
+  const sDesc = (s: Stage) => (isAR && s.description_ar) || s.description
+  const mName = (m: Meal) => (isAR && m.name_ar) || m.name
+  const mDesc = (m: Meal) => (isAR && m.description_ar) || m.description
+  const mAllergens = (m: Meal) => (isAR && m.allergens_ar) || m.allergens
+  const cName = (c: Category) => (isAR && c.name_ar) || c.name
+  const fQuestion = (f: Faq) => (isAR && f.question_ar) || f.question
+  const fAnswer = (f: Faq) => (isAR && f.answer_ar) || f.answer
+  const hDesc = (h: HowStep) => (isAR && h.description_ar) || h.description
+  const tText = (t: TickerItem) => (isAR && t.text_ar) || t.text
+  const tHi = (t: TickerItem) => (isAR && t.highlight_ar) || t.highlight
+  const wTitle = (w: WhyPoint) => (isAR && w.title_ar) || w.title
+  const wDesc = (w: WhyPoint) => (isAR && w.description_ar) || w.description
+  const iName = (i: Ingredient) => (isAR && i.name_ar) || i.name
+  const iDesc = (i: Ingredient) => (isAR && i.description_ar) || i.description
 
   const [popup, setPopup] = useState(true)
   const [tab, setTab] = useState(categories[0]?.slug || 'breakfast')
@@ -69,6 +105,15 @@ export default function HomeClient(p: Props) {
     document.body.style.fontFamily = `'${font}', sans-serif`
   }, [font])
 
+  useEffect(() => {
+    if (!isAR) return
+    const lnk = document.createElement('link')
+    lnk.rel = 'stylesheet'
+    lnk.href = 'https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap'
+    document.head.appendChild(lnk)
+    return () => { document.head.removeChild(lnk) }
+  }, [isAR])
+
   useEffect(() => { setMealI(0) }, [tab])
 
   useEffect(() => {
@@ -102,15 +147,20 @@ export default function HomeClient(p: Props) {
   const prevI = () => { if (totI > 1) setIngI(i => (i - 1 + totI) % totI) }
   const nextI = () => { if (totI > 1) setIngI(i => (i + 1) % totI) }
 
-  const tItems = tickerItems.length > 0 ? tickerItems : [
+  const tItems = tickerItems.length > 0 ? tickerItems : (isAR ? [
+    { id: '1', text: 'مكونات طازجة', highlight: '100%' },
+    { id: '2', text: 'سكر مضاف أو محليات', highlight: '0%' },
+    { id: '3', text: 'مواد حافظة وصناعية', highlight: '0%' },
+    { id: '4', text: 'طعام مجمد', highlight: '0%' },
+  ] : [
     { id: '1', text: 'Fresh Ingredients', highlight: '100%' },
     { id: '2', text: 'Sugar Added or Sweetener', highlight: '0%' },
     { id: '3', text: 'Preservatives & Synthetics', highlight: '0%' },
     { id: '4', text: 'Frozen Food', highlight: '0%' },
-  ]
+  ])
 
   return (
-    <>
+    <div dir={isAR ? 'rtl' : 'ltr'} style={{ fontFamily: isAR ? `'Tajawal', '${font}', sans-serif` : undefined }}>
       <style>{`
         :root {
           --orange: ${colorPrimary};
@@ -128,20 +178,24 @@ export default function HomeClient(p: Props) {
           --deep-blue: ${colorDeepBlue};
         }
 
+        html, body { background: var(--cream); }
+
         .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s cubic-bezier(.16,1,.3,1), transform 0.7s cubic-bezier(.16,1,.3,1); }
         .reveal.in-view { opacity: 1; transform: translateY(0); }
 
         #hero, #menu, #stages, #how, #ingredients, #faq { scroll-margin-top: 80px; }
 
-        .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: var(--deep-blue); opacity: 0.96; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: color-mix(in srgb, var(--deep-blue) 96%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.08); }
         .nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; height: 80px; max-width: 1400px; margin: 0 auto; }
         .nav-logo { font-size: 1.6rem; font-weight: 900; color: white; text-decoration: none; }
         .nav-links { display: flex; gap: 2.5rem; align-items: center; }
         .nav-link { font-size: 1.05rem; font-weight: 700; color: white; opacity: 0.9; background: none; border: none; cursor: pointer; }
+        .nav-account { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.3); color: white; text-decoration: none; flex-shrink: 0; cursor: pointer; }
+        .nav-lang-mobile { display: none; align-items: center; justify-content: center; padding: 6px 12px; border-radius: 16px; border: 1.5px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: white; font-size: 0.8rem; font-weight: 700; cursor: pointer; flex-shrink: 0; }
         .nav-ham { display: none; background: none; border: none; font-size: 1.8rem; color: white; cursor: pointer; }
-        .nav-mobile { display: none; flex-direction: column; background: var(--deep-blue); }
+        .nav-mobile { display: none; flex-direction: column; background: var(--deep-blue); opacity: 1; position: relative; z-index: 1001; }
         .nav-mobile.open { display: flex; }
-        .nav-mobile button { padding: 1.2rem 2rem; font-size: 1rem; font-weight: 600; color: white; border: none; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .nav-mobile button, .nav-mobile a { padding: 1.2rem 2rem; font-size: 1rem; font-weight: 600; color: white; border: none; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.08); text-decoration: none; display: block; background: var(--deep-blue); }
 
         .hero { 
           min-height: 100vh; 
@@ -238,17 +292,19 @@ export default function HomeClient(p: Props) {
         .nutr-lbl { font-size: 0.65rem; color: rgba(255,255,255,0.8); text-transform: uppercase; font-weight: 700; margin-top: 2px; }
         
         .allergen { display: inline-flex; align-items: center; gap: 6px; background: rgba(10, 66, 155, 0.06); border-radius: 100px; padding: 6px 18px; font-size: 0.85rem; color: var(--deep-blue); font-weight: 700; margin-top: 1.5rem; margin-bottom: 1rem; }
-        .meal-arrows { display: flex; gap: 1rem; margin-top: 1rem; }
+        .meal-arrows { display: flex; gap: 1rem; margin-top: 1rem; width: 100%; max-width: 420px; justify-content: space-between; }
         .meal-arrow-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--deep-blue); color: white; border: none; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; }
 
-        .why { padding: 5rem 2rem; max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 4rem; align-items: center; background: white; }
+        .why { padding: 5rem 2rem; max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 4rem; align-items: center; background: var(--cream); }
         .why-title { font-size: 3.6rem; font-weight: 900; color: var(--deep-blue); margin-bottom: 2rem; }
         .why-pts { display: flex; flex-direction: column; gap: 2rem; margin-bottom: 3rem; }
         .why-pt-t { font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; color: var(--orange); }
         .why-pt-d { font-size: 0.95rem; color: var(--text-muted); line-height: 1.6; font-weight: 600; }
         
         .ing-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; width: 100%; }
-        .ing-card { background: var(--cream); border-radius: 24px; padding: 1.5rem 1.2rem; display: flex; flex-direction: column; align-items: center; text-align: center; border: 1px solid rgba(0,0,0,0.02); }
+        .ing-card { background: white; border-radius: 24px; padding: 1.5rem 1.2rem; display: flex; flex-direction: column; align-items: center; text-align: center; border: 1px solid rgba(0,0,0,0.02); box-shadow: 0 8px 20px rgba(0,0,0,0.04); }
+        .ing-grid { align-items: stretch; }
+        .ing-grid .ing-card { height: 100%; }
         .ing-img { width: 100px; height: 100px; border-radius: 20px; overflow: hidden; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; }
         .ing-img img { width: 100%; height: 100%; object-fit: cover; }
         .ing-name { font-size: 0.95rem; font-weight: 800; color: var(--deep-blue); margin-bottom: 4px; }
@@ -306,7 +362,10 @@ export default function HomeClient(p: Props) {
         @media (max-width: 768px) {
           .nav-links, .nav-inner .btn { display: none !important; }
           .nav-ham { display: block !important; }
-          
+          .nav-inner { position: relative; justify-content: flex-start; gap: 10px; }
+          .nav-logo { position: absolute; left: 50%; transform: translateX(-50%); }
+          .nav-lang-mobile { display: flex !important; margin-inline-start: auto; }
+
           .hero-trust { grid-template-columns: repeat(2, 1fr); gap: 1.2rem; justify-content: center; width: 100%; }
           .hero-ti { font-size: 0.75rem; }
           
@@ -386,45 +445,57 @@ export default function HomeClient(p: Props) {
       <nav className="nav">
         <div className="nav-inner">
           <Link href="/" className="nav-logo">
-            {logo?.url ? <img src={logo.url} alt={logo.alt_text || 'Ninoz'} style={{ height: parseInt(g(content, 'logo_height', '56')), maxHeight: 80, width: 'auto', objectFit: 'contain' }} /> : 'Ninoz'}
+            {logo?.url
+              ? <img src={logo.url} alt={logo.alt_text || 'Ninoz'} style={{ height: parseInt(g(content, 'logo_height', '56')), maxHeight: 80, width: 'auto', objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; e.currentTarget.insertAdjacentText('afterend', 'Ninoz') }} />
+              : 'Ninoz'}
           </Link>
           <div className="nav-links">
-            {[['Menu', 'menu'], ['How It Works', 'how'], ['Plans', 'stages'], ['FAQ', 'faq']].map(([l, id]) => (
+            {[[gg('nav_menu', 'Menu'), 'menu'], [gg('nav_how', 'How It Works'), 'how'], [gg('nav_plans', 'Plans'), 'stages'], [gg('nav_faq', 'FAQ'), 'faq']].map(([l, id]) => (
               <button key={id} className="nav-link" onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })}>{l}</button>
             ))}
+            <button className="nav-link" onClick={() => setLang(isAR ? 'en' : 'ar')} style={{ opacity: 1, border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 20, padding: '6px 16px', fontSize: '0.9rem' }}>
+              {isAR ? 'English' : 'عربي'}
+            </button>
           </div>
-          <button className="btn btn-primary" style={{ padding: '14px 30px', fontSize: '0.95rem', background: 'var(--orange)' }} onClick={() => setPopup(true)}>Start Your Plan</button>
+          <button className="nav-account" aria-label="My Account" onClick={goToAccount}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12Zm0 2.4c-3.5 0-9 1.7-9 5.2v2.2h18v-2.2c0-3.5-5.5-5.2-9-5.2Z" fill="currentColor"/></svg>
+          </button>
+          <button className="nav-lang-mobile" onClick={() => setLang(isAR ? 'en' : 'ar')}>{isAR ? 'EN' : 'AR'}</button>
           <button className="nav-ham" onClick={() => setMenuOpen(o => !o)}>☰</button>
         </div>
         <div className={`nav-mobile ${menuOpen ? 'open' : ''}`}>
-          {[['Menu', 'menu'], ['How It Works', 'how'], ['Plans', 'stages'], ['FAQ', 'faq']].map(([l, id]) => (
+          {[[gg('nav_menu', 'Menu'), 'menu'], [gg('nav_how', 'How It Works'), 'how'], [gg('nav_plans', 'Plans'), 'stages'], [gg('nav_faq', 'FAQ'), 'faq']].map(([l, id]) => (
             <button key={id} onClick={() => { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); setMenuOpen(false) }}>{l}</button>
           ))}
-          <button style={{ background: 'var(--orange)', color: 'white', fontWeight: 700 }} onClick={() => { setPopup(true); setMenuOpen(false); }}>Start Your Plan →</button>
+          <button onClick={() => { setMenuOpen(false); goToAccount() }}>👤 {isAR ? 'حسابي' : 'My Account'}</button>
+          <button onClick={() => { setLang(isAR ? 'en' : 'ar'); setMenuOpen(false) }}>{isAR ? 'English' : 'عربي'}</button>
+          <button style={{ background: 'var(--orange)', color: 'white', fontWeight: 700 }} onClick={() => { startPlan(); setMenuOpen(false); }}>{gg('btn_start_plan', 'Start Your Plan')} →</button>
         </div>
       </nav>
+
+      <AccountModal open={accountModalOpen} onClose={() => setAccountModalOpen(false)} isAR={isAR} />
 
       {/* HERO */}
       <section className="hero" id="hero">
         <div className="hero-inner">
           <h1 className="hero-h1">
-            {g(content, 'hero_headline_1', 'You Care.')}<br />
-            <span>{g(content, 'hero_headline_2', 'We Prepare.')}</span>
+            {gg('hero_headline_1', 'You Care.')}<br />
+            <span>{gg('hero_headline_2', 'We Prepare.')}</span>
           </h1>
-          <p className="hero-desc">{g(content, 'hero_description', 'Fresh, Healthy daily meals for your little ones.')}</p>
-          
+          <p className="hero-desc">{gg('hero_description', 'Fresh, Healthy daily meals for your little ones.')}</p>
+
           <div className="hero-trust">
-            {[{ t: 'Fresh Ingredients', e: '🍂' }, { t: 'No Preservatives', e: '🥑' }, { t: 'Cooked Daily', e: '🕒' }, { t: 'Pediatrician Approved', e: '🛡️' }].map(badge => (
+            {[{ t: gg('badge_fresh_ingredients', 'Fresh Ingredients'), e: '🍂' }, { t: gg('badge_no_preservatives', 'No Preservatives'), e: '🥑' }, { t: gg('badge_cooked_daily', 'Cooked Daily'), e: '🕒' }, { t: gg('badge_pediatrician_approved', 'Pediatrician Approved'), e: '🛡️' }].map(badge => (
               <div key={badge.t} className="hero-ti">
                 <div className="hero-ic">{badge.e}</div>
                 <span>{badge.t}</span>
               </div>
             ))}
           </div>
-          
+
           <div className="hero-btns" style={{ display: 'flex', gap: '1.2rem', flexWrap: 'wrap', justifyContent: 'center', width: '100%' }}>
-            <button className="btn btn-primary" onClick={() => setPopup(true)} style={{ background: 'var(--orange)' }}>Start Your Plan</button>
-            <button className="btn btn-outline" style={{ color: 'white', borderColor: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.05)' }} onClick={() => document.getElementById('menu')?.scrollIntoView({ behavior: 'smooth' })}>Explore Meals</button>
+            <button className="btn btn-primary" onClick={startPlan} style={{ background: 'var(--orange)' }}>{gg('btn_start_plan', 'Start Your Plan')}</button>
+            <button className="btn btn-outline" style={{ color: 'white', borderColor: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.05)' }} onClick={() => document.getElementById('menu')?.scrollIntoView({ behavior: 'smooth' })}>{gg('btn_explore_meals', 'Explore Meals')}</button>
           </div>
         </div>
       </section>
@@ -432,7 +503,7 @@ export default function HomeClient(p: Props) {
       <div className="ticker">
         <div className="ticker-track">
           {[0, 1, 2].map(r => tItems.map((t, i) => (
-            <span key={`${r}-${i}`} className="ticker-item"><span className="ticker-hi">{t.highlight}</span>{t.text} • </span>
+            <span key={`${r}-${i}`} className="ticker-item"><span className="ticker-hi">{tHi(t)}</span>{tText(t)} • </span>
           )))}
         </div>
       </div>
@@ -440,7 +511,7 @@ export default function HomeClient(p: Props) {
       {/* STAGES WITH DYNAMIC CALCULATED PASTEL GRADES */}
       <section className="stages-section reveal" id="stages">
         <div className="stages-header-box">
-          <h2 className="stages-h2">Built for <span>Their Stage</span></h2>
+          <h2 className="stages-h2">{gg('stages_built_for', 'Built for ')}<span>{gg('stages_their_stage', 'Their Stage')}</span></h2>
         </div>
         
         <div className="stage-carousel-area"
@@ -472,13 +543,13 @@ export default function HomeClient(p: Props) {
                     if (positionalClass === 'right-peek') nextS()
                   }}>
                     {s.image_url ? (
-                      <img src={s.image_url} alt={s.name} className="stage-node-img" />
+                      <img src={s.image_url} alt={sName(s)} className="stage-node-img" />
                     ) : (
                       <span style={{ fontSize: '3rem', marginBottom: '1.2rem', display: 'block' }}>{s.emoji || '🍼'}</span>
                     )}
-                    <div className="stage-node-title">{s.name}</div>
-                    <div className="stage-node-desc">{s.description}</div>
-                    <div className="stage-node-age">{s.age_range}</div>
+                    <div className="stage-node-title">{sName(s)}</div>
+                    <div className="stage-node-desc">{sDesc(s)}</div>
+                    <div className="stage-node-age">{sAge(s)}</div>
                   </div>
                 )
               })}
@@ -487,15 +558,15 @@ export default function HomeClient(p: Props) {
         </div>
 
         <div className="stages-arrows">
-          <button className="stage-arrow-btn" onClick={prevS}>←</button>
-          <button className="stage-arrow-btn" onClick={nextS}>→</button>
+          <button className="stage-arrow-btn" onClick={prevS}>{isAR ? '→' : '←'}</button>
+          <button className="stage-arrow-btn" onClick={nextS}>{isAR ? '←' : '→'}</button>
         </div>
       </section>
 
       {/* HOW IT WORKS WITH AUTOMATED ICON BG TINTS */}
       <section className="how reveal" id="how">
-        <h2 className="how-h2">How Ninoz Works</h2>
-        <p className="how-p">Three steps to peace of mind — and a well-fed baby.</p>
+        <h2 className="how-h2">{gg('how_title', 'How Ninoz Works')}</h2>
+        <p className="how-p">{gg('how_sub', 'Three steps to peace of mind — and a well-fed baby.')}</p>
         
         <div className="how-carousel-area"
           onTouchStart={e => { processTouchX.current = e.touches[0].clientX }}
@@ -521,33 +592,32 @@ export default function HomeClient(p: Props) {
                 if (positionalClass === 'left-peek') prevH()
                 if (positionalClass === 'right-peek') nextH()
               }}>
-                <span className="how-step-num">Step 0{i + 1}</span>
+                <span className="how-step-num">{gg('how_step_label', 'Step 0')}{i + 1}</span>
                 <div className="how-icon-box" style={{ background: dynamicIconBg }}>
                   {step.icon_url ? <img src={step.icon_url} alt="" style={{ width: '50%' }} /> : <span style={{ color: 'var(--deep-blue)' }}>{i === 0 ? '📋' : i === 1 ? '👨‍🍳' : '🚚'}</span>}
                 </div>
-                <p className="how-node-desc">{step.description}</p>
+                <p className="how-node-desc">{hDesc(step)}</p>
               </div>
             )
           })}
         </div>
 
         <div className="how-arrows">
-          <button className="stage-arrow-btn" onClick={prevH}>←</button>
-          <button className="stage-arrow-btn" onClick={nextH}>→</button>
+          <button className="stage-arrow-btn" onClick={prevH}>{isAR ? '→' : '←'}</button>
+          <button className="stage-arrow-btn" onClick={nextH}>{isAR ? '←' : '→'}</button>
         </div>
 
-        <a href="/foundingmamas" className="btn btn-primary" style={{ marginTop: '2.5rem', background: 'var(--orange)', textDecoration: 'none', display: 'inline-block' }}>Join Now</a>
+        <a href="/foundingmamas" className="btn btn-primary" style={{ marginTop: '2.5rem', background: 'var(--orange)', textDecoration: 'none', display: 'inline-block' }}>{gg('how_join_now', 'Join Now')}</a>
       </section>
 
       {/* DIAL MENU */}
       <section id="menu" className="menu-wrap">
         <div className="menu-left">
-          <h2><span>Real Food.</span><span>Real Ingredients.</span><span style={{ color: 'var(--deep-blue)' }}>Every Single Day.</span></h2>
+          <h2><span>{gg('menu_real_food', 'Real Food.')}</span><span>{gg('menu_real_ingredients', 'Real Ingredients.')}</span><span style={{ color: 'var(--deep-blue)' }}>{gg('menu_every_day', 'Every Single Day.')}</span></h2>
           <div className="menu-tabs">
             {categories.map(c => (
               <button key={c.id} className={`menu-tab ${tab === c.slug ? 'a' : ''}`} onClick={() => setTab(c.slug)}>
-                {c.name}
-                <span>→</span>
+                {cName(c)}
               </button>
             ))}
           </div>
@@ -566,7 +636,7 @@ export default function HomeClient(p: Props) {
             <div style={{ color: 'var(--text-muted)' }}>No meals loaded.</div>
           ) : (
             <>
-              <div className="meal-counter">{mealI + 1} / {totM} choices</div>
+              <div className="meal-counter">{mealI + 1} / {totM} {gg('menu_choices_label', 'choices')}</div>
               
               <div className="carousel-view-area">
                 <div className="carousel-track">
@@ -581,7 +651,7 @@ export default function HomeClient(p: Props) {
                         if (positionalClass === 'left-peek') prevM()
                         if (positionalClass === 'right-peek') nextM()
                       }}>
-                        {m.image_url ? <img src={m.image_url} alt={m.name} /> : <span style={{ fontSize: '4rem' }}>🍽️</span>}
+                        {m.image_url ? <img src={m.image_url} alt={mName(m)} /> : <span style={{ fontSize: '4rem' }}>🍽️</span>}
                       </div>
                     )
                   })}
@@ -590,11 +660,11 @@ export default function HomeClient(p: Props) {
 
               {currM && (
                 <div className="meal-info">
-                  <div className="meal-name">{currM.name}</div>
-                  <div className="meal-desc">{currM.description}</div>
+                  <div className="meal-name">{mName(currM)}</div>
+                  <div className="meal-desc">{mDesc(currM)}</div>
                   {(currM.weight_g || currM.protein_g) && (
                     <div className="nutr">
-                      {[{ v: currM.weight_g, l: 'Weight' }, { v: currM.protein_g, l: 'Protein' }, { v: currM.carbs_g, l: 'Carbs' }, { v: currM.fiber_g, l: 'Fiber' }].filter(n => n.v).map(n => (
+                      {[{ v: currM.weight_g, l: gg('nutr_weight', 'Weight') }, { v: currM.protein_g, l: gg('nutr_protein', 'Protein') }, { v: currM.carbs_g, l: gg('nutr_carbs', 'Carbs') }, { v: currM.fiber_g, l: gg('nutr_fiber', 'Fiber') }].filter(n => n.v).map(n => (
                         <div key={n.l} className="nutr-box">
                           <span className="nutr-val">{n.v}</span>
                           <span className="nutr-lbl">{n.l}</span>
@@ -602,10 +672,10 @@ export default function HomeClient(p: Props) {
                       ))}
                     </div>
                   )}
-                  {currM.allergens && <div className="allergen">🌾 Allergen info: {currM.allergens}</div>}
+                  {currM.allergens && <div className="allergen">{gg('allergen_info_label', '🌾 Allergen info: ')}{mAllergens(currM)}</div>}
                   <div className="meal-arrows" style={{ justifyContent: 'center' }}>
-                    <button className="meal-arrow-btn" onClick={prevM}>←</button>
-                    <button className="meal-arrow-btn" onClick={nextM}>→</button>
+                    <button className="meal-arrow-btn" onClick={prevM}>{isAR ? '→' : '←'}</button>
+                    <button className="meal-arrow-btn" onClick={nextM}>{isAR ? '←' : '→'}</button>
                   </div>
                 </div>
               )}
@@ -617,12 +687,12 @@ export default function HomeClient(p: Props) {
       {/* INGREDIENTS */}
       <section className="why reveal" id="ingredients">
         <div>
-          <h2 className="why-title">Only Real<br/>Ingredients</h2>
+          <h2 className="why-title">{gg('why_only_real', 'Only Real')}<br/>{gg('why_ingredients_word', 'Ingredients')}</h2>
           <div className="why-pts">
             {whyPoints.map(pt => (
               <div key={pt.id}>
-                <div className="why-pt-t" style={{ color: pt.title_color || 'var(--orange)' }}>{pt.title}</div>
-                <div className="why-pt-d">{pt.description}</div>
+                <div className="why-pt-t" style={{ color: pt.title_color || 'var(--orange)' }}>{wTitle(pt)}</div>
+                <div className="why-pt-d">{wDesc(pt)}</div>
               </div>
             ))}
           </div>
@@ -653,10 +723,10 @@ export default function HomeClient(p: Props) {
                       if (positionalClass === 'right-peek') nextI()
                     }}>
                       <div className="ing-img">
-                        {ing.image_url ? <img src={ing.image_url} alt={ing.name} /> : <span>🥕</span>}
+                        {ing.image_url ? <img src={ing.image_url} alt={iName(ing)} /> : <span>🥕</span>}
                       </div>
-                      <div className="ing-name">{ing.name}</div>
-                      <div className="ing-desc">{ing.description}</div>
+                      <div className="ing-name">{iName(ing)}</div>
+                      <div className="ing-desc">{iDesc(ing)}</div>
                     </div>
                   )
                 })}
@@ -671,16 +741,16 @@ export default function HomeClient(p: Props) {
 
       {/* FAQ */}
       {faqs.length > 0 && (
-        <section id="faq" className="reveal" style={{ background: 'white', padding: '6rem 2rem', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+        <section id="faq" className="reveal" style={{ background: 'var(--cream)', padding: '6rem 2rem', borderTop: '1px solid rgba(0,0,0,0.04)' }}>
           <div style={{ maxWidth: 800, margin: '0 auto' }}>
-            <h2 style={{ fontSize: '2.5rem', fontWeight: 900, textAlign: 'center', marginBottom: '3rem', color: 'var(--deep-blue)' }}>Common Questions</h2>
+            <h2 style={{ fontSize: '2.5rem', fontWeight: 900, textAlign: 'center', marginBottom: '3rem', color: 'var(--deep-blue)' }}>{gg('faq_common_questions', 'Common Questions')}</h2>
             {faqs.map(item => (
               <div key={item.id} style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                <button onClick={() => setFaq(faq === item.id ? null : item.id)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', padding: '1.5rem 0', background: 'none', border: 'none', fontSize: '1.1rem', fontWeight: 700, color: 'var(--deep-blue)', textAlign: 'left', cursor: 'pointer' }}>
-                  <span>{item.question}</span>
+                <button onClick={() => setFaq(faq === item.id ? null : item.id)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', padding: '1.5rem 0', background: 'none', border: 'none', fontSize: '1.1rem', fontWeight: 700, color: 'var(--deep-blue)', textAlign: isAR ? 'right' : 'left', cursor: 'pointer' }}>
+                  <span>{fQuestion(item)}</span>
                   <span style={{ color: 'var(--orange)' }}>{faq === item.id ? '−' : '+'}</span>
                 </button>
-                {faq === item.id && <div style={{ paddingBottom: '1.5rem', fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>{item.answer}</div>}
+                {faq === item.id && <div style={{ paddingBottom: '1.5rem', fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>{fAnswer(item)}</div>}
               </div>
             ))}
           </div>
@@ -694,43 +764,47 @@ export default function HomeClient(p: Props) {
         </div>
         <div className="footer-cols reveal">
           <div>
-            <span className="footer-col-t">About Ninoz</span>
-            <p className="footer-text" style={{ marginBottom: '1rem' }}><strong>Hi. We\'re Ninoz.</strong> We cook fresh daily meals for babies and toddlers in Riyadh.</p>
+            <span className="footer-col-t">{gg('footer_about_title', 'About Ninoz')}</span>
+            <p className="footer-text" style={{ marginBottom: '1rem' }}>{gg('footer_about_blurb', "Hi. We're Ninoz. We cook fresh daily meals for babies and toddlers in Riyadh.")}</p>
             <ul className="footer-bul">
-              {["Cooked fresh every morning", "Approved by a pediatrician nutritionist", "Free from salt, sugar and preservatives"].map(b => <li key={b}>{b}</li>)}
+              {[
+                gg('footer_about_bullet_1', 'Cooked fresh every morning'),
+                gg('footer_about_bullet_2', 'Approved by a pediatrician nutritionist'),
+                gg('footer_about_bullet_3', 'Free from salt, sugar and preservatives'),
+              ].map(b => <li key={b}>{b}</li>)}
             </ul>
           </div>
           <div>
-            <span className="footer-col-t">Useful Links</span>
+            <span className="footer-col-t">{gg('footer_useful_links', 'Useful Links')}</span>
             <div className="footer-links-l">
               {footerLinks.map(l => <a key={l.id} href={l.url} className="footer-lnk">{l.label}</a>)}
             </div>
           </div>
           <div>
-            <span className="footer-col-t">Get in Touch</span>
+            <span className="footer-col-t">{gg('footer_get_in_touch', 'Get in Touch')}</span>
             <p className="footer-text">📧 <a href={`mailto:${g(content, 'footer_contact_email', 'hello@ninoz.sa')}`} style={{ color: 'var(--orange)', fontWeight: 700 }}>{g(content, 'footer_contact_email', 'hello@ninoz.sa')}</a></p>
           </div>
           <div>
-            <span className="footer-col-t">Subscribe Now</span>
+            <span className="footer-col-t">{gg('footer_subscribe_now', 'Subscribe Now')}</span>
             {subDone ? (
-              <div style={{ color: 'var(--orange)', fontWeight: 700 }}>✓ Added to the early access list!</div>
+              <div style={{ color: 'var(--orange)', fontWeight: 700 }}>{gg('footer_subscribed_msg', '✓ Added to the early access list!')}</div>
             ) : (
               <>
-                <input style={{ width: '100%', padding: 14, border: '1.5px solid rgba(44,26,14,0.1)', borderRadius: 12, marginBottom: 12 }} type="email" placeholder="Enter email address" value={subEmail} onChange={e => setSubEmail(e.target.value)} />
-                <button className="btn btn-primary" style={{ width: '100%', background: 'var(--orange)' }} onClick={() => { if (subEmail.includes('@')) { setSubDone(true); setPopup(true); } }}>Start Your Plan</button>
+                <input style={{ width: '100%', padding: 14, border: '1.5px solid rgba(44,26,14,0.1)', borderRadius: 12, marginBottom: 12 }} type="email" placeholder={gg('footer_email_placeholder', 'Enter email address')} value={subEmail} onChange={e => setSubEmail(e.target.value)} />
+                <button className="btn btn-primary" style={{ width: '100%', background: 'var(--orange)' }} onClick={() => { if (subEmail.includes('@')) { setSubDone(true); setPopup(true); } }}>{gg('btn_start_plan', 'Start Your Plan')}</button>
               </>
             )}
           </div>
         </div>
         <div className="footer-bot">
-          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>© 2026 Ninoz. All rights reserved.</span>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{gg('footer_rights', '© 2026 Ninoz. All rights reserved.')}</span>
         </div>
       </footer>
       
       {/* <Wizard onClose={() => setPopup(false)} /> */}
 
       {/* Renders the registration wizard pop-up when state is true */}
-     
-    </>
+
+    </div>
   )
 }

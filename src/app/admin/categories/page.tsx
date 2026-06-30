@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 type Category = {
-  id: string; name: string; slug: string
+  id: string; name: string; name_ar: string | null; slug: string
   is_visible: boolean; position: number
 }
 
@@ -34,7 +34,7 @@ export default function CategoriesAdmin() {
   async function save(cat: Category) {
     setSaving(cat.id)
     const { error } = await supabase.from('categories').update({
-      name: cat.name, slug: cat.slug, is_visible: cat.is_visible, position: cat.position,
+      name: cat.name, name_ar: cat.name_ar, slug: cat.slug, is_visible: cat.is_visible, position: cat.position,
     }).eq('id', cat.id)
     setSaving(null)
     if (error) flash('Error: ' + error.message)
@@ -104,8 +104,13 @@ export default function CategoriesAdmin() {
             </div>
 
             <div style={{ flex: '1 1 160px', minWidth: 160 }}>
-              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Name (shown on site)</label>
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Name (English)</label>
               <input style={inp} value={cat.name} onChange={e => update(cat.id, 'name', e.target.value)} />
+            </div>
+
+            <div style={{ flex: '1 1 160px', minWidth: 160 }}>
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase', textAlign: 'right' }}>الاسم (عربي)</label>
+              <input style={{ ...inp, direction: 'rtl', textAlign: 'right' }} value={cat.name_ar || ''} onChange={e => update(cat.id, 'name_ar', e.target.value)} />
             </div>
 
             <div style={{ flex: '1 1 140px', minWidth: 140 }}>

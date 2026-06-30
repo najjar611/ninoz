@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 
 type Stage = {
   id: string; name: string; age_range: string; description: string
+  name_ar: string | null; age_range_ar: string | null; description_ar: string | null
   emoji: string; card_bg: string; image_url: string | null
   tag: string | null; tag_color: string; is_clickable: boolean
   is_active: boolean; position: number
@@ -36,6 +37,7 @@ export default function StagesAdmin() {
     setSaving(stage.id)
     const { error } = await supabase.from('stages').update({
       name: stage.name, age_range: stage.age_range, description: stage.description,
+      name_ar: stage.name_ar, age_range_ar: stage.age_range_ar, description_ar: stage.description_ar,
       emoji: stage.emoji, card_bg: stage.card_bg, tag: stage.tag,
       tag_color: stage.tag_color, is_clickable: stage.is_clickable, is_active: stage.is_active,
       min_age_months: stage.min_age_months, max_age_months: stage.max_age_months,
@@ -115,7 +117,7 @@ export default function StagesAdmin() {
             <div style={{ padding: 18 }}>
               <div className="stage-name-emoji" style={{ display: 'grid', gridTemplateColumns: '1fr 60px', gap: 10, marginBottom: 0 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Stage Name</label>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Stage Name (English)</label>
                   <input style={inp} value={stage.name} onChange={e => update(stage.id, 'name', e.target.value)} />
                 </div>
                 <div>
@@ -123,12 +125,30 @@ export default function StagesAdmin() {
                   <input style={{ ...inp, textAlign: 'center', fontSize: 20 }} value={stage.emoji} onChange={e => update(stage.id, 'emoji', e.target.value)} />
                 </div>
               </div>
+              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase', textAlign: 'right' }}>اسم المرحلة (عربي)</label>
+              <input style={{ ...inp, direction: 'rtl', textAlign: 'right' }} value={stage.name_ar || ''} onChange={e => update(stage.id, 'name_ar', e.target.value)} />
 
-              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Age Range</label>
-              <input style={inp} value={stage.age_range} placeholder="+9 Months" onChange={e => update(stage.id, 'age_range', e.target.value)} />
+              <div className="stage-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Age Range (English)</label>
+                  <input style={inp} value={stage.age_range} placeholder="+9 Months" onChange={e => update(stage.id, 'age_range', e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase', textAlign: 'right' }}>الفئة العمرية (عربي)</label>
+                  <input style={{ ...inp, direction: 'rtl', textAlign: 'right' }} value={stage.age_range_ar || ''} placeholder="+9 أشهر" onChange={e => update(stage.id, 'age_range_ar', e.target.value)} />
+                </div>
+              </div>
 
-              <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Description</label>
-              <textarea style={{ ...inp, height: 70, resize: 'vertical' }} value={stage.description} onChange={e => update(stage.id, 'description', e.target.value)} />
+              <div className="stage-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase' }}>Description (English)</label>
+                  <textarea style={{ ...inp, height: 70, resize: 'vertical' }} value={stage.description} onChange={e => update(stage.id, 'description', e.target.value)} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#7A7068', marginBottom: 4, textTransform: 'uppercase', textAlign: 'right' }}>الوصف (عربي)</label>
+                  <textarea style={{ ...inp, height: 70, resize: 'vertical', direction: 'rtl', textAlign: 'right' }} value={stage.description_ar || ''} onChange={e => update(stage.id, 'description_ar', e.target.value)} />
+                </div>
+              </div>
 
               <div className="stage-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>

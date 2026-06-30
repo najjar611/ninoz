@@ -38,7 +38,6 @@ export default function Wizard({ onClose }: { onClose: () => void }) {
         delivery_address: data.address,
         stage_id: data.stageId || null,
         payment_cycle_id: data.cycleId || null,
-        child_name: data.fullName
       })
       .select()
       .single()

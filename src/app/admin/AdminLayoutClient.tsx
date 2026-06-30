@@ -171,6 +171,15 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
            than stretching the whole page on small screens. */
         .main-inner table { width: 100%; }
 
+        /* --- shared polish: subtle motion + focus states across admin --- */
+        .main-inner button { transition: transform .14s ease, box-shadow .18s ease, filter .14s ease, background .18s ease; }
+        .main-inner button:hover:not(:disabled) { filter: brightness(1.04); }
+        .main-inner button:active:not(:disabled) { transform: scale(0.98); }
+        .main-inner input, .main-inner textarea, .main-inner select { transition: border-color .15s ease, box-shadow .15s ease; }
+        .main-inner input:focus, .main-inner textarea:focus, .main-inner select:focus { border-color: #C84B0F !important; box-shadow: 0 0 0 3px rgba(200,75,15,0.12); outline: none; }
+        .main-inner tbody tr { transition: background .12s ease; }
+        .main-inner tbody tr:hover { background: #FAF7F4; }
+
         @media (max-width: 900px) {
           .topbar { display: flex; }
           .sb {

@@ -8,7 +8,7 @@ import Wizard from '@/components/registration/Wizard'
 import AccountModal from './AccountModal'
 
 type Stage = { id: string; name: string; name_ar?: string | null; age_range: string; age_range_ar?: string | null; description: string; description_ar?: string | null; emoji: string; card_bg: string; image_url: string | null }
-type Meal = { id: string; name: string; name_ar?: string | null; description: string; description_ar?: string | null; meal_type: string; image_url: string | null; allergens: string; allergens_ar?: string | null; weight_g: string; protein_g: string; carbs_g: string; fiber_g: string }
+type Meal = { id: string; name: string; name_ar?: string | null; description: string; description_ar?: string | null; meal_type: string; stage_id: string | null; image_url: string | null; allergens: string; allergens_ar?: string | null; weight_g: string; protein_g: string; carbs_g: string; fiber_g: string }
 type HowStep = { id: string; icon_url: string | null; icon_bg: string; description: string; description_ar?: string | null }
 type WhyPoint = { id: string; title: string; description: string; title_color: string; title_ar?: string | null; description_ar?: string | null }
 type Ingredient = { id: string; name: string; description: string; image_url: string | null; name_ar?: string | null; description_ar?: string | null }
@@ -68,6 +68,8 @@ export default function HomeClient(p: Props) {
 
   const [popup, setPopup] = useState(true)
   const [tab, setTab] = useState(categories[0]?.slug || 'breakfast')
+  const [stageFilter, setStageFilter] = useState('')
+  const [stageMenuOpen, setStageMenuOpen] = useState(false)
   const [mealI, setMealI] = useState(0)
   const [stageI, setStageI] = useState(0)
   const [howI, setHowI] = useState(0)
@@ -127,9 +129,13 @@ export default function HomeClient(p: Props) {
     return () => observer.disconnect()
   }, [])
 
-  const mls = meals.filter(m => m.meal_type === tab)
+  // Reset the carousel to the first meal whenever the category or stage filter changes.
+  useEffect(() => { setMealI(0) }, [tab, stageFilter])
+
+  const mls = meals.filter(m => m.meal_type === tab && (!stageFilter || m.stage_id === stageFilter))
   const totM = mls.length
-  const currM = totM === 0 ? null : mls[mealI]
+  const safeMealI = mealI < totM ? mealI : 0
+  const currM = totM === 0 ? null : mls[safeMealI]
 
   const totS = stages.length
   const totH = howSteps.length
@@ -182,6 +188,19 @@ export default function HomeClient(p: Props) {
 
         .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s cubic-bezier(.16,1,.3,1), transform 0.7s cubic-bezier(.16,1,.3,1); }
         .reveal.in-view { opacity: 1; transform: translateY(0); }
+
+        /* --- shared polish: motion + focus across the landing page --- */
+        button, .btn, a.btn { transition: transform .16s ease, box-shadow .2s ease, filter .16s ease, background .2s ease; }
+        .btn:hover { transform: translateY(-2px); filter: brightness(1.04); box-shadow: 0 12px 26px rgba(28,28,26,0.16); }
+        .btn:active { transform: translateY(0) scale(0.98); }
+        .menu-tab:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(0,0,0,0.06); }
+        .nav-account:hover { background: rgba(255,255,255,0.22); transform: scale(1.06); }
+        .stage-arrow-btn { transition: transform .16s ease, filter .16s ease; }
+        .stage-arrow-btn:hover { transform: scale(1.08); filter: brightness(1.08); }
+        .plate-node.center img { transition: transform .3s cubic-bezier(.16,1,.3,1), filter .3s ease; }
+        .plate-node.center:hover img { transform: scale(1.04); filter: drop-shadow(0 26px 42px rgba(44,26,14,0.18)); }
+        input:focus-visible, textarea:focus-visible, select:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 28%, transparent); }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
 
         #hero, #menu, #stages, #how, #ingredients, #faq { scroll-margin-top: 80px; }
 
@@ -329,11 +348,11 @@ export default function HomeClient(p: Props) {
           .menu-left h2 { font-size: ${menuHeadingSizeMobile}; margin-bottom: 0.5rem; }
           .menu-left h2 span { display: inline; margin-right: 6px; }
           .menu-tabs {
-            flex-direction: row; overflow-x: auto; padding: 4px 28px 8px; margin-top: 1.2rem;
-            gap: 8px; justify-content: flex-start; width: 100%;
+            flex-direction: row; flex-wrap: nowrap; overflow-x: auto; padding: 4px 20px 8px; margin-top: 1.2rem;
+            gap: 8px; justify-content: safe center; width: 100%;
             scroll-snap-type: x proximity; scrollbar-width: none;
-            -webkit-mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
-            mask-image: linear-gradient(to right, transparent, black 24px, black calc(100% - 24px), transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent);
+            mask-image: linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent);
           }
           .menu-tabs::-webkit-scrollbar { display: none; }
 
@@ -614,6 +633,42 @@ export default function HomeClient(p: Props) {
       <section id="menu" className="menu-wrap">
         <div className="menu-left">
           <h2><span>{gg('menu_real_food', 'Real Food.')}</span><span>{gg('menu_real_ingredients', 'Real Ingredients.')}</span><span style={{ color: 'var(--deep-blue)' }}>{gg('menu_every_day', 'Every Single Day.')}</span></h2>
+          {stages.length > 0 && (
+            <div style={{ marginTop: '1.5rem', marginBottom: '1rem', position: 'relative', maxWidth: 320, marginInline: 'auto', width: '100%' }}>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 800, color: 'var(--brown)', marginBottom: 6, textAlign: 'center' }}>
+                {gg('menu_filter_stage', isAR ? 'حسب المرحلة' : 'Filter by stage')}
+              </label>
+              <button
+                type="button"
+                onClick={() => setStageMenuOpen(o => !o)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, width: '100%', padding: '13px 18px', borderRadius: 16, border: 'none', background: 'white', fontSize: '1rem', fontWeight: 800, color: 'var(--deep-blue)', fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 6px 16px rgba(10,66,155,0.10)' }}
+              >
+                <span>{stageFilter ? sName(stages.find(s => s.id === stageFilter)!) : (isAR ? 'كل المراحل' : 'All stages')}</span>
+                <span style={{ transition: 'transform 0.2s', transform: stageMenuOpen ? 'rotate(180deg)' : 'none', fontSize: '0.8rem', color: 'var(--orange)' }}>▼</span>
+              </button>
+              {stageMenuOpen && (
+                <>
+                  <div onClick={() => setStageMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 20 }} />
+                  <div style={{ position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, background: 'white', borderRadius: 16, boxShadow: '0 18px 40px rgba(10,66,155,0.18)', overflow: 'hidden', zIndex: 21, padding: 6 }}>
+                    {[{ id: '', label: isAR ? 'كل المراحل' : 'All stages' }, ...stages.map(s => ({ id: s.id, label: sName(s) }))].map(opt => {
+                      const active = stageFilter === opt.id
+                      return (
+                        <button
+                          key={opt.id || 'all'}
+                          type="button"
+                          onClick={() => { setStageFilter(opt.id); setStageMenuOpen(false) }}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%', padding: '12px 14px', borderRadius: 11, border: 'none', background: active ? 'color-mix(in srgb, var(--orange) 18%, white)' : 'transparent', color: active ? 'var(--orange)' : 'var(--deep-blue)', fontSize: '0.95rem', fontWeight: active ? 900 : 700, fontFamily: 'inherit', cursor: 'pointer', textAlign: isAR ? 'right' : 'left' }}
+                        >
+                          <span>{opt.label}</span>
+                          {active && <span style={{ fontSize: '0.85rem' }}>✓</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <div className="menu-tabs">
             {categories.map(c => (
               <button key={c.id} className={`menu-tab ${tab === c.slug ? 'a' : ''}`} onClick={() => setTab(c.slug)}>

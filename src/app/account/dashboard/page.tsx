@@ -468,7 +468,13 @@ export default function Dashboard() {
   const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 700, color: '#7A7068', marginBottom: 6 }
   const btn: React.CSSProperties = { padding: '13px 22px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }
 
-  if (loading) return <div style={{ textAlign: 'center', color: '#7A7068', padding: 20 }}>{isAR ? 'جار التحميل…' : 'Loading…'}</div>
+  if (loading) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '80px 20px', color: '#7A7068' }}>
+      <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #EDE8E0', borderTopColor: '#C84B0F', animation: 'ninozSpin 0.7s linear infinite' }} />
+      <div style={{ fontSize: 13, fontWeight: 600 }}>{isAR ? 'جار التحميل…' : 'Loading…'}</div>
+      <style>{`@keyframes ninozSpin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  )
 
   const info = daysInfo()
 
@@ -480,8 +486,16 @@ export default function Dashboard() {
   ]
 
   return (
-    <div>
-      <style>{`.tomorrow-track::-webkit-scrollbar { display: none; }`}</style>
+    <div className="ninoz-acct">
+      <style>{`
+        .tomorrow-track::-webkit-scrollbar { display: none; }
+        .ninoz-acct button { transition: transform .14s ease, box-shadow .18s ease, filter .14s ease, background .18s ease; }
+        .ninoz-acct button:hover:not(:disabled) { filter: brightness(1.04); }
+        .ninoz-acct button:active:not(:disabled) { transform: scale(0.975); }
+        .ninoz-acct input, .ninoz-acct textarea, .ninoz-acct select { transition: border-color .15s ease, box-shadow .15s ease; }
+        .ninoz-acct input:focus, .ninoz-acct textarea:focus, .ninoz-acct select:focus { border-color: #C84B0F !important; box-shadow: 0 0 0 3px rgba(200,75,15,0.12); }
+        .ninoz-acct :focus-visible { outline: none; }
+      `}</style>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1C1C1A', margin: 0 }}>

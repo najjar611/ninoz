@@ -345,6 +345,19 @@ export default function AccountModal({ open, onClose, isAR }: Props) {
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, color: '#B0A098', cursor: 'pointer', padding: 0 }}>✕</button>
         </div>
 
+        {!initializing && (() => {
+          const funnel: Step[] = ['phone', 'profile', 'plan', 'checkout', 'location']
+          const current = funnel.indexOf(step === 'otp' ? 'phone' : step)
+          if (current < 0) return null
+          return (
+            <div style={{ display: 'flex', gap: 6, margin: '4px 0 14px' }}>
+              {funnel.map((s, i) => (
+                <div key={s} style={{ flex: 1, height: 5, borderRadius: 99, background: i <= current ? '#C84B0F' : '#EDE8E0', transition: 'background .3s ease' }} />
+              ))}
+            </div>
+          )
+        })()}
+
         {initializing && <div style={{ textAlign: 'center', color: '#7A7068', padding: 30 }}>{isAR ? 'جار التحميل…' : 'Loading…'}</div>}
 
         {!initializing && step === 'phone' && (

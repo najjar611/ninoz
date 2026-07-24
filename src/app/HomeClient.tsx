@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Wizard from '@/components/registration/Wizard'
 import AccountModal from './AccountModal'
+import { createClient } from '@/lib/supabase/client'
+import { getMockSubscriberId } from '@/lib/mockSession'
 
 type Stage = { id: string; name: string; name_ar?: string | null; age_range: string; age_range_ar?: string | null; description: string; description_ar?: string | null; emoji: string; card_bg: string; image_url: string | null }
 type Meal = { id: string; name: string; name_ar?: string | null; description: string; description_ar?: string | null; meal_type: string; stage_id: string | null; image_url: string | null; allergens: string; allergens_ar?: string | null; weight_g: string; protein_g: string; carbs_g: string; fiber_g: string }
@@ -30,12 +32,28 @@ type Props = {
 const g = (c: Record<string, string>, k: string, f = '') => c[k] || f
 
 export default function HomeClient(p: Props) {
-  const { stages, meals, content, howSteps, whyPoints, ingredients, footerLinks, logo, paymentCycles, faqs, tickerItems, categories } = p
+  const { stages, meals, content, howSteps, whyPoints, ingredients, logo, paymentCycles, faqs, tickerItems, categories } = p
 
   const router = useRouter()
   const [lang, setLang] = useState<'en' | 'ar'>('ar')
   const isAR = lang === 'ar'
   const [accountModalOpen, setAccountModalOpen] = useState(false)
+  // Subscription awareness for the sticky bar: null = not subscribed,
+  // otherwise days until the plan starts (0 or less = already started).
+  const [subDaysToStart, setSubDaysToStart] = useState<number | null>(null)
+
+  useEffect(() => {
+    const id = getMockSubscriberId()
+    if (!id) return
+    const supabase = createClient()
+    supabase.from('subscriptions').select('start_date, status').eq('subscriber_id', id).in('status', ['active', 'frozen']).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => {
+        if (!data?.start_date) return
+        const start = new Date((data as any).start_date + 'T00:00:00')
+        const today = new Date(); today.setHours(0, 0, 0, 0)
+        setSubDaysToStart(Math.round((start.getTime() - today.getTime()) / 86400000))
+      })
+  }, [])
 
   // Profile icon = "manage my account" only — never forces a subscription.
   // The dashboard itself redirects to /account/signin if not authenticated yet,
@@ -77,7 +95,6 @@ export default function HomeClient(p: Props) {
   const [faq, setFaq] = useState<string | null>(null)
   const [subEmail, setSubEmail] = useState('')
   const [subDone, setSubDone] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
 
   const mealTouchX = useRef<number | null>(null)
   const stageTouchX = useRef<number | null>(null)
@@ -206,7 +223,7 @@ export default function HomeClient(p: Props) {
 
         .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: color-mix(in srgb, var(--deep-blue) 96%, transparent); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.08); }
         .nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; height: 80px; max-width: 1400px; margin: 0 auto; }
-        .nav-logo { font-size: 1.6rem; font-weight: 900; color: white; text-decoration: none; }
+        .nav-logo { font-size: 2.1rem; font-weight: 900; color: var(--orange); text-decoration: none; display: flex; align-items: center; }
         .nav-links { display: flex; gap: 2.5rem; align-items: center; }
         .nav-link { font-size: 1.05rem; font-weight: 700; color: white; opacity: 0.9; background: none; border: none; cursor: pointer; }
         .nav-account { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.3); color: white; text-decoration: none; flex-shrink: 0; cursor: pointer; }
@@ -332,7 +349,27 @@ export default function HomeClient(p: Props) {
 
         .footer-hero { background: var(--deep-blue); padding: 5rem 2rem; text-align: center; }
         .footer-logo-big { font-size: clamp(4rem, 12vw, 8rem); font-weight: 900; color: white; letter-spacing: -0.03em; }
-        .footer-cols { background: var(--cream); padding: 6rem 2rem; display: grid; grid-template-columns: 1.3fr 0.8fr 1fr 1fr; gap: 4rem; max-width: 1400px; margin: 0 auto; }
+        .footer-cols { background: var(--cream); padding: 6rem 2rem; display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 4rem; max-width: 1400px; margin: 0 auto; }
+        .contact-chip { display: inline-flex; align-items: center; gap: 9px; padding: 11px 18px; border-radius: 100px; font-size: 0.95rem; font-weight: 800; text-decoration: none; transition: transform .16s ease, box-shadow .2s ease, filter .16s ease; }
+        .contact-chip:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(0,0,0,0.12); filter: brightness(1.03); }
+        .contact-email { background: var(--orange); color: #fff; }
+        .contact-wa { background: #25D366; color: #fff; }
+        .contact-ig { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 0.95rem; font-weight: 800; color: var(--deep-blue); text-decoration: none; transition: color .16s ease; }
+        .contact-ig:hover { color: var(--orange); }
+
+        /* Floating WhatsApp bubble (shows only when a number is configured) */
+        .wa-float { position: fixed; bottom: 22px; inset-inline-end: 20px; z-index: 950; width: 56px; height: 56px; border-radius: 50%; background: #25D366; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 26px; text-decoration: none; box-shadow: 0 10px 26px rgba(37,211,102,0.45); transition: transform .18s ease; }
+        .wa-float:hover { transform: scale(1.08); }
+
+        /* Sticky mobile "Start your plan" bar */
+        .mobile-cta { display: none; }
+        @media (max-width: 768px) {
+          .mobile-cta { display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 940; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--cream) 88%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid rgba(0,0,0,0.06); }
+          .mobile-cta button { width: 100%; padding: 15px; border: none; border-radius: 14px; background: var(--orange); color: #fff; font-size: 1rem; font-weight: 900; font-family: inherit; cursor: pointer; box-shadow: 0 8px 20px rgba(200,75,15,0.3); }
+          .mobile-cta button:active { transform: scale(0.98); }
+          .wa-float { bottom: 78px; }
+          footer { padding-bottom: 76px; }
+        }
         .footer-col-t { font-size: 1.1rem; font-weight: 900; color: var(--deep-blue); margin-bottom: 1.5rem; display: block; }
         .footer-text { font-size: 0.95rem; color: var(--text-muted); line-height: 1.65; }
         .footer-bul { list-style: none; margin: 1.2rem 0; display: flex; flex-direction: column; gap: 10px; }
@@ -465,14 +502,14 @@ export default function HomeClient(p: Props) {
         <div className="nav-inner">
           <Link href="/" className="nav-logo">
             {logo?.url
-              ? <img src={logo.url} alt={logo.alt_text || 'Ninoz'} style={{ height: parseInt(g(content, 'logo_height', '56')), maxHeight: 80, width: 'auto', objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; e.currentTarget.insertAdjacentText('afterend', 'Ninoz') }} />
+              ? <img src={logo.url} alt={logo.alt_text || 'Ninoz'} style={{ height: parseInt(g(content, 'logo_height', '72')), maxHeight: 96, width: 'auto', objectFit: 'contain' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; e.currentTarget.insertAdjacentText('afterend', 'Ninoz') }} />
               : 'Ninoz'}
           </Link>
           <div className="nav-links">
             {[[gg('nav_menu', 'Menu'), 'menu'], [gg('nav_how', 'How It Works'), 'how'], [gg('nav_plans', 'Plans'), 'stages'], [gg('nav_faq', 'FAQ'), 'faq']].map(([l, id]) => (
               <button key={id} className="nav-link" onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })}>{l}</button>
             ))}
-            <button className="nav-link" onClick={() => setLang(isAR ? 'en' : 'ar')} style={{ opacity: 1, border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 20, padding: '6px 16px', fontSize: '0.9rem' }}>
+            <button className="nav-link" onClick={() => setLang(isAR ? 'en' : 'ar')} style={{ opacity: 1, border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 20, padding: '6px 16px', fontSize: '0.9rem', minWidth: 96, textAlign: 'center' }}>
               {isAR ? 'English' : 'عربي'}
             </button>
           </div>
@@ -480,15 +517,6 @@ export default function HomeClient(p: Props) {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12Zm0 2.4c-3.5 0-9 1.7-9 5.2v2.2h18v-2.2c0-3.5-5.5-5.2-9-5.2Z" fill="currentColor"/></svg>
           </button>
           <button className="nav-lang-mobile" onClick={() => setLang(isAR ? 'en' : 'ar')}>{isAR ? 'EN' : 'AR'}</button>
-          <button className="nav-ham" onClick={() => setMenuOpen(o => !o)}>☰</button>
-        </div>
-        <div className={`nav-mobile ${menuOpen ? 'open' : ''}`}>
-          {[[gg('nav_menu', 'Menu'), 'menu'], [gg('nav_how', 'How It Works'), 'how'], [gg('nav_plans', 'Plans'), 'stages'], [gg('nav_faq', 'FAQ'), 'faq']].map(([l, id]) => (
-            <button key={id} onClick={() => { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); setMenuOpen(false) }}>{l}</button>
-          ))}
-          <button onClick={() => { setMenuOpen(false); goToAccount() }}>👤 {isAR ? 'حسابي' : 'My Account'}</button>
-          <button onClick={() => { setLang(isAR ? 'en' : 'ar'); setMenuOpen(false) }}>{isAR ? 'English' : 'عربي'}</button>
-          <button style={{ background: 'var(--orange)', color: 'white', fontWeight: 700 }} onClick={() => { startPlan(); setMenuOpen(false); }}>{gg('btn_start_plan', 'Start Your Plan')} →</button>
         </div>
       </nav>
 
@@ -740,6 +768,7 @@ export default function HomeClient(p: Props) {
       </section>
 
       {/* INGREDIENTS */}
+      {(totI > 0 || whyPoints.length > 0) && (
       <section className="why reveal" id="ingredients">
         <div>
           <h2 className="why-title">{gg('why_only_real', 'Only Real')}<br/>{gg('why_ingredients_word', 'Ingredients')}</h2>
@@ -751,7 +780,8 @@ export default function HomeClient(p: Props) {
               </div>
             ))}
           </div>
-          
+
+          {totI > 0 && (
           <div className="ing-carousel-area"
             onTouchStart={e => { ingTouchX.current = e.touches[0].clientX }}
             onTouchEnd={e => {
@@ -761,17 +791,13 @@ export default function HomeClient(p: Props) {
               if (diff < -40) prevI()
               ingTouchX.current = null
             }}>
-            
-            {totI === 0 ? (
-              <div style={{ color: 'var(--text-muted)' }}>No ingredients loaded.</div>
-            ) : (
               <div className="ing-carousel-track ing-grid">
                 {ingredients.map((ing, idx) => {
                   let positionalClass = 'hidden'
                   if (idx === ingI) positionalClass = 'center'
                   else if (idx === (ingI - 1 + totI) % totI) positionalClass = 'left-peek'
                   else if (idx === (ingI + 1) % totI) positionalClass = 'right-peek'
-                  
+
                   return (
                     <div key={ing.id} className={`ing-card ${positionalClass}`} onClick={() => {
                       if (positionalClass === 'left-peek') prevI()
@@ -786,13 +812,16 @@ export default function HomeClient(p: Props) {
                   )
                 })}
               </div>
-            )}
           </div>
+          )}
         </div>
-        <div className="why-photo">
-          {whyImg ? <img src={whyImg} alt="Real Ingredients Matrix" /> : <div style={{ fontSize: '8rem', textAlign: 'center' }}>🥑</div>}
-        </div>
+        {whyImg && (
+          <div className="why-photo">
+            <img src={whyImg} alt="Real Ingredients Matrix" />
+          </div>
+        )}
       </section>
+      )}
 
       {/* FAQ */}
       {faqs.length > 0 && (
@@ -830,14 +859,32 @@ export default function HomeClient(p: Props) {
             </ul>
           </div>
           <div>
-            <span className="footer-col-t">{gg('footer_useful_links', 'Useful Links')}</span>
-            <div className="footer-links-l">
-              {footerLinks.map(l => <a key={l.id} href={l.url} className="footer-lnk">{l.label}</a>)}
-            </div>
-          </div>
-          <div>
             <span className="footer-col-t">{gg('footer_get_in_touch', 'Get in Touch')}</span>
-            <p className="footer-text">📧 <a href={`mailto:${g(content, 'footer_contact_email', 'hello@ninoz.sa')}`} style={{ color: 'var(--orange)', fontWeight: 700 }}>{g(content, 'footer_contact_email', 'hello@ninoz.sa')}</a></p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start' }}>
+              {(() => {
+                const cEmail = g(content, 'footer_contact_email', 'hello@ninoz.app')
+                const cInsta = (g(content, 'contact_instagram', 'ninoz.app') || '').replace(/^@|^https?:\/\/(www\.)?instagram\.com\//i, '')
+                const cWhats = (g(content, 'contact_whatsapp', '') || '').replace(/\D/g, '')
+                return (
+                  <>
+                    <a href={`mailto:${cEmail}`} className="contact-chip contact-email">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Zm.4 2 8.6 6 8.6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      <span>{isAR ? 'راسلنا' : 'Email us'}</span>
+                    </a>
+                    {cWhats && (
+                      <a href={`https://wa.me/${cWhats}`} target="_blank" rel="noreferrer" className="contact-chip contact-wa">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.5 14.4c-.3-.2-1.7-.9-2-1-.3-.1-.5-.1-.7.2s-.7.9-.9 1.1c-.2.2-.3.2-.6.1-1.6-.8-2.7-1.5-3.7-3.3-.3-.5.3-.5.8-1.5.1-.2 0-.4 0-.5s-.7-1.6-.9-2.2c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.1 3.3 5.2 4.6.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.7-.7 2-1.4.2-.7.2-1.2.2-1.4-.1-.1-.3-.2-.6-.3ZM12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-2.9.8.8-2.8-.2-.3A8.2 8.2 0 1 1 12 20.2Z"/></svg>
+                        <span>{isAR ? 'واتساب' : 'WhatsApp'}</span>
+                      </a>
+                    )}
+                    <a href={`https://instagram.com/${cInsta}`} target="_blank" rel="noreferrer" className="contact-ig">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="currentColor" strokeWidth="2"/><circle cx="12" cy="12" r="4.2" stroke="currentColor" strokeWidth="2"/><circle cx="17.4" cy="6.6" r="1.3" fill="currentColor"/></svg>
+                      <span>@{cInsta}</span>
+                    </a>
+                  </>
+                )
+              })()}
+            </div>
           </div>
           <div>
             <span className="footer-col-t">{gg('footer_subscribe_now', 'Subscribe Now')}</span>
@@ -856,9 +903,28 @@ export default function HomeClient(p: Props) {
         </div>
       </footer>
       
-      {/* <Wizard onClose={() => setPopup(false)} /> */}
+      {/* Floating WhatsApp bubble — only when a number is configured in settings */}
+      {(() => {
+        const cWhats = (g(content, 'contact_whatsapp', '') || '').replace(/\D/g, '')
+        return cWhats ? (
+          <a href={`https://wa.me/${cWhats}`} target="_blank" rel="noreferrer" className="wa-float" aria-label="WhatsApp">💬</a>
+        ) : null
+      })()}
 
-      {/* Renders the registration wizard pop-up when state is true */}
+      {/* Sticky mobile CTA — a countdown for existing subscribers, otherwise the funnel */}
+      <div className="mobile-cta">
+        {subDaysToStart === null ? (
+          <button onClick={startPlan}>{gg('btn_start_plan', 'Start Your Plan')}</button>
+        ) : subDaysToStart > 0 ? (
+          <button onClick={goToAccount} style={{ background: 'var(--deep-blue)' }}>
+            ⏳ {isAR ? `${subDaysToStart} ${subDaysToStart === 1 ? 'يوم' : 'أيام'} حتى بداية اشتراكك` : `${subDaysToStart} ${subDaysToStart === 1 ? 'day' : 'days'} until your meals start`}
+          </button>
+        ) : (
+          <button onClick={goToAccount} style={{ background: 'var(--deep-blue)' }}>
+            {isAR ? 'اشتراكك نشط — لوحة التحكم' : 'Your plan is active — Dashboard'}
+          </button>
+        )}
+      </div>
 
     </div>
   )

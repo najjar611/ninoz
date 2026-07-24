@@ -21,6 +21,15 @@ export default function SubscribersAdmin() {
     load()
   }, [])
 
+  async function grantExtraPause(subscriberId: string, parentName: string) {
+    if (!confirm(`Grant ${parentName || 'this customer'} one more subscription pause?`)) return
+    const { data: sub } = await supabase.from('subscriptions').select('id, extra_pauses').eq('subscriber_id', subscriberId).in('status', ['active', 'frozen']).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    if (!sub) { alert('This customer has no active subscription to grant a pause on.'); return }
+    const { error } = await supabase.from('subscriptions').update({ extra_pauses: (((sub as any).extra_pauses) || 0) + 1 }).eq('id', (sub as any).id)
+    if (error) { alert('Could not grant the pause: ' + error.message + '\n\nMake sure the subscriptions.extra_pauses column exists (see README).'); return }
+    alert(`Done — ${parentName || 'the customer'} can now request one more pause.`)
+  }
+
   if (loading) return (
     <div style={{ padding: 60, textAlign: 'center', color: '#B0A098', fontFamily: 'Nunito, sans-serif', fontSize: 14 }}>
       Loading subscribers…
@@ -81,6 +90,9 @@ export default function SubscribersAdmin() {
                     : <span style={{ color: '#D0C8C0', fontSize: 12 }}>None</span>}
                 </div>
               </div>
+              <button onClick={() => grantExtraPause(s.id, s.parent_name)} style={{ marginTop: 12, width: '100%', padding: '9px', background: '#FDF0E8', color: '#C84B0F', border: '1.5px solid #F0C9A8', borderRadius: 9, fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                ➕ Allow one more pause
+              </button>
             </div>
           )
         })}
@@ -98,7 +110,7 @@ export default function SubscribersAdmin() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid #F0EBE5' }}>
-                {['Name', 'Email', 'Mobile', 'Child', 'Delivery Address', 'Allergies', 'Registered'].map(h => (
+                {['Name', 'Email', 'Mobile', 'Child', 'Delivery Address', 'Allergies', 'Registered', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '13px 18px', fontSize: 10.5, fontWeight: 800, color: '#B0A098', textAlign: 'left', textTransform: 'uppercase', letterSpacing: '0.07em', whiteSpace: 'nowrap', background: '#FAFAF9' }}>{h}</th>
                 ))}
               </tr>
@@ -128,6 +140,11 @@ export default function SubscribersAdmin() {
                   </td>
                   <td style={{ padding: '14px 18px', color: '#B0A098', fontSize: 12, whiteSpace: 'nowrap' }}>
                     {new Date(s.created_at).toLocaleDateString('en-SA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </td>
+                  <td style={{ padding: '14px 18px', whiteSpace: 'nowrap' }}>
+                    <button onClick={() => grantExtraPause(s.id, s.parent_name)} style={{ padding: '7px 12px', background: '#FDF0E8', color: '#C84B0F', border: '1.5px solid #F0C9A8', borderRadius: 8, fontSize: 11.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      ➕ Extra pause
+                    </button>
                   </td>
                 </tr>
               ))}

@@ -70,8 +70,10 @@ export default function Dashboard() {
   const todayTrackRef = useRef<HTMLDivElement | null>(null)
   const [mealPanelIndex, setMealPanelIndex] = useState(0)
   const [allFreezes, setAllFreezes] = useState<Freeze[]>([])
+  const [extraPauses, setExtraPauses] = useState(0)
   const [history, setHistory] = useState<Sub[]>([])
   const [msg, setMsg] = useState('')
+  const [toast, setToast] = useState('')
   const [deliveryStatus, setDeliveryStatus] = useState<string | null>(null)
   const [thankYouMessage, setThankYouMessage] = useState('Thank you for your feedback! We really appreciate your support 💛')
   const [infoMeal, setInfoMeal] = useState<MenuEntry | null>(null)
@@ -166,6 +168,11 @@ export default function Dashboard() {
       const fzActive = ((fzAll || []) as Freeze[]).find(f => f.status === 'active') || null
       setFreeze(fzActive)
       setAllFreezes((fzAll as any) || [])
+
+      // Admins can grant a customer additional pauses beyond the default one.
+      // Read defensively so a missing `extra_pauses` column never breaks the page.
+      const { data: epRow } = await supabase.from('subscriptions').select('extra_pauses').eq('id', subRes.data.id).maybeSingle()
+      setExtraPauses((epRow as any)?.extra_pauses ?? 0)
 
       const today = todayISO()
       const tomorrow = tomorrowISO()
@@ -366,8 +373,8 @@ export default function Dashboard() {
 
   async function requestPause() {
     if (!sub) return
-    // A subscription can only ever be paused once.
-    if (allFreezes.length > 0) { setMsg(isAR ? 'يمكنك إيقاف اشتراكك مرة واحدة فقط' : 'You can pause your subscription only once'); return }
+    // A subscription can be paused once by default; admins may grant more.
+    if (allFreezes.length >= 1 + extraPauses) { setMsg(isAR ? 'يمكنك إيقاف اشتراكك مرة واحدة فقط' : 'You can pause your subscription only once'); return }
     if (!pauseStart || !pauseEnd) { setMsg(isAR ? 'يرجى اختيار تاريخ الإيقاف والاستئناف' : 'Please choose pause and resume dates'); return }
     if (pauseEnd <= pauseStart) { setMsg(isAR ? 'يجب أن يكون تاريخ الاستئناف بعد تاريخ الإيقاف' : 'Resume date must be after the pause date'); return }
     setFreezing(true)
@@ -412,6 +419,11 @@ export default function Dashboard() {
     router.push('/account/signin')
   }
 
+  function showToast(m: string) {
+    setToast(m)
+    setTimeout(() => setToast(''), 2600)
+  }
+
   async function saveProfile() {
     if (!parentName.trim() || !kidName.trim()) {
       setProfileMsg(isAR ? 'يرجى إدخال اسمك واسم طفلك' : "Please fill in your name and your baby's name")
@@ -437,7 +449,8 @@ export default function Dashboard() {
       setProfileMsg(dup ? (isAR ? 'هذا البريد الإلكتروني مستخدم بالفعل' : 'That email is already in use') : error.message)
       return
     }
-    setProfileMsg(isAR ? 'تم الحفظ' : 'Saved')
+    setProfileMsg('')
+    showToast(isAR ? 'تم حفظ ملفك ✓' : 'Profile saved ✓')
   }
 
   async function saveAddress() {
@@ -446,7 +459,8 @@ export default function Dashboard() {
     const id = getMockSubscriberId()
     const { error } = await supabase.from('subscribers').update({ delivery_address: address }).eq('id', id)
     setAddressSaving(false)
-    setAddressMsg(error ? error.message : (isAR ? 'تم تحديث عنوان التوصيل' : 'Delivery address updated'))
+    if (error) setAddressMsg(error.message)
+    else { setAddressMsg(''); showToast(isAR ? 'تم تحديث عنوان التوصيل ✓' : 'Address updated ✓') }
   }
 
   async function toggleAllergen(allergenId: string) {
@@ -468,13 +482,31 @@ export default function Dashboard() {
   const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 700, color: '#7A7068', marginBottom: 6 }
   const btn: React.CSSProperties = { padding: '13px 22px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }
 
-  if (loading) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: '80px 20px', color: '#7A7068' }}>
-      <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #EDE8E0', borderTopColor: '#C84B0F', animation: 'ninozSpin 0.7s linear infinite' }} />
-      <div style={{ fontSize: 13, fontWeight: 600 }}>{isAR ? 'جار التحميل…' : 'Loading…'}</div>
-      <style>{`@keyframes ninozSpin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  )
+  if (loading) {
+    const sk = (style: React.CSSProperties) => <div style={{ background: 'linear-gradient(90deg, #ECE6DF 25%, #F5F0EA 37%, #ECE6DF 63%)', backgroundSize: '400% 100%', animation: 'ninozShimmer 1.3s ease-in-out infinite', borderRadius: 10, ...style }} />
+    return (
+      <div>
+        <style>{`@keyframes ninozShimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }`}</style>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 22 }}>
+          {sk({ width: 190, height: 26 })}
+          {sk({ width: 130, height: 14 })}
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 22 }}>
+          {sk({ width: 70, height: 30 })}{sk({ width: 90, height: 30 })}{sk({ width: 80, height: 30 })}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18 }}>
+          <div style={{ flex: '1 1 300px' }}>
+            {sk({ width: '100%', aspectRatio: '1 / 1', borderRadius: 14, marginBottom: 16 })}
+            <div style={{ display: 'flex', gap: 12 }}>{sk({ flex: 1, height: 64 })}{sk({ flex: 1, height: 64 })}{sk({ flex: 1, height: 64 })}</div>
+          </div>
+          <div style={{ flex: '1 1 300px' }}>
+            {sk({ width: 220, height: 30, margin: '0 auto 14px' })}
+            {sk({ width: '100%', height: 210, borderRadius: 14 })}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const info = daysInfo()
 
@@ -495,7 +527,13 @@ export default function Dashboard() {
         .ninoz-acct input, .ninoz-acct textarea, .ninoz-acct select { transition: border-color .15s ease, box-shadow .15s ease; }
         .ninoz-acct input:focus, .ninoz-acct textarea:focus, .ninoz-acct select:focus { border-color: #C84B0F !important; box-shadow: 0 0 0 3px rgba(200,75,15,0.12); }
         .ninoz-acct :focus-visible { outline: none; }
+        @keyframes ninozToastIn { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translate(-50%, 0); } }
       `}</style>
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 4000, background: '#1C1C1A', color: 'white', padding: '12px 20px', borderRadius: 12, fontSize: 13.5, fontWeight: 700, boxShadow: '0 12px 30px rgba(0,0,0,0.25)', animation: 'ninozToastIn .28s cubic-bezier(.16,1,.3,1)', maxWidth: '90vw' }}>
+          {toast}
+        </div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1C1C1A', margin: 0 }}>
@@ -650,7 +688,7 @@ export default function Dashboard() {
                     <button onClick={requestPause} disabled={freezing} style={{ flex: 1, ...btn, background: '#1E6091', opacity: freezing ? 0.6 : 1 }}>{freezing ? (isAR ? 'جار الحفظ…' : 'Saving…') : (isAR ? 'تأكيد الإيقاف' : 'Confirm Pause')}</button>
                   </div>
                 </div>
-              ) : allFreezes.length > 0 ? (
+              ) : allFreezes.length >= 1 + extraPauses ? (
                 <div style={{ background: '#FAF7F4', border: '1.5px solid #EDE8E0', borderRadius: 12, padding: '12px 14px', fontSize: 12.5, color: '#7A7068', fontWeight: 600, textAlign: 'center' }}>
                   {isAR ? 'لقد استخدمت إيقافك الوحيد لهذا الاشتراك.' : "You've already used your one pause for this subscription."}
                 </div>

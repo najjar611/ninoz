@@ -18,6 +18,7 @@ export default function Checkout() {
   const [sub, setSub] = useState<Sub | null>(null)
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState(false)
+  const [celebrating, setCelebrating] = useState(false)
   const [error, setError] = useState('')
   const [promoCode, setPromoCode] = useState('')
   const [promoInfo, setPromoInfo] = useState<PromoInfo | null>(null)
@@ -78,10 +79,30 @@ export default function Checkout() {
     const { error: subErr } = await supabase.from('subscriptions').update({ status: 'active' }).eq('id', sub.id)
     setPaying(false)
     if (subErr) { setError(subErr.message); return }
-    router.push(`/account/location?subscription_id=${sub.id}`)
+    // Celebrate the successful subscription, then continue to the address step.
+    setCelebrating(true)
+    setTimeout(() => router.push(`/account/location?subscription_id=${sub.id}`), 1900)
   }
 
   if (loading || !sub) return <div style={{ textAlign: 'center', color: '#7A7068', padding: 20 }}>{isAR ? 'جار التحميل…' : 'Loading…'}</div>
+
+  if (celebrating) {
+    const colors = ['#C84B0F', '#2D6A4F', '#1E6091', '#E8B04B', '#D95D39']
+    return (
+      <div style={{ position: 'fixed', inset: 0, background: '#F7F4F0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, zIndex: 3000, overflow: 'hidden' }}>
+        <style>{`
+          @keyframes ninozPop { 0% { transform: scale(0); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+          @keyframes ninozFall { 0% { transform: translateY(-20vh) rotate(0); opacity: 1; } 100% { transform: translateY(85vh) rotate(540deg); opacity: 0; } }
+        `}</style>
+        {Array.from({ length: 28 }).map((_, i) => (
+          <div key={i} style={{ position: 'absolute', top: 0, left: `${(i * 37) % 100}%`, width: 9, height: 14, borderRadius: 2, background: colors[i % colors.length], animation: `ninozFall ${1.4 + (i % 5) * 0.25}s ${(i % 7) * 0.12}s ease-in forwards` }} />
+        ))}
+        <div style={{ width: 84, height: 84, borderRadius: '50%', background: '#2D6A4F', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, animation: 'ninozPop .5s cubic-bezier(.16,1,.3,1)' }}>✓</div>
+        <div style={{ fontSize: 20, fontWeight: 900, color: '#1C1C1A' }}>{isAR ? 'تم الاشتراك بنجاح!' : 'Subscription confirmed!'}</div>
+        <div style={{ fontSize: 13.5, color: '#7A7068' }}>{isAR ? 'لحظة، ننقلك لإضافة عنوان التوصيل…' : "One sec — taking you to your delivery address…"}</div>
+      </div>
+    )
+  }
 
   return (
     <div>

@@ -142,6 +142,9 @@ export default function Account() {
       const marker = new gmaps.Marker({ position: center, map, draggable: true })
       mapObjRef.current = map
       markerRef.current = marker
+      // The map lives inside a modal that may still be sizing when it inits —
+      // nudge it once laid out so tiles render instead of showing blank.
+      setTimeout(() => { gmaps.event.trigger(map, 'resize'); map.setCenter(center) }, 300)
       const update = (p: any) => { const lat = p.lat(), lng = p.lng(); setPos({ lat, lng }); reverseGeocode(lat, lng) }
       marker.addListener('dragend', () => update(marker.getPosition()))
       map.addListener('click', (e: any) => { marker.setPosition(e.latLng); update(e.latLng) })

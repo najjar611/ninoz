@@ -138,6 +138,16 @@ export default function Location() {
     return () => { cancelled = true }
   }, [checking, zone])
 
+  // Out-of-area but signed in: record the request automatically using the
+  // details we already have — no second form, admin gets notified.
+  useEffect(() => {
+    if (!blocked || leadSentRef.current) return
+    leadSentRef.current = true
+    supabase.from('delivery_zone_requests').insert({
+      name: subName || null, phone: subPhone || null, area_text: address || null, lat: pos?.lat ?? null, lng: pos?.lng ?? null,
+    }).then(() => setLeadDone(true))
+  }, [blocked])
+
   if (checking) return null
 
   const districtOptions = districts.filter(d => !regionId || d.region_id === regionId || !d.region_id)
@@ -181,16 +191,6 @@ export default function Location() {
       { enableHighAccuracy: true, timeout: 10000 }
     )
   }
-
-  // Out-of-area but signed in: record the request automatically using the
-  // details we already have — no second form, admin gets notified.
-  useEffect(() => {
-    if (!blocked || leadSentRef.current) return
-    leadSentRef.current = true
-    supabase.from('delivery_zone_requests').insert({
-      name: subName || null, phone: subPhone || null, area_text: address || null, lat: pos?.lat ?? null, lng: pos?.lng ?? null,
-    }).then(() => setLeadDone(true))
-  }, [blocked])
 
   const inp: React.CSSProperties = { width: '100%', padding: '13px 15px', borderRadius: 12, border: '1.5px solid #EAE3D9', fontSize: 14.5, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#1C1C1A', background: '#fff', accentColor: '#C84B0F' }
   const selStyle: React.CSSProperties = {

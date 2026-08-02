@@ -80,8 +80,8 @@ export default function ContentAdmin() {
     <div style={{ fontFamily: 'Nunito, sans-serif' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1C1C1A', marginBottom: 4 }}>Edit Text</h1>
-          <p style={{ fontSize: 13, color: '#7A7068' }}>Edit all homepage text content by section, in English and Arabic.</p>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1C1C1A', marginBottom: 4 }}>Homepage Text</h1>
+          <p style={{ fontSize: 13, color: '#7A7068' }}>Just the wording/copy on the homepage (headlines, labels, footer), in English &amp; Arabic. For cards/items use “Homepage Cards &amp; Items”; for logo/colours use “Branding &amp; Settings”.</p>
         </div>
         {msg && <div style={{ background: '#E8F5EE', color: '#2D6A4F', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
       </div>

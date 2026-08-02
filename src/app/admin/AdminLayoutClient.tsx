@@ -20,6 +20,8 @@ const NAV = [
       { label: 'Payment Plans', href: '/admin/payment-cycles' },
       { label: 'Daily Menu', href: '/admin/daily-menu' },
       { label: 'FAQ', href: '/admin/faq' },
+      { label: 'News', href: '/admin/news' },
+      { label: 'Terms & Conditions', href: '/admin/terms' },
     ],
   },
   {
@@ -28,6 +30,8 @@ const NAV = [
       { label: 'Subscribers', href: '/admin/subscribers' },
       { label: 'Reviews', href: '/admin/reviews' },
       { label: 'Delivery Status', href: '/admin/delivery-status' },
+      { label: 'Delivery Area', href: '/admin/delivery-area' },
+      { label: 'Regions & Districts', href: '/admin/regions' },
       { label: 'Waitlist', href: '/admin/waitlist' },
       { label: 'Profile Fields', href: '/admin/customer-fields' },
       { label: 'Promo Codes', href: '/admin/promo-codes' },
@@ -105,23 +109,24 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
     href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#F7F4F0', fontFamily: 'Nunito, sans-serif' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'radial-gradient(120% 90% at 15% -10%, #122A22, #0C1A15)', fontFamily: 'Nunito, sans-serif' }}>
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         .sb {
-          width: 232px; flex-shrink: 0; background: #fff;
-          border-right: 1px solid #EDEBE8; display: flex;
+          width: 232px; flex-shrink: 0; background: rgba(12,26,21,0.72);
+          border-right: 1px solid rgba(255,255,255,0.12); display: flex;
           flex-direction: column; position: fixed; inset: 0 auto 0 0;
           height: 100vh; z-index: 100; overflow-y: auto;
+          backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
         }
-        .sb-brand { padding: 28px 20px 20px; border-bottom: 1px solid #F2EDE8; }
-        .sb-logo { font-size: 21px; font-weight: 900; color: #C84B0F; letter-spacing: -0.02em; text-decoration: none; display: block; }
-        .sb-sub { font-size: 10.5px; color: #B0A098; font-weight: 600; margin-top: 2px; letter-spacing: 0.03em; }
+        .sb-brand { padding: 28px 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sb-logo { font-size: 21px; font-weight: 900; color: #FF7A33; letter-spacing: -0.02em; text-decoration: none; display: block; }
+        .sb-sub { font-size: 10.5px; color: #9DB4A8; font-weight: 600; margin-top: 2px; letter-spacing: 0.03em; }
 
         .sb-section { padding: 20px 0 4px; }
         .sb-section-title {
-          font-size: 9.5px; font-weight: 800; color: #C9A98A;
+          font-size: 9.5px; font-weight: 800; color: #F5C77E;
           letter-spacing: 0.12em; text-transform: uppercase;
           padding: 0 20px 8px;
         }
@@ -129,43 +134,45 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
           display: flex; align-items: center; gap: 9px;
           padding: 9px 16px 9px 20px; margin: 1px 8px;
           border-radius: 9px; font-size: 13.5px; font-weight: 600;
-          color: #5A5048; text-decoration: none; transition: all 0.14s;
+          color: #C6D6CC; text-decoration: none; transition: all 0.14s;
           position: relative;
         }
-        .sb-link:hover { background: #FDF8F5; color: #C84B0F; }
-        .sb-link.on { background: #FDF0E8; color: #C84B0F; font-weight: 800; }
+        .sb-link:hover { background: rgba(255,255,255,0.06); color: #F5C77E; }
+        .sb-link.on { background: rgba(255,122,51,0.16); color: #FF7A33; font-weight: 800; }
         .sb-link.on::before {
           content: ''; position: absolute; left: -1px; top: 50%;
           transform: translateY(-50%); width: 3px; height: 18px;
-          background: #C84B0F; border-radius: 0 3px 3px 0;
+          background: #FF7A33; border-radius: 0 3px 3px 0;
         }
 
-        .sb-footer { margin-top: auto; border-top: 1px solid #F2EDE8; padding: 14px 12px; }
+        .sb-footer { margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1); padding: 14px 12px; }
         .sb-footer-btn {
           display: block; width: 100%; padding: 8px 12px; border-radius: 8px;
           font-size: 12.5px; font-weight: 600; text-align: left; cursor: pointer;
           text-decoration: none; border: none; background: none;
-          font-family: inherit; transition: background 0.12s; color: #7A7068;
+          font-family: inherit; transition: background 0.12s; color: #9DB4A8;
         }
-        .sb-footer-btn:hover { background: #F7F4F0; }
-        .sb-footer-btn.danger { color: #DC2626; }
-        .sb-footer-btn.danger:hover { background: #FEF2F2; }
+        .sb-footer-btn:hover { background: rgba(255,255,255,0.06); }
+        .sb-footer-btn.danger { color: #F08A6E; }
+        .sb-footer-btn.danger:hover { background: rgba(240,138,110,0.12); }
 
         .topbar {
           display: none; position: fixed; top: 0; left: 0; right: 0;
-          height: 54px; background: #fff; border-bottom: 1px solid #EDEBE8;
+          height: 54px; background: rgba(12,26,21,0.9); border-bottom: 1px solid rgba(255,255,255,0.12);
           padding: 0 16px; align-items: center; justify-content: space-between;
-          z-index: 200;
+          z-index: 200; backdrop-filter: blur(12px);
         }
-        .ham { background: none; border: none; cursor: pointer; font-size: 20px; color: #1C1C1A; padding: 6px; }
+        .ham { background: none; border: none; cursor: pointer; color: #EAF3EE; padding: 6px; display: inline-flex; }
         .overlay {
           display: none; position: fixed; inset: 54px 0 0 0;
-          background: rgba(28,28,26,0.32); z-index: 99;
+          background: rgba(0,0,0,0.5); z-index: 99;
           backdrop-filter: blur(2px);
         }
 
         .main { margin-left: 232px; flex: 1; min-width: 0; max-width: 100vw; }
-        .main-inner { padding: 36px 40px; max-width: 1100px; }
+        .main-inner { padding: 28px 32px; max-width: 1100px; }
+        /* Light content sheet on the dark frame, matching the customer app. */
+        .main-sheet { background: #FBF8F2; border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 28px 30px; box-shadow: 0 22px 54px rgba(0,0,0,0.34); min-height: calc(100vh - 92px); }
         .main-inner img, .main-inner video { max-width: 100%; height: auto; }
         /* Wide tables stay readable by scrolling inside their own card rather
            than stretching the whole page on small screens. */
@@ -190,15 +197,20 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
           .sb.open { transform: none; box-shadow: 8px 0 32px rgba(0,0,0,0.1); }
           .overlay { display: block; }
           .main { margin-left: 0; }
-          .main-inner { padding: 80px 16px 32px; overflow-x: hidden; }
+          .main-inner { padding: 70px 12px 24px; overflow-x: hidden; }
+          .main-sheet { padding: 20px 16px; border-radius: 16px; }
         }
       `}</style>
 
       <div className="topbar">
-        <button className="ham" onClick={() => setOpen(o => !o)}>{open ? '✕' : '☰'}</button>
+        <button className="ham" onClick={() => setOpen(o => !o)} aria-label="Menu">
+          {open
+            ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 6l12 12M18 6L6 18" /></svg>
+            : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 7h16M4 12h16M4 17h16" /></svg>}
+        </button>
         {logoUrl
           ? <img src={logoUrl} alt="Ninoz" style={{ height: 28, maxWidth: 100, objectFit: 'contain' }} />
-          : <span style={{ fontWeight: 900, fontSize: 16, color: '#C84B0F' }}>Ninoz Admin</span>}
+          : <span style={{ fontWeight: 900, fontSize: 16, color: '#FF7A33' }}>Ninoz Admin</span>}
         <div style={{ width: 32 }} />
       </div>
 
@@ -239,14 +251,16 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
         </nav>
 
         <div className="sb-footer">
-          <Link href="/" className="sb-footer-btn" style={{ color: '#7A7068' }}>← View Website</Link>
+          <Link href="/" className="sb-footer-btn">View Website</Link>
           <button className="sb-footer-btn danger" onClick={logout}>Sign Out</button>
         </div>
       </aside>
 
       <main className="main">
         <div className="main-inner">
-          {children}
+          <div className="main-sheet">
+            {children}
+          </div>
         </div>
       </main>
     </div>

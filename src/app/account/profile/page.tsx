@@ -17,6 +17,7 @@ export default function Profile() {
   const { isAR } = useAccountLang()
   const [parentName, setParentName] = useState('')
   const [kidName, setKidName] = useState('')
+  const [kidBirthDate, setKidBirthDate] = useState('')
   const [email, setEmail] = useState('')
   const [customFields, setCustomFields] = useState<CustomField[]>([])
   const [extra, setExtra] = useState<Record<string, string>>({})
@@ -28,12 +29,13 @@ export default function Profile() {
     const id = getMockSubscriberId()
     if (!id) { router.replace('/account/signin'); return }
     Promise.all([
-      supabase.from('subscribers').select('parent_name, kid_name, email, extra_fields').eq('id', id).single(),
+      supabase.from('subscribers').select('parent_name, kid_name, kid_birth_date, email, extra_fields').eq('id', id).single(),
       supabase.from('customer_fields').select('*').eq('is_active', true).order('position'),
     ]).then(([sub, cf]) => {
       if (sub.data) {
         setParentName(sub.data.parent_name || '')
         setKidName(sub.data.kid_name || '')
+        setKidBirthDate((sub.data as any).kid_birth_date || '')
         setEmail(sub.data.email || '')
         setExtra(sub.data.extra_fields || {})
       }
@@ -51,6 +53,10 @@ export default function Profile() {
       setError(isAR ? 'يرجى إدخال اسمك واسم طفلك' : "Please fill in your name and your baby's name")
       return
     }
+    if (!kidBirthDate) {
+      setError(isAR ? 'يرجى إدخال تاريخ ميلاد الطفل لنوصي بالمرحلة المناسبة' : "Please enter your baby's birth date so we can recommend the right stage")
+      return
+    }
     const missing = customFields.find(f => f.is_required && !(extra[f.field_key] || '').trim())
     if (missing) {
       setError(isAR ? `الحقل "${missing.label_ar || missing.label_en}" مطلوب` : `"${missing.label_en}" is required`)
@@ -60,11 +66,11 @@ export default function Profile() {
     setError('')
     const id = getMockSubscriberId()
     const { error: err } = await supabase.from('subscribers').update({
-      parent_name: parentName, kid_name: kidName, email, extra_fields: extra,
+      parent_name: parentName, kid_name: kidName, kid_birth_date: kidBirthDate || null, email: email.trim() || null, extra_fields: extra,
     }).eq('id', id)
     setSaving(false)
     if (err) { setError(err.message); return }
-    router.push('/account/plan')
+    router.push('/account/location')
   }
 
   if (loading) return <div style={{ textAlign: 'center', color: '#7A7068', padding: 20 }}>{isAR ? 'جار التحميل…' : 'Loading…'}</div>
@@ -79,6 +85,9 @@ export default function Profile() {
 
       <label style={lbl}>{isAR ? 'اسم الطفل' : "Baby's Name"}</label>
       <input style={inp} value={kidName} onChange={e => setKidName(e.target.value)} placeholder={isAR ? 'مثال: لانا' : 'e.g. Lana'} />
+
+      <label style={lbl}>{isAR ? 'تاريخ ميلاد الطفل' : "Baby's Birth Date"}</label>
+      <input style={inp} type="date" value={kidBirthDate} onChange={e => setKidBirthDate(e.target.value)} />
 
       <label style={lbl}>{isAR ? 'البريد الإلكتروني' : 'Email'}</label>
       <input style={inp} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />

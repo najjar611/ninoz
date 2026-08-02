@@ -5,8 +5,18 @@ import { createClient } from '@/lib/supabase/client'
 export default function SubscribersAdmin() {
   const supabase = createClient()
   const [subs, setSubs] = useState<any[]>([])
+  const [pending, setPending] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  async function loadPending() {
+    const { data } = await supabase
+      .from('subscriptions')
+      .select('id, total_price, created_at, promo_code, subscribers(parent_name, mobile_number), stages(name), payment_cycles(label)')
+      .eq('status', 'pending_payment')
+      .order('created_at', { ascending: false })
+    setPending(data || [])
+  }
 
   useEffect(() => {
     async function load() {
@@ -16,10 +26,21 @@ export default function SubscribersAdmin() {
         .order('created_at', { ascending: false })
       if (error) { setError(error.message) }
       setSubs(data || [])
+      await loadPending()
       setLoading(false)
     }
     load()
   }, [])
+
+  async function activateSub(id: string, name: string) {
+    if (!confirm(`Confirm the Neoleap payment landed and activate ${name || 'this customer'}'s subscription?`)) return
+    const { error } = await supabase.from('subscriptions').update({ status: 'active' }).eq('id', id)
+    if (error) { alert('Could not activate: ' + error.message); return }
+    // Mark the pending payment as paid too, so records stay consistent.
+    await supabase.from('payments').update({ status: 'paid' }).eq('subscription_id', id).eq('status', 'pending')
+    setPending(prev => prev.filter(p => p.id !== id))
+    alert(`Activated — ${name || 'the customer'}'s subscription is now live.`)
+  }
 
   async function grantExtraPause(subscriberId: string, parentName: string) {
     if (!confirm(`Grant ${parentName || 'this customer'} one more subscription pause?`)) return
@@ -61,6 +82,28 @@ export default function SubscribersAdmin() {
           .subs-card-wrap { display: block !important; }
         }
       `}</style>
+
+      {pending.length > 0 && (
+        <div style={{ background: '#FFF8EE', border: '1.5px solid #F0D9B0', borderRadius: 16, padding: '18px 20px', marginBottom: 24 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 900, color: '#8A6D3B', margin: '0 0 4px' }}>Pending orders — awaiting payment confirmation ({pending.length})</h2>
+          <p style={{ fontSize: 12.5, color: '#B0A098', margin: '0 0 14px' }}>Once you confirm the Neoleap payment has landed, activate the subscription to turn it on for the customer.</p>
+          {pending.map(p => {
+            const name = p.subscribers?.parent_name || '—'
+            return (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', background: 'white', border: '1px solid #F0E4CE', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, color: '#1C1C1A', fontSize: 14 }}>{name} <span style={{ color: '#B0A098', fontWeight: 600, fontSize: 12.5, fontFamily: 'monospace' }}>{p.subscribers?.mobile_number || ''}</span></div>
+                  <div style={{ fontSize: 12.5, color: '#7A7068' }}>{p.stages?.name || '—'} · {p.payment_cycles?.label || '—'} · <strong style={{ color: '#C84B0F' }}>{p.total_price} SAR</strong>{p.promo_code ? ` · ${p.promo_code}` : ''}</div>
+                  <div style={{ fontSize: 11, color: '#B0A098' }}>{new Date(p.created_at).toLocaleString('en-SA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
+                <button onClick={() => activateSub(p.id, name)} style={{ padding: '9px 16px', background: '#2D6A4F', color: 'white', border: 'none', borderRadius: 9, fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                  Confirm &amp; Activate
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       <div className="subs-card-wrap" style={{ display: 'none' }}>
         {subs.map(s => {

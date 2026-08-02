@@ -3,8 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-type Tab = 'design' | 'images' | 'waitlist' | 'ticker'
-type TickerItem = { id: string; text: string; highlight: string; position: number; is_active: boolean }
+type Tab = 'design' | 'images' | 'waitlist' | 'legal'
 
 const PRESET_FONTS = [
   'Nunito', 'Poppins', 'DM Sans', 'Plus Jakarta Sans', 'Outfit',
@@ -36,33 +35,33 @@ export default function SettingsAdmin() {
   const [menuHeadingMobile, setMenuHeadingMobile] = useState(2.2)
 
   // Images
-  const [heroUrl, setHeroUrl] = useState('')
   const [whyUrl, setWhyUrl] = useState('')
-  const heroRef = useRef<HTMLInputElement>(null)
   const whyRef = useRef<HTMLInputElement>(null)
 
   // Waitlist
   const [waitlistBgUrl, setWaitlistBgUrl] = useState('')
   const [waitlistBtnColor, setWaitlistBtnColor] = useState('#C84B0F')
-  const [tickerAnimated, setTickerAnimated] = useState(true)
   const [comingSoon, setComingSoon] = useState(false)
   const waitlistBgRef = useRef<HTMLInputElement>(null)
 
-  // Ticker
-  const [tickerItems, setTickerItems] = useState<TickerItem[]>([])
+  const [termsEn, setTermsEn] = useState('')
+  const [termsAr, setTermsAr] = useState('')
+  const [contactWhats, setContactWhats] = useState('')
+  const [contactInsta, setContactInsta] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
 
   useEffect(() => { load() }, [])
 
   async function load() {
-    const [content, logo, ticker] = await Promise.all([
+    const [content, logo] = await Promise.all([
       supabase.from('site_content').select('key,value').in('key', [
-        'site_font', 'ticker_animated', 'hero_image_url', 'why_image_url',
+        'site_font', 'why_image_url',
         'waitlist_bg_url', 'waitlist_btn_color', 'theme_color_primary', 'theme_color_deep_blue',
         'logo_height', 'site_coming_soon', 'menu_bg_color', 'menu_heading_size_desktop', 'menu_heading_size_mobile',
         'account_bg_color',
+        'terms_conditions', 'terms_conditions_ar', 'contact_whatsapp', 'contact_instagram', 'footer_contact_email',
       ]),
       supabase.from('logo').select('*').limit(1).single(),
-      supabase.from('ticker_items').select('*').order('position'),
     ])
     const m: Record<string, string> = {}
     for (const i of content.data || []) m[i.key] = i.value
@@ -71,11 +70,9 @@ export default function SettingsAdmin() {
     setCustomFont(PRESET_FONTS.includes(f) ? '' : f)
     setColorPrimary(m['theme_color_primary'] || '#C84B0F')
     setColorBlue(m['theme_color_deep_blue'] || '#0A429B')
-    setHeroUrl(m['hero_image_url'] || '')
     setWhyUrl(m['why_image_url'] || '')
     setWaitlistBgUrl(m['waitlist_bg_url'] || '')
     setWaitlistBtnColor(m['waitlist_btn_color'] || '#C84B0F')
-    setTickerAnimated(m['ticker_animated'] !== 'false')
     setComingSoon(m['site_coming_soon'] === 'true')
     setLogoUrl(logo.data?.url || '')
     setLogoHeight(parseInt(m['logo_height'] || '42'))
@@ -83,7 +80,24 @@ export default function SettingsAdmin() {
     setMenuBgColor(m['menu_bg_color'] || '')
     setMenuHeadingDesktop(parseFloat(m['menu_heading_size_desktop'] || '3.2'))
     setMenuHeadingMobile(parseFloat(m['menu_heading_size_mobile'] || '2.2'))
-    setTickerItems(ticker.data || [])
+    setTermsEn(m['terms_conditions'] || '')
+    setTermsAr(m['terms_conditions_ar'] || '')
+    setContactWhats(m['contact_whatsapp'] || '')
+    setContactInsta(m['contact_instagram'] || '')
+    setContactEmail(m['footer_contact_email'] || '')
+  }
+
+  async function saveLegal() {
+    setSaving(true)
+    await Promise.all([
+      upsert('terms_conditions', termsEn),
+      upsert('terms_conditions_ar', termsAr),
+      upsert('contact_whatsapp', contactWhats),
+      upsert('contact_instagram', contactInsta),
+      upsert('footer_contact_email', contactEmail),
+    ])
+    setSaving(false)
+    flash('Saved!')
   }
 
   function flash(t: string) { setMsg(t); setTimeout(() => setMsg(''), 3000) }
@@ -111,10 +125,7 @@ export default function SettingsAdmin() {
 
   async function saveWaitlist() {
     setSaving(true)
-    await Promise.all([
-      upsert('waitlist_btn_color', waitlistBtnColor),
-      upsert('ticker_animated', tickerAnimated ? 'true' : 'false'),
-    ])
+    await upsert('waitlist_btn_color', waitlistBtnColor)
     setSaving(false)
     flash('Saved!')
   }
@@ -151,23 +162,6 @@ export default function SettingsAdmin() {
     if (ref.current) ref.current.value = ''
   }
 
-  // Ticker
-  function updateTicker(id: string, key: keyof TickerItem, val: any) {
-    setTickerItems(prev => prev.map(t => t.id === id ? { ...t, [key]: val } : t))
-  }
-  async function saveTicker(item: TickerItem) {
-    await supabase.from('ticker_items').update({ text: item.text, highlight: item.highlight, is_active: item.is_active }).eq('id', item.id)
-    flash('Saved!')
-  }
-  async function addTicker() {
-    const { data } = await supabase.from('ticker_items').insert({ text: 'New item', highlight: '', position: tickerItems.length + 1 }).select().single()
-    if (data) setTickerItems(prev => [...prev, data])
-  }
-  async function deleteTicker(id: string) {
-    await supabase.from('ticker_items').delete().eq('id', id)
-    setTickerItems(prev => prev.filter(t => t.id !== id))
-  }
-
   const card: React.CSSProperties = { background: 'white', borderRadius: 14, padding: '22px 24px', border: '1px solid #EDEBE8', marginBottom: 16 }
   const lbl: React.CSSProperties = { display: 'block', fontSize: 11, fontWeight: 800, color: '#7A7068', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.07em' }
   const inp: React.CSSProperties = { width: '100%', padding: '10px 13px', borderRadius: 9, border: '1.5px solid #EDE8E0', fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#1C1C1A' }
@@ -181,8 +175,8 @@ export default function SettingsAdmin() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1C1C1A', margin: 0, fontFamily: 'Nunito, sans-serif' }}>Settings</h1>
-          <p style={{ fontSize: 13, color: '#7A7068', margin: '4px 0 0' }}>Logo, fonts, colors, images, and more.</p>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1C1C1A', margin: 0, fontFamily: 'Nunito, sans-serif' }}>Branding &amp; Settings</h1>
+          <p style={{ fontSize: 13, color: '#7A7068', margin: '4px 0 0' }}>Logo, fonts, colours, images, contact &amp; legal. For homepage wording use “Homepage Text”; for the cards/items use “Homepage Cards &amp; Items”.</p>
         </div>
         {msg && <span style={{ background: '#E8F5EE', color: '#2D6A4F', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>{msg}</span>}
       </div>
@@ -207,12 +201,41 @@ export default function SettingsAdmin() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 3, background: '#F2EDE8', borderRadius: 11, padding: 3, width: 'fit-content', marginBottom: 24 }}>
-        {(['design', 'images', 'waitlist', 'ticker'] as Tab[]).map(t => (
+        {(['design', 'images', 'waitlist', 'legal'] as Tab[]).map(t => (
           <button key={t} style={tab === t ? activeTab : inactiveTab} onClick={() => setTab(t)}>
-            {{ design: '🎨 Design', images: '🖼️ Images', waitlist: '⏳ Waitlist', ticker: '📢 Ticker' }[t]}
+            {{ design: '🎨 Design', images: '🖼️ Images', waitlist: '⏳ Waitlist', legal: '📄 Legal & Contact' }[t]}
           </button>
         ))}
       </div>
+
+      {tab === 'legal' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 640 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 800, color: '#1C1C1A', marginBottom: 6 }}>Terms & Conditions (English)</label>
+            <textarea value={termsEn} onChange={e => setTermsEn(e.target.value)} style={{ width: '100%', minHeight: 140, padding: 12, borderRadius: 10, border: '1.5px solid #EDE8E0', fontSize: 13, fontFamily: 'inherit', lineHeight: 1.6 }} placeholder="Write your terms here…" />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 800, color: '#1C1C1A', marginBottom: 6 }}>الشروط والأحكام (عربي)</label>
+            <textarea value={termsAr} onChange={e => setTermsAr(e.target.value)} dir="rtl" style={{ width: '100%', minHeight: 140, padding: 12, borderRadius: 10, border: '1.5px solid #EDE8E0', fontSize: 13, fontFamily: 'inherit', lineHeight: 1.6 }} placeholder="اكتب الشروط هنا…" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px,100%),1fr))', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12.5, fontWeight: 800, color: '#1C1C1A', marginBottom: 6 }}>WhatsApp number</label>
+              <input value={contactWhats} onChange={e => setContactWhats(e.target.value)} placeholder="966591976737" style={{ width: '100%', padding: 11, borderRadius: 10, border: '1.5px solid #EDE8E0', fontSize: 13.5, fontFamily: 'inherit' }} />
+              <div style={{ fontSize: 11, color: '#B0A098', marginTop: 4 }}>Country code + number, digits only.</div>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12.5, fontWeight: 800, color: '#1C1C1A', marginBottom: 6 }}>Instagram handle</label>
+              <input value={contactInsta} onChange={e => setContactInsta(e.target.value)} placeholder="ninoz.app" style={{ width: '100%', padding: 11, borderRadius: 10, border: '1.5px solid #EDE8E0', fontSize: 13.5, fontFamily: 'inherit' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12.5, fontWeight: 800, color: '#1C1C1A', marginBottom: 6 }}>Contact email</label>
+              <input value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="hello@ninoz.app" style={{ width: '100%', padding: 11, borderRadius: 10, border: '1.5px solid #EDE8E0', fontSize: 13.5, fontFamily: 'inherit' }} />
+            </div>
+          </div>
+          <button onClick={saveLegal} disabled={saving} style={{ ...activeTab, alignSelf: 'flex-start', opacity: saving ? 0.6 : 1, cursor: 'pointer' }}>{saving ? 'Saving…' : 'Save'}</button>
+        </div>
+      )}
 
       {/* ── DESIGN TAB ── */}
       {tab === 'design' && (
@@ -236,7 +259,7 @@ export default function SettingsAdmin() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span style={{ fontSize: 11, color: '#A08070' }}>Small</span>
                 <input
-                  type="range" min="24" max="80" step="2"
+                  type="range" min="40" max="200" step="4"
                   value={logoHeight}
                   onChange={e => setLogoHeight(parseInt(e.target.value))}
                   style={{ flex: 1, accentColor: '#C84B0F', cursor: 'pointer' }}
@@ -364,7 +387,6 @@ export default function SettingsAdmin() {
       {tab === 'images' && (
         <>
           {[
-            { label: 'Hero Section Photo', hint: 'Right side of the homepage hero. Best aspect ratio: 3:4 portrait.', url: heroUrl, set: setHeroUrl, bucket: 'hero', ref: heroRef, key: 'hero_image_url' },
             { label: 'Ingredients Section Photo', hint: 'Right side of the ingredients section. Best aspect ratio: 3:4 portrait.', url: whyUrl, set: setWhyUrl, bucket: 'why-section', ref: whyRef, key: 'why_image_url' },
           ].map(img => (
             <div key={img.key} style={card}>
@@ -414,7 +436,7 @@ export default function SettingsAdmin() {
                 <input ref={waitlistBgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={() => uploadImg('hero', waitlistBgRef, setWaitlistBgUrl, 'waitlist_bg_url')} />
               </div>
             </div>
-            <p style={{ fontSize: 12, color: '#A08070', margin: 0 }}>Falls back to the Hero photo if not set.</p>
+            <p style={{ fontSize: 12, color: '#A08070', margin: 0 }}>Background photo for the waitlist (Founding Mamas) page.</p>
           </div>
 
           <div style={card}>
@@ -434,52 +456,6 @@ export default function SettingsAdmin() {
           </div>
         </>
       )}
-
-      {/* ── TICKER TAB ── */}
-      {tab === 'ticker' && (
-        <>
-          <div style={card}>
-            <label style={lbl}>Ticker Bar Style</label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#2C1A0E' }}>
-              <input type="checkbox" checked={tickerAnimated} onChange={async e => {
-                setTickerAnimated(e.target.checked)
-                await upsert('ticker_animated', e.target.checked ? 'true' : 'false')
-                flash('Saved!')
-              }} style={{ accentColor: '#C84B0F', width: 16, height: 16 }} />
-              Animated (scrolling ticker)
-            </label>
-            <p style={{ fontSize: 12, color: '#A08070', margin: '8px 0 0' }}>Uncheck for a static list of items.</p>
-          </div>
-
-          <div style={card}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <label style={lbl}>Ticker Items</label>
-              <button onClick={addTicker} style={{ ...uploadBtn, fontSize: 12 }}>+ Add Item</button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {tickerItems.length === 0 && <p style={{ fontSize: 13, color: '#A08070', textAlign: 'center', padding: '16px 0' }}>No items yet.</p>}
-              {tickerItems.map(item => (
-                <div key={item.id} className="ticker-row" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input style={{ ...inp, width: 80, flexShrink: 0 }} placeholder="Bold" value={item.highlight} onChange={e => updateTicker(item.id, 'highlight', e.target.value)} title="Highlight word (e.g. 100%)" />
-                  <input style={{ ...inp, flex: 1 }} placeholder="Fresh Ingredients" value={item.text} onChange={e => updateTicker(item.id, 'text', e.target.value)} />
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#2C1A0E', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                    <input type="checkbox" checked={item.is_active} onChange={e => updateTicker(item.id, 'is_active', e.target.checked)} style={{ accentColor: '#C84B0F' }} />
-                    On
-                  </label>
-                  <button onClick={() => saveTicker(item)} style={{ padding: '7px 14px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Save</button>
-                  <button onClick={() => deleteTicker(item.id)} style={{ padding: '7px 10px', background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>✕</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-
-      <style>{`
-        @media (max-width: 480px) {
-          .ticker-row input { flex: 1 1 100% !important; width: 100% !important; }
-        }
-      `}</style>
     </div>
   )
 }

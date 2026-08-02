@@ -1,3 +1,6 @@
+/* App-wide font: Baloo Bhaijaan 2 (rounded, friendly; covers Arabic + Latin). */
+@import url('https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400;500;600;700;800&display=swap');
+
 /* Custom font — place Quicksand-VariableFont_wght.ttf in public/fonts/ */
 @font-face {
   font-family: 'Quicksand';
@@ -26,13 +29,18 @@
 html {
   scroll-behavior: smooth;
   font-size: 18px;
-  background: var(--cream);
+  /* Soft sage — the exact "last colour of the fade" (≈ 12% green in cream) — as
+     the base page background so nothing shows white behind the fixed backdrop. */
+  background: #DCDED8;
   color: var(--brown);
-  overflow-x: hidden;
+  /* `clip` prevents horizontal scroll WITHOUT creating a scroll container,
+     so position: sticky keeps working (unlike overflow: hidden). */
+  overflow-x: clip;
 }
 
 body {
-  overflow-x: hidden;
+  overflow-x: clip;
+  font-family: 'Baloo Bhaijaan 2', 'Tajawal', 'Nunito', sans-serif;
 }
 
 /* Base Utility Classes */

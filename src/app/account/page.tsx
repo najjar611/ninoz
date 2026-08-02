@@ -1,46 +1,52 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMockSubscriberId, clearMockSession } from '@/lib/mockSession'
 import { useAccountLang } from '@/lib/AccountLangContext'
+
+const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
+
+let mapsPromise: Promise<void> | null = null
+function loadMaps(): Promise<void> {
+  if (typeof window === 'undefined') return Promise.reject()
+  if ((window as any).google?.maps) return Promise.resolve()
+  if (mapsPromise) return mapsPromise
+  mapsPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places&language=ar&region=SA`
+    s.async = true; s.onload = () => resolve(); s.onerror = () => reject()
+    document.head.appendChild(s)
+  })
+  return mapsPromise
+}
 
 type Sub = {
   id: string; start_date: string; status: string; total_price: number; stage_id: string
   stages: { name: string; name_ar?: string | null; emoji: string } | null
   payment_cycles: { label: string; label_ar?: string | null; days: number; meals_total: number } | null
 }
-type Freeze = { id: string; freeze_start: string; freeze_end: string; status: string }
 type Subscriber = {
   id: string; parent_name: string | null; kid_name: string | null; email: string | null
-  kid_birth_date: string | null; delivery_address: string | null; extra_fields: Record<string, string> | null
+  kid_birth_date: string | null; delivery_address: string | null; address_details: any
 }
 type CustomField = {
   id: string; field_key: string; label_en: string; label_ar: string | null
   field_type: 'text' | 'number' | 'date' | 'select'; options: string[] | null; is_required: boolean
 }
-type Allergen = { id: string; name: string; name_ar?: string | null }
-type Tab = 'plan' | 'profile' | 'address' | 'history'
+type Region = { id: string; name: string; name_en: string | null }
+type District = { id: string; region_id: string | null; name: string; name_en: string | null }
+type Tab = 'profile' | 'address' | 'history' | 'terms'
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10)
-}
-
-export default function Dashboard() {
+export default function Account() {
   const supabase = createClient()
   const router = useRouter()
   const { isAR } = useAccountLang()
-  const [tab, setTab] = useState<Tab>('plan')
+  const [tab, setTab] = useState<Tab | null>(null)
   const [loading, setLoading] = useState(true)
-  const [sub, setSub] = useState<Sub | null>(null)
-  const [freeze, setFreeze] = useState<Freeze | null>(null)
-  const [freezing, setFreezing] = useState(false)
-  const [tomorrowMeal, setTomorrowMeal] = useState<{ name: string; name_ar?: string | null; emoji?: string } | null>(null)
-  const [history, setHistory] = useState<Sub[]>([])
-  const [msg, setMsg] = useState('')
+  const [toast, setToast] = useState('')
 
-  const [subscriber, setSubscriber] = useState<Subscriber | null>(null)
   const [parentName, setParentName] = useState('')
   const [kidName, setKidName] = useState('')
   const [email, setEmail] = useState('')
@@ -50,284 +56,194 @@ export default function Dashboard() {
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileMsg, setProfileMsg] = useState('')
 
-  const [address, setAddress] = useState('')
-  const [addressSaving, setAddressSaving] = useState(false)
-  const [addressMsg, setAddressMsg] = useState('')
+  const [history, setHistory] = useState<Sub[]>([])
 
-  const [allergens, setAllergens] = useState<Allergen[]>([])
-  const [selectedAllergens, setSelectedAllergens] = useState<string[]>([])
-  const [allergensSaving, setAllergensSaving] = useState(false)
+  // Address
+  const [editingAddress, setEditingAddress] = useState(false)
+  const [regions, setRegions] = useState<Region[]>([])
+  const [districts, setDistricts] = useState<District[]>([])
+  const [regionId, setRegionId] = useState('')
+  const [districtId, setDistrictId] = useState('')
+  const [national, setNational] = useState('')
+  const [details, setDetails] = useState('')
+  const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null)
+  const [savedAddress, setSavedAddress] = useState('')
+  const [savedRegion, setSavedRegion] = useState('')
+  const [savedDistrict, setSavedDistrict] = useState('')
+  const [addressSaving, setAddressSaving] = useState(false)
+
+  // Terms
+  const [termsContent, setTermsContent] = useState('')
+
+  const mapRef = useRef<HTMLDivElement | null>(null)
+  const searchRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => { load() }, [])
 
   async function load() {
     const id = getMockSubscriberId()
     if (!id) { router.replace('/account/signin'); return }
-
-    const [subRes, subscriberRes, cfRes, allergenRes, subAllergenRes, historyRes] = await Promise.all([
-      supabase.from('subscriptions').select('id, start_date, status, total_price, stage_id, stages(name, name_ar, emoji), payment_cycles(label, label_ar, days, meals_total)')
-        .eq('subscriber_id', id).in('status', ['active', 'frozen']).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      supabase.from('subscribers').select('id, parent_name, kid_name, email, kid_birth_date, delivery_address, extra_fields').eq('id', id).single(),
+    const [subscriberRes, cfRes, historyRes, regionsRes, districtsRes, termsRes] = await Promise.all([
+      supabase.from('subscribers').select('id, parent_name, kid_name, email, kid_birth_date, delivery_address, address_details').eq('id', id).single(),
       supabase.from('customer_fields').select('*').eq('is_active', true).order('position'),
-      supabase.from('allergens').select('id, name, name_ar'),
-      supabase.from('subscriber_allergens').select('allergen_id').eq('subscriber_id', id),
-      supabase.from('subscriptions').select('id, start_date, status, total_price, stage_id, stages(name, name_ar, emoji), payment_cycles(label, label_ar, days, meals_total)')
-        .eq('subscriber_id', id).order('created_at', { ascending: false }),
+      supabase.from('subscriptions').select('id, start_date, status, total_price, stage_id, stages(name, name_ar, emoji), payment_cycles(label, label_ar, days, meals_total)').eq('subscriber_id', id).order('created_at', { ascending: false }),
+      supabase.from('service_regions').select('id, name, name_en').eq('is_active', true).order('position'),
+      supabase.from('service_districts').select('id, region_id, name, name_en').eq('is_active', true).order('position'),
+      supabase.from('site_content').select('key, value').in('key', ['terms_content', 'terms_content_ar']),
     ])
-
-    setSub(subRes.data as any)
-    setHistory((historyRes.data as any) || [])
-
     if (subscriberRes.data) {
       const s = subscriberRes.data as Subscriber
-      setSubscriber(s)
       setParentName(s.parent_name || '')
       setKidName(s.kid_name || '')
       setEmail(s.email || '')
       setKidBirthDate(s.kid_birth_date || '')
-      setExtra(s.extra_fields || {})
-      setAddress(s.delivery_address || '')
+      setExtra((s as any).extra_fields || {})
+      setSavedAddress(s.delivery_address || '')
+      const ad = s.address_details || {}
+      setSavedRegion(ad.region || '')
+      setSavedDistrict(ad.district || '')
+      setNational(ad.national || '')
+      setDetails(s.delivery_address || '')
+      if (ad.lat && ad.lng) setPos({ lat: ad.lat, lng: ad.lng })
     }
     setCustomFields(cfRes.data || [])
-    setAllergens(allergenRes.data || [])
-    setSelectedAllergens(((subAllergenRes.data as any) || []).map((a: any) => a.allergen_id))
-
-    if (subRes.data) {
-      const { data: fz } = await supabase.from('freeze_requests').select('*').eq('subscription_id', subRes.data.id).eq('status', 'active').maybeSingle()
-      setFreeze(fz as any)
-      const { data: dm } = await supabase.from('daily_menu').select('meals(name, name_ar, emoji)').eq('stage_id', (subRes.data as any).stage_id).eq('menu_date', (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10) })()).maybeSingle()
-      if (dm?.meals) setTomorrowMeal(dm.meals as any)
-    }
+    setHistory((historyRes.data as any) || [])
+    setRegions((regionsRes.data as any) || [])
+    setDistricts((districtsRes.data as any) || [])
+    const tmap: Record<string, string> = {}
+    ;((termsRes.data as any[]) || []).forEach(r => { tmap[r.key] = r.value })
+    setTermsContent((isAR ? tmap.terms_content_ar : tmap.terms_content) || tmap.terms_content || tmap.terms_content_ar || '')
     setLoading(false)
   }
 
-  function daysInfo() {
-    if (!sub?.start_date || !sub.payment_cycles) return null
-    const start = new Date(sub.start_date)
-    const totalDays = sub.payment_cycles.days
-    const end = new Date(start); end.setDate(end.getDate() + totalDays)
-    const today = new Date()
-    const elapsed = Math.max(0, Math.floor((today.getTime() - start.getTime()) / 86400000))
-    const remaining = Math.max(0, totalDays - elapsed)
-    return { totalDays, remaining, end }
-  }
+  const districtOptions = districts.filter(d => !regionId || d.region_id === regionId || !d.region_id)
+  const regionName = (id: string) => { const r = regions.find(x => x.id === id); return r ? (isAR ? r.name : (r.name_en || r.name)) : '' }
+  const districtName = (id: string) => { const d = districts.find(x => x.id === id); return d ? (isAR ? d.name : (d.name_en || d.name)) : '' }
 
-  function canFreezeNow() {
-    if (!sub) return false
-    const start = new Date(sub.start_date)
-    const hoursUntilStart = (start.getTime() - Date.now()) / 3600000
-    return hoursUntilStart > 48 || hoursUntilStart < 0
-  }
-
-  async function requestFreeze() {
-    if (!sub) return
-    if (!canFreezeNow()) { setMsg(isAR ? 'يجب طلب التجميد قبل 48 ساعة على الأقل من وجبتك القادمة' : 'Freeze must be requested at least 48 hours before your next meal'); return }
-    setFreezing(true)
-    const start = new Date()
-    const end = new Date(); end.setDate(end.getDate() + 7)
-    const { error } = await supabase.from('freeze_requests').insert({
-      subscription_id: sub.id, freeze_start: start.toISOString().slice(0, 10), freeze_end: end.toISOString().slice(0, 10),
+  function reverseGeocode(lat: number, lng: number) {
+    const gmaps = (window as any).google?.maps
+    if (!gmaps) return
+    new gmaps.Geocoder().geocode({ location: { lat, lng } }, (res: any, status: string) => {
+      if (status === 'OK' && res?.[0]) setNational(res[0].formatted_address)
     })
-    if (!error) await supabase.from('subscriptions').update({ status: 'frozen' }).eq('id', sub.id)
-    setFreezing(false)
-    setMsg(error ? error.message : (isAR ? 'تم تجميد الخطة لمدة 7 أيام' : 'Plan frozen for 7 days'))
-    load()
   }
 
-  async function resume() {
-    if (!sub || !freeze) return
-    setFreezing(true)
-    await supabase.from('freeze_requests').update({ status: 'cancelled' }).eq('id', freeze.id)
-    await supabase.from('subscriptions').update({ status: 'active' }).eq('id', sub.id)
-    setFreezing(false)
-    setMsg(isAR ? 'تم استئناف الخطة' : 'Plan resumed')
-    load()
-  }
+  useEffect(() => {
+    if (!editingAddress || !MAPS_KEY || !mapRef.current) return
+    let cancelled = false
+    loadMaps().then(() => {
+      if (cancelled || !mapRef.current) return
+      const gmaps = (window as any).google.maps
+      const center = pos || { lat: 24.83, lng: 46.68 }
+      const map = new gmaps.Map(mapRef.current, { center, zoom: pos ? 15 : 12, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy' })
+      const marker = new gmaps.Marker({ position: center, map, draggable: true })
+      const update = (p: any) => { const lat = p.lat(), lng = p.lng(); setPos({ lat, lng }); reverseGeocode(lat, lng) }
+      marker.addListener('dragend', () => update(marker.getPosition()))
+      map.addListener('click', (e: any) => { marker.setPosition(e.latLng); update(e.latLng) })
+      if (searchRef.current) {
+        const ac = new gmaps.places.Autocomplete(searchRef.current, { componentRestrictions: { country: 'sa' }, fields: ['geometry', 'formatted_address'] })
+        ac.addListener('place_changed', () => {
+          const place = ac.getPlace(); if (!place.geometry) return
+          const loc = place.geometry.location
+          map.panTo(loc); map.setZoom(15); marker.setPosition(loc)
+          setPos({ lat: loc.lat(), lng: loc.lng() }); setNational(place.formatted_address || '')
+        })
+      }
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [editingAddress])
 
-  function logout() {
-    clearMockSession()
-    router.push('/account/signin')
-  }
+  function logout() { clearMockSession(); router.push('/account/signin') }
+  function showToast(m: string) { setToast(m); setTimeout(() => setToast(''), 2600) }
 
   async function saveProfile() {
-    if (!parentName.trim() || !kidName.trim()) {
-      setProfileMsg(isAR ? 'يرجى إدخال اسمك واسم طفلك' : "Please fill in your name and your baby's name")
-      return
-    }
+    if (!parentName.trim() || !kidName.trim()) { setProfileMsg(isAR ? 'يرجى إدخال اسمك واسم طفلك' : "Please fill in your name and your baby's name"); return }
     const missing = customFields.find(f => f.is_required && !(extra[f.field_key] || '').trim())
-    if (missing) {
-      setProfileMsg(isAR ? `الحقل "${missing.label_ar || missing.label_en}" مطلوب` : `"${missing.label_en}" is required`)
+    if (missing) { setProfileMsg(isAR ? `الحقل "${missing.label_ar || missing.label_en}" مطلوب` : `"${missing.label_en}" is required`); return }
+    setProfileSaving(true); setProfileMsg('')
+    const id = getMockSubscriberId()
+    const { error } = await supabase.from('subscribers').update({ parent_name: parentName, kid_name: kidName, email: email.trim() || null, kid_birth_date: kidBirthDate || null, extra_fields: extra }).eq('id', id)
+    setProfileSaving(false)
+    if (error) {
+      const dup = (error as any).code === '23505' || /duplicate key/i.test(error.message)
+      setProfileMsg(dup ? (isAR ? 'هذا البريد الإلكتروني مستخدم بالفعل' : 'That email is already in use') : error.message)
       return
     }
-    setProfileSaving(true)
-    setProfileMsg('')
-    const id = getMockSubscriberId()
-    const { error } = await supabase.from('subscribers').update({
-      parent_name: parentName, kid_name: kidName, child_name: kidName, email, kid_birth_date: kidBirthDate || null, extra_fields: extra,
-    }).eq('id', id)
-    setProfileSaving(false)
-    setProfileMsg(error ? error.message : (isAR ? 'تم الحفظ' : 'Saved'))
+    setProfileMsg(''); showToast(isAR ? 'تم حفظ ملفك' : 'Profile saved')
   }
 
   async function saveAddress() {
-    if (!address.trim()) return
+    if (regions.length > 0 && !regionId) { showToast(isAR ? 'يرجى اختيار المنطقة' : 'Please choose the region'); return }
+    if (!details.trim() && !national.trim()) { showToast(isAR ? 'يرجى إدخال تفاصيل العنوان' : 'Please enter address details'); return }
     setAddressSaving(true)
     const id = getMockSubscriberId()
-    const { error } = await supabase.from('subscribers').update({ delivery_address: address }).eq('id', id)
+    const addr = details.trim() || national.trim()
+    const { data: cur } = await supabase.from('subscribers').select('address_details').eq('id', id).maybeSingle()
+    const detailsObj = { ...((cur as any)?.address_details || {}), lat: pos?.lat ?? null, lng: pos?.lng ?? null, region: regionName(regionId) || savedRegion, district: districtName(districtId) || savedDistrict, national }
+    const { error } = await supabase.from('subscribers').update({ delivery_address: addr, address_details: detailsObj }).eq('id', id)
     setAddressSaving(false)
-    setAddressMsg(error ? error.message : (isAR ? 'تم تحديث عنوان التوصيل' : 'Delivery address updated'))
+    if (error) { showToast(error.message); return }
+    setSavedAddress(addr); setSavedRegion(detailsObj.region); setSavedDistrict(detailsObj.district)
+    setEditingAddress(false); showToast(isAR ? 'تم تحديث عنوان التوصيل' : 'Delivery address updated')
   }
 
-  async function toggleAllergen(allergenId: string) {
-    const id = getMockSubscriberId()
-    if (!id) return
-    const isSelected = selectedAllergens.includes(allergenId)
-    setAllergensSaving(true)
-    if (isSelected) {
-      await supabase.from('subscriber_allergens').delete().eq('subscriber_id', id).eq('allergen_id', allergenId)
-      setSelectedAllergens(prev => prev.filter(a => a !== allergenId))
-    } else {
-      await supabase.from('subscriber_allergens').insert({ subscriber_id: id, allergen_id: allergenId })
-      setSelectedAllergens(prev => [...prev, allergenId])
-    }
-    setAllergensSaving(false)
-  }
-
-  const inp: React.CSSProperties = { width: '100%', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #EDE8E0', fontSize: 15, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#1C1C1A', marginBottom: 14 }
+  const inp: React.CSSProperties = { width: '100%', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #EDE8E0', fontSize: 15, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#1C1C1A', marginBottom: 14, background: '#fff' }
   const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 700, color: '#7A7068', marginBottom: 6 }
   const btn: React.CSSProperties = { padding: '13px 22px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }
 
   if (loading) return <div style={{ textAlign: 'center', color: '#7A7068', padding: 20 }}>{isAR ? 'جار التحميل…' : 'Loading…'}</div>
 
-  const info = daysInfo()
-
   const tabs: { key: Tab; en: string; ar: string }[] = [
-    { key: 'plan', en: 'Plan', ar: 'الخطة' },
     { key: 'profile', en: 'Profile', ar: 'الملف الشخصي' },
-    { key: 'address', en: 'Address', ar: 'العنوان' },
+    { key: 'address', en: 'My Location', ar: 'موقعي' },
     { key: 'history', en: 'History', ar: 'السجل' },
+    { key: 'terms', en: 'Terms', ar: 'الشروط والأحكام' },
   ]
 
   return (
     <div>
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)', zIndex: 4000, background: '#1C1C1A', color: 'white', padding: '12px 20px', borderRadius: 12, fontSize: 13.5, fontWeight: 700, boxShadow: '0 12px 30px rgba(0,0,0,0.25)', maxWidth: '90vw' }}>{toast}</div>
+      )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1C1C1A', margin: 0 }}>
-            {isAR ? `أهلاً، ${parentName || ''}` : `Welcome${parentName ? ', ' + parentName.split(' ')[0] : ''}`} 👋
-          </h1>
-          <p style={{ fontSize: 13, color: '#7A7068', margin: '4px 0 0' }}>
-            {kidName ? (isAR ? `وجبات ${kidName} في طريقها` : `${kidName}'s meals are on the way`) : ''}
-          </p>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1C1C1A', margin: 0 }}>{isAR ? `حسابي` : 'My Account'}</h1>
+          <p style={{ fontSize: 13, color: '#7A7068', margin: '4px 0 0' }}>{parentName ? (isAR ? `مرحباً، ${parentName.split(' ')[0]}` : `Hi, ${parentName.split(' ')[0]}`) : ''}</p>
         </div>
         <button onClick={logout} style={{ background: 'none', border: '1.5px solid #EDE8E0', color: '#7A7068', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', borderRadius: 8, padding: '8px 14px' }}>{isAR ? 'تسجيل الخروج' : 'Sign out'}</button>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 22, borderBottom: '1.5px solid #EDE8E0', overflowX: 'auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {tabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            padding: '10px 16px', background: 'none', border: 'none', borderBottom: tab === t.key ? '2.5px solid #C84B0F' : '2.5px solid transparent',
-            color: tab === t.key ? '#C84B0F' : '#7A7068', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+          <button key={t.key} onClick={() => { if (t.key === 'address') setEditingAddress(false); setTab(t.key) }} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', textAlign: isAR ? 'right' : 'left',
+            padding: '16px 18px', background: '#fff', border: '1.5px solid #EDE8E0', borderRadius: 12,
+            color: '#1C1C1A', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit',
           }}>
-            {isAR ? t.ar : t.en}
+            <span>{isAR ? t.ar : t.en}</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C84B0F" strokeWidth="2.2" style={{ transform: isAR ? 'rotate(180deg)' : 'none' }}><path d="M9 6l6 6-6 6" /></svg>
           </button>
         ))}
       </div>
 
-      {tab === 'plan' && (
-        !sub ? (
-          <div>
-            <h2 style={{ fontSize: 18, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'لا توجد خطة نشطة بعد' : 'No active plan yet'}</h2>
-            <p style={{ fontSize: 13, color: '#7A7068', marginBottom: 20 }}>{isAR ? 'لنجهز وجبات طفلك.' : "Let's get your baby's meals set up."}</p>
-            <button onClick={() => router.push('/account/plan')} style={btn}>{isAR ? 'اختر خطة' : 'Choose a Plan'}</button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18 }}>
-            <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-              <div style={{ background: '#FDF0E8', borderRadius: 14, padding: '18px 20px', marginBottom: 18 }}>
-                <div style={{ fontSize: 28 }}>{sub.stages?.emoji}</div>
-                <div style={{ fontWeight: 800, fontSize: 16, color: '#1C1C1A', marginTop: 4 }}>{(isAR && sub.stages?.name_ar) || sub.stages?.name}</div>
-                <div style={{ fontSize: 13, color: '#7A7068', marginBottom: 12 }}>{(isAR && sub.payment_cycles?.label_ar) || sub.payment_cycles?.label}</div>
-                <span style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11.5, fontWeight: 700, background: sub.status === 'active' ? '#E8F5EE' : '#E0F0FA', color: sub.status === 'active' ? '#2D6A4F' : '#1E6091' }}>
-                  {sub.status === 'active' ? (isAR ? 'نشطة' : 'Active') : (isAR ? 'مجمدة' : 'Frozen')}
-                </span>
-              </div>
-
-              {info && (
-                <div style={{ display: 'flex', gap: 12, marginBottom: 18 }}>
-                  <div style={{ flex: 1, background: 'white', border: '1.5px solid #EDE8E0', borderRadius: 12, padding: '14px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: '#C84B0F' }}>{info.remaining}</div>
-                    <div style={{ fontSize: 11, color: '#7A7068', fontWeight: 600 }}>{isAR ? 'الأيام المتبقية' : 'Days Left'}</div>
-                  </div>
-                  <div style={{ flex: 1, background: 'white', border: '1.5px solid #EDE8E0', borderRadius: 12, padding: '14px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 22, fontWeight: 900, color: '#1C1C1A' }}>{info.totalDays}</div>
-                    <div style={{ fontSize: 11, color: '#7A7068', fontWeight: 600 }}>{isAR ? 'إجمالي الأيام' : 'Total Days'}</div>
-                  </div>
-                </div>
-              )}
-
-              {msg && <div style={{ background: '#E8F5EE', color: '#2D6A4F', padding: '8px 14px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, marginBottom: 14 }}>{msg}</div>}
-
-              {sub.status === 'frozen' ? (
-                <button onClick={resume} disabled={freezing} style={{ ...btn, width: '100%', background: '#2D6A4F', opacity: freezing ? 0.6 : 1 }}>
-                  {freezing ? (isAR ? 'جار الاستئناف…' : 'Resuming…') : (isAR ? 'استئناف الخطة' : 'Resume Plan')}
-                </button>
-              ) : (
-                <button onClick={requestFreeze} disabled={freezing} style={{ ...btn, width: '100%', background: '#1E6091', opacity: freezing ? 0.6 : 1 }}>
-                  {freezing ? (isAR ? 'جار التجميد…' : 'Freezing…') : (isAR ? 'تجميد الخطة (7 أيام)' : 'Freeze Plan (7 days)')}
-                </button>
-              )}
-              <p style={{ fontSize: 11.5, color: '#B0A098', marginTop: 8 }}>{isAR ? 'يجب طلب التجميد قبل 48 ساعة على الأقل من وجبتك القادمة.' : 'Freeze must be requested at least 48 hours before your next meal.'}</p>
+      {tab && (
+        <div onClick={() => setTab(null)} style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(12,26,21,0.55)', display: 'flex', alignItems: tab === 'address' ? 'stretch' : 'center', justifyContent: 'center', padding: tab === 'address' ? 0 : 18 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#FBF8F2', width: '100%', maxWidth: tab === 'address' ? '100%' : 520, borderRadius: tab === 'address' ? 0 : 20, padding: '20px 22px 26px', maxHeight: tab === 'address' ? '100%' : '85vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 900, color: '#1C1C1A', margin: 0 }}>{isAR ? (tabs.find(t => t.key === tab)?.ar) : (tabs.find(t => t.key === tab)?.en)}</h2>
+              <button onClick={() => setTab(null)} style={{ background: '#F2EDE8', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 800, color: '#5A5048', cursor: 'pointer', fontFamily: 'inherit' }}>{isAR ? 'إغلاق' : 'Close'}</button>
             </div>
-
-            <div style={{ flex: '1 1 320px', minWidth: 0 }}>
-              <div style={{ background: 'white', border: '1.5px solid #EDE8E0', borderRadius: 14, padding: '18px 20px', marginBottom: 18 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#7A7068', marginBottom: 8 }}>{isAR ? 'وجبة الغد' : "Tomorrow's Meal"}</div>
-                {tomorrowMeal ? (
-                  <>
-                    <div style={{ fontSize: 26 }}>{tomorrowMeal.emoji || '🍽️'}</div>
-                    <div style={{ fontWeight: 800, fontSize: 16, color: '#1C1C1A', marginTop: 4 }}>{(isAR && tomorrowMeal.name_ar) || tomorrowMeal.name}</div>
-                  </>
-                ) : (
-                  <div style={{ fontSize: 13, color: '#B0A098' }}>{isAR ? 'لم يتم تحديد وجبة الغد بعد' : 'Not scheduled yet'}</div>
-                )}
-              </div>
-
-              <div style={{ background: 'white', border: '1.5px solid #EDE8E0', borderRadius: 14, padding: '18px 20px' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#7A7068', marginBottom: 10 }}>{isAR ? 'الحساسية الغذائية' : 'Allergens to avoid'}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {allergens.map(a => {
-                    const active = selectedAllergens.includes(a.id)
-                    return (
-                      <button key={a.id} disabled={allergensSaving} onClick={() => toggleAllergen(a.id)} style={{
-                        padding: '6px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                        border: active ? '1.5px solid #C84B0F' : '1.5px solid #EDE8E0', background: active ? '#FDF0E8' : 'white', color: active ? '#C84B0F' : '#7A7068',
-                      }}>
-                        {(isAR && a.name_ar) || a.name}{active ? ' ✓' : ''}
-                      </button>
-                    )
-                  })}
-                  {allergens.length === 0 && <span style={{ fontSize: 12.5, color: '#B0A098' }}>{isAR ? 'لا توجد حساسية مسجلة' : 'No allergens configured'}</span>}
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      )}
 
       {tab === 'profile' && (
         <div style={{ maxWidth: 480 }}>
           <label style={lbl}>{isAR ? 'اسمك' : 'Your Name'}</label>
           <input style={inp} value={parentName} onChange={e => setParentName(e.target.value)} />
-
           <label style={lbl}>{isAR ? 'اسم الطفل' : "Baby's Name"}</label>
           <input style={inp} value={kidName} onChange={e => setKidName(e.target.value)} />
-
           <label style={lbl}>{isAR ? 'تاريخ ميلاد الطفل' : "Baby's Birth Date"}</label>
           <input style={inp} type="date" value={kidBirthDate} onChange={e => setKidBirthDate(e.target.value)} />
-
           <label style={lbl}>{isAR ? 'البريد الإلكتروني' : 'Email'}</label>
           <input style={inp} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
-
           {customFields.map(f => (
             <div key={f.id}>
               <label style={lbl}>{(isAR ? (f.label_ar || f.label_en) : f.label_en)}{f.is_required && <span style={{ color: '#C84B0F' }}> *</span>}</label>
@@ -341,18 +257,65 @@ export default function Dashboard() {
               )}
             </div>
           ))}
-
-          {profileMsg && <div style={{ color: profileMsg.includes('Saved') || profileMsg.includes('تم') ? '#2D6A4F' : '#DC2626', fontSize: 12.5, marginBottom: 8 }}>{profileMsg}</div>}
+          {profileMsg && <div style={{ color: '#DC2626', fontSize: 12.5, marginBottom: 8 }}>{profileMsg}</div>}
           <button style={{ ...btn, opacity: profileSaving ? 0.6 : 1 }} disabled={profileSaving} onClick={saveProfile}>{profileSaving ? (isAR ? 'جار الحفظ…' : 'Saving…') : (isAR ? 'حفظ التغييرات' : 'Save Changes')}</button>
         </div>
       )}
 
       {tab === 'address' && (
         <div style={{ maxWidth: 480 }}>
-          <label style={lbl}>{isAR ? 'عنوان التوصيل' : 'Delivery Address'}</label>
-          <textarea style={{ ...inp, minHeight: 90, resize: 'vertical' }} value={address} onChange={e => setAddress(e.target.value)} placeholder={isAR ? 'الحي، الشارع، تفاصيل المبنى…' : 'District, street, building details…'} />
-          {addressMsg && <div style={{ color: '#2D6A4F', fontSize: 12.5, marginBottom: 8 }}>{addressMsg}</div>}
-          <button style={{ ...btn, opacity: addressSaving ? 0.6 : 1 }} disabled={addressSaving} onClick={saveAddress}>{addressSaving ? (isAR ? 'جار الحفظ…' : 'Saving…') : (isAR ? 'تحديث العنوان' : 'Update Address')}</button>
+          {!editingAddress ? (
+            <>
+              <div style={{ background: '#fff', border: '1.5px solid #EDE8E0', borderRadius: 14, padding: '16px 18px', marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#7A7068', marginBottom: 8 }}>{isAR ? 'موقع التوصيل الحالي' : 'Current delivery location'}</div>
+                {savedAddress || savedRegion ? (
+                  <>
+                    {(savedRegion || savedDistrict) && <div style={{ fontSize: 14, fontWeight: 800, color: '#1C1C1A', marginBottom: 4 }}>{[savedRegion, savedDistrict].filter(Boolean).join(' — ')}</div>}
+                    {national && <div style={{ fontSize: 13, color: '#5A5048', marginBottom: 4 }}>{national}</div>}
+                    <div style={{ fontSize: 13, color: '#5A5048', lineHeight: 1.6 }}>{savedAddress}</div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 13, color: '#B0A098' }}>{isAR ? 'لم تُحدَّد بعد.' : 'Not set yet.'}</div>
+                )}
+              </div>
+              <button style={{ ...btn, width: '100%' }} onClick={() => { setEditingAddress(true); const r = regions.find(x => (isAR ? x.name : (x.name_en || x.name)) === savedRegion); if (r) setRegionId(r.id) }}>{isAR ? 'طلب تغيير الموقع' : 'Request location change'}</button>
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: 13, color: '#7A7068', marginBottom: 14 }}>{isAR ? 'حدّث موقعك بالخريطة والقوائم أدناه.' : 'Update your location with the map and menus below.'}</p>
+              {MAPS_KEY ? (
+                <>
+                  <input ref={searchRef} style={inp} placeholder={isAR ? 'ابحث عن موقعك…' : 'Search for your location…'} />
+                  <div ref={mapRef} style={{ height: 260, borderRadius: 14, overflow: 'hidden', marginBottom: 12, border: '1.5px solid #EDE8E0' }} />
+                  <p style={{ fontSize: 11.5, color: '#B0A098', marginTop: -4, marginBottom: 12 }}>{isAR ? 'اضغط على الخريطة أو اسحب الدبوس لتحديد موقعك.' : 'Tap the map or drag the pin to set your spot.'}</p>
+                </>
+              ) : (
+                <div style={{ height: 100, borderRadius: 12, background: '#F2EDE8', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, color: '#B0A098', fontSize: 12.5, fontWeight: 600, textAlign: 'center', padding: '0 16px' }}>{isAR ? 'سيظهر محدّد الخريطة بعد إضافة مفتاح خرائط جوجل.' : 'The map picker appears once the Google Maps key is added.'}</div>
+              )}
+              {regions.length > 0 && (
+                <>
+                  <label style={lbl}>{isAR ? 'المنطقة' : 'Region'}</label>
+                  <select style={inp} value={regionId} onChange={e => { setRegionId(e.target.value); setDistrictId('') }}>
+                    <option value="">{isAR ? 'اختر المنطقة' : 'Choose region'}</option>
+                    {regions.map(r => <option key={r.id} value={r.id}>{isAR ? r.name : (r.name_en || r.name)}</option>)}
+                  </select>
+                  <label style={lbl}>{isAR ? 'الحي' : 'District'}</label>
+                  <select style={inp} value={districtId} onChange={e => setDistrictId(e.target.value)} disabled={districtOptions.length === 0}>
+                    <option value="">{districtOptions.length === 0 ? (isAR ? 'لا توجد أحياء متاحة بعد' : 'No districts available yet') : (isAR ? 'اختر الحي' : 'Choose district')}</option>
+                    {districtOptions.map(d => <option key={d.id} value={d.id}>{isAR ? d.name : (d.name_en || d.name)}</option>)}
+                  </select>
+                </>
+              )}
+              <label style={lbl}>{isAR ? 'العنوان الوطني (يُملأ تلقائياً من الخريطة)' : 'National address (auto-filled from the map)'}</label>
+              <input style={inp} value={national} onChange={e => setNational(e.target.value)} placeholder={isAR ? 'سيُملأ عند تحديد الموقع' : 'Fills when you pin the map'} />
+              <label style={lbl}>{isAR ? 'تفاصيل العنوان' : 'Address details'}</label>
+              <textarea style={{ ...inp, height: 70, resize: 'vertical' }} value={details} onChange={e => setDetails(e.target.value)} placeholder={isAR ? 'المبنى، الشارع، رقم الشقة' : 'Building, street, apartment no.'} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button style={{ flex: 1, padding: '12px', background: '#F2EDE8', color: '#5A5048', border: 'none', borderRadius: 10, fontSize: 13.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => setEditingAddress(false)}>{isAR ? 'إلغاء' : 'Cancel'}</button>
+                <button style={{ flex: 1, ...btn, opacity: addressSaving ? 0.6 : 1 }} disabled={addressSaving} onClick={saveAddress}>{addressSaving ? (isAR ? 'جار الحفظ…' : 'Saving…') : (isAR ? 'حفظ الموقع' : 'Save location')}</button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -362,15 +325,28 @@ export default function Dashboard() {
           {history.map(h => (
             <div key={h.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', border: '1.5px solid #EDE8E0', borderRadius: 12, padding: '14px 18px', marginBottom: 10 }}>
               <div>
-                <div style={{ fontWeight: 800, fontSize: 14.5, color: '#1C1C1A' }}>{h.stages?.emoji} {(isAR && h.stages?.name_ar) || h.stages?.name}</div>
+                <div style={{ fontWeight: 800, fontSize: 14.5, color: '#1C1C1A' }}>{(isAR && h.stages?.name_ar) || h.stages?.name}</div>
                 <div style={{ fontSize: 12.5, color: '#7A7068' }}>{(isAR && h.payment_cycles?.label_ar) || h.payment_cycles?.label} · {new Date(h.start_date).toLocaleDateString(isAR ? 'ar' : 'en')}</div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 800, fontSize: 14.5, color: '#1C1C1A' }}>{h.total_price} SAR</div>
+              <div style={{ textAlign: isAR ? 'left' : 'right' }}>
+                <div style={{ fontWeight: 800, fontSize: 14.5, color: '#1C1C1A' }}>{h.total_price} {isAR ? 'ريال' : 'SAR'}</div>
                 <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: h.status === 'active' ? '#E8F5EE' : h.status === 'frozen' ? '#E0F0FA' : '#F3F1ED', color: h.status === 'active' ? '#2D6A4F' : h.status === 'frozen' ? '#1E6091' : '#7A7068' }}>{h.status}</span>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {tab === 'terms' && (
+        <div style={{ maxWidth: 560 }}>
+          {termsContent.trim() ? (
+            <div style={{ fontSize: 13.5, color: '#3A342E', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{termsContent}</div>
+          ) : (
+            <p style={{ fontSize: 13, color: '#B0A098' }}>{isAR ? 'لم تُضَف الشروط والأحكام بعد.' : 'Terms & Conditions have not been added yet.'}</p>
+          )}
+        </div>
+      )}
+          </div>
         </div>
       )}
     </div>

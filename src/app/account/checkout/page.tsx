@@ -71,35 +71,31 @@ export default function Checkout() {
         promo_code: promoInfo.code, discount_percent: promoInfo.discount_percent, total_price: finalPrice,
       }).eq('id', sub.id)
     }
-    // TODO: replace with real Moyasar/Tap charge once a payment gateway is connected.
+    // Payment gateway (Moyasar) not wired yet: record the order as PENDING and
+    // confirm it manually from admin. No charge happens here.
     const { error: payErr } = await supabase.from('payments').insert({
-      subscription_id: sub.id, amount: finalPrice, status: 'paid', gateway: 'mock',
+      subscription_id: sub.id, amount: finalPrice, status: 'pending', gateway: 'pending',
     })
     if (payErr) { setError(payErr.message); setPaying(false); return }
-    const { error: subErr } = await supabase.from('subscriptions').update({ status: 'active' }).eq('id', sub.id)
+    const { error: subErr } = await supabase.from('subscriptions').update({ status: 'pending_payment' }).eq('id', sub.id)
     setPaying(false)
     if (subErr) { setError(subErr.message); return }
-    // Celebrate the successful subscription, then continue to the address step.
+    // Show the "order received" message, then go to the plan (dashboard).
     setCelebrating(true)
-    setTimeout(() => router.push(`/account/location?subscription_id=${sub.id}`), 1900)
+    setTimeout(() => router.push('/account/dashboard'), 2400)
   }
 
   if (loading || !sub) return <div style={{ textAlign: 'center', color: '#7A7068', padding: 20 }}>{isAR ? 'جار التحميل…' : 'Loading…'}</div>
 
   if (celebrating) {
-    const colors = ['#C84B0F', '#2D6A4F', '#1E6091', '#E8B04B', '#D95D39']
     return (
-      <div style={{ position: 'fixed', inset: 0, background: '#F7F4F0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, zIndex: 3000, overflow: 'hidden' }}>
-        <style>{`
-          @keyframes ninozPop { 0% { transform: scale(0); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
-          @keyframes ninozFall { 0% { transform: translateY(-20vh) rotate(0); opacity: 1; } 100% { transform: translateY(85vh) rotate(540deg); opacity: 0; } }
-        `}</style>
-        {Array.from({ length: 28 }).map((_, i) => (
-          <div key={i} style={{ position: 'absolute', top: 0, left: `${(i * 37) % 100}%`, width: 9, height: 14, borderRadius: 2, background: colors[i % colors.length], animation: `ninozFall ${1.4 + (i % 5) * 0.25}s ${(i % 7) * 0.12}s ease-in forwards` }} />
-        ))}
-        <div style={{ width: 84, height: 84, borderRadius: '50%', background: '#2D6A4F', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, animation: 'ninozPop .5s cubic-bezier(.16,1,.3,1)' }}>✓</div>
-        <div style={{ fontSize: 20, fontWeight: 900, color: '#1C1C1A' }}>{isAR ? 'تم الاشتراك بنجاح!' : 'Subscription confirmed!'}</div>
-        <div style={{ fontSize: 13.5, color: '#7A7068' }}>{isAR ? 'لحظة، ننقلك لإضافة عنوان التوصيل…' : "One sec — taking you to your delivery address…"}</div>
+      <div style={{ position: 'fixed', inset: 0, background: '#F7F4F0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, zIndex: 3000, padding: 28, textAlign: 'center' }}>
+        <style>{`@keyframes ninozPop { 0% { transform: scale(0); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }`}</style>
+        <div style={{ width: 84, height: 84, borderRadius: '50%', background: '#2D6A4F', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'ninozPop .5s cubic-bezier(.16,1,.3,1)' }}>
+          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+        </div>
+        <div style={{ fontSize: 20, fontWeight: 900, color: '#1C1C1A' }}>{isAR ? 'تم استلام طلبك!' : 'Order received!'}</div>
+        <div style={{ fontSize: 13.5, color: '#7A7068', maxWidth: 320, lineHeight: 1.6 }}>{isAR ? 'شكراً لك! سنؤكد طلبك خلال ساعة تقريباً ويُفعّل اشتراكك.' : "Thank you! We'll confirm your order within about an hour and activate your subscription."}</div>
       </div>
     )
   }
@@ -127,7 +123,7 @@ export default function Checkout() {
         {prePromo && !promoInfo && (
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2D6A4F', fontSize: 13 }}>
             <span>{isAR ? `كود ${sub.promo_code} (${sub.discount_percent}%)` : `Code ${sub.promo_code} (${sub.discount_percent}%)`}</span>
-            <span>✓ {isAR ? 'مُطبّق' : 'applied'}</span>
+            <span>{isAR ? 'مُطبّق' : 'applied'}</span>
           </div>
         )}
         <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #EDE8E0', paddingTop: 8, marginTop: 8 }}>
@@ -156,12 +152,12 @@ export default function Checkout() {
       )}
 
       <div style={{ background: '#FFF8EE', border: '1px solid #F5E3C8', borderRadius: 10, padding: '10px 14px', fontSize: 12.5, color: '#8A6D3B', marginBottom: 16 }}>
-        {isAR ? 'بوابة الدفع غير متصلة بعد — الضغط على الدفع يحاكي عملية دفع ناجحة لتجربة المسار بالكامل.' : "Payment gateway isn't connected yet — clicking pay simulates a successful charge so we can test the full flow."}
+        {isAR ? 'بوابة الدفع ستُضاف قريباً — عند الضغط على «ادفع الآن» يُسجّل طلبك كـ«قيد الانتظار» ونؤكده يدوياً حتى نربط البوابة.' : 'The payment gateway is coming soon — pressing "Pay Now" records your order as pending and we confirm it manually until the gateway is connected.'}
       </div>
 
       {error && <div style={{ color: '#DC2626', fontSize: 12.5, marginBottom: 8 }}>{error}</div>}
       <button onClick={pay} disabled={paying} style={{ width: '100%', padding: '13px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', opacity: paying ? 0.6 : 1 }}>
-        {paying ? (isAR ? 'جار المعالجة…' : 'Processing…') : (isAR ? `دفع ${discountedPrice} ريال` : `Pay ${discountedPrice} SAR`)}
+        {paying ? (isAR ? 'جار المعالجة…' : 'Processing…') : (isAR ? `ادفع الآن · ${discountedPrice} ريال` : `Pay Now · ${discountedPrice} SAR`)}
       </button>
     </div>
   )

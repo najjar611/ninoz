@@ -66,7 +66,11 @@ export default function Plan() {
 
   useEffect(() => {
     const id = getMockSubscriberId()
-    if (!id) { router.replace('/account/signin'); return }
+    if (!id) { router.replace('/account/signin?next=/account/plan'); return }
+    // Guard against duplicate subscriptions: if a live/pending plan already
+    // exists, send the customer to their dashboard instead of a second plan.
+    supabase.from('subscriptions').select('id').eq('subscriber_id', id).in('status', ['active', 'frozen', 'pending_payment']).limit(1).maybeSingle()
+      .then(({ data }) => { if (data) router.replace('/account/dashboard') })
     Promise.all([
       supabase.from('stages').select('id,name,name_ar,emoji,age_range,age_range_ar,min_age_months,max_age_months').eq('is_active', true).order('position'),
       supabase.from('payment_cycles').select('*').order('days'),
@@ -151,7 +155,7 @@ export default function Plan() {
       {stages.map(s => (
         <div key={s.id} style={card(stageId === s.id)} onClick={() => setStageId(s.id)}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#1C1C1A' }}>{s.emoji} {(isAR && s.name_ar) || s.name}</div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: '#1C1C1A' }}>{(isAR && s.name_ar) || s.name}</div>
             {s.id === recommendedStageId && (
               <span style={{ fontSize: 10.5, fontWeight: 800, color: '#2D6A4F', background: '#E8F5EE', borderRadius: 6, padding: '2px 7px' }}>
                 {isAR ? 'موصى بها لعمر طفلك' : "Recommended for your baby's age"}

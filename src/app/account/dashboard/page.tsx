@@ -42,18 +42,19 @@ function tomorrowISO() {
 
 type MenuEntry = { meal_type: string; menu_date: string; meal_id: string; meals: { id: string; name: string; name_ar?: string | null; image_url?: string | null; prep_instructions?: string | null; prep_instructions_ar?: string | null } | null }
 const STATUS_INFO: Record<string, { en: string; ar: string; emoji: string }> = {
-  preparing: { en: 'Preparing', ar: 'قيد التحضير', emoji: '👩‍🍳' },
-  out_for_delivery: { en: 'Out for Delivery', ar: 'في الطريق', emoji: '🚴' },
-  delivered: { en: 'Delivered', ar: 'تم التوصيل', emoji: '✅' },
+  preparing: { en: 'Preparing', ar: 'قيد التحضير', emoji: '' },
+  out_for_delivery: { en: 'Out for Delivery', ar: 'في الطريق', emoji: '' },
+  delivered: { en: 'Delivered', ar: 'تم التوصيل', emoji: '' },
 }
 
 export default function Dashboard() {
   const supabase = createClient()
   const router = useRouter()
   const { isAR } = useAccountLang()
-  const [tab, setTab] = useState<Tab>('plan')
+  const [tab] = useState<Tab>('plan')
   const [loading, setLoading] = useState(true)
   const [sub, setSub] = useState<Sub | null>(null)
+  const [pendingOrder, setPendingOrder] = useState(false)
   const [freeze, setFreeze] = useState<Freeze | null>(null)
   const [freezing, setFreezing] = useState(false)
   const [showPauseForm, setShowPauseForm] = useState(false)
@@ -75,7 +76,7 @@ export default function Dashboard() {
   const [msg, setMsg] = useState('')
   const [toast, setToast] = useState('')
   const [deliveryStatus, setDeliveryStatus] = useState<string | null>(null)
-  const [thankYouMessage, setThankYouMessage] = useState('Thank you for your feedback! We really appreciate your support 💛')
+  const [thankYouMessage, setThankYouMessage] = useState('Thank you for your feedback! We really appreciate your support ')
   const [infoMeal, setInfoMeal] = useState<MenuEntry | null>(null)
   const [infoVisible, setInfoVisible] = useState(false)
   const [reviewPopup, setReviewPopup] = useState<MenuEntry | null>(null)
@@ -148,6 +149,11 @@ export default function Dashboard() {
 
     setSub(subRes.data as any)
     setHistory((historyRes.data as any) || [])
+    // An order awaiting confirmation counts as "has a plan" — never prompt to subscribe again.
+    if (!subRes.data) {
+      const { data: pend } = await supabase.from('subscriptions').select('id').eq('subscriber_id', id).eq('status', 'pending_payment').limit(1).maybeSingle()
+      setPendingOrder(!!pend)
+    } else { setPendingOrder(false) }
 
     if (subscriberRes.data) {
       const s = subscriberRes.data as Subscriber
@@ -450,7 +456,7 @@ export default function Dashboard() {
       return
     }
     setProfileMsg('')
-    showToast(isAR ? 'تم حفظ ملفك ✓' : 'Profile saved ✓')
+    showToast(isAR ? 'تم حفظ ملفك ' : 'Profile saved ')
   }
 
   async function saveAddress() {
@@ -460,7 +466,7 @@ export default function Dashboard() {
     const { error } = await supabase.from('subscribers').update({ delivery_address: address }).eq('id', id)
     setAddressSaving(false)
     if (error) setAddressMsg(error.message)
-    else { setAddressMsg(''); showToast(isAR ? 'تم تحديث عنوان التوصيل ✓' : 'Address updated ✓') }
+    else { setAddressMsg(''); showToast(isAR ? 'تم تحديث عنوان التوصيل ' : 'Address updated ') }
   }
 
   async function toggleAllergen(allergenId: string) {
@@ -510,13 +516,6 @@ export default function Dashboard() {
 
   const info = daysInfo()
 
-  const tabs: { key: Tab; en: string; ar: string }[] = [
-    { key: 'plan', en: 'Plan', ar: 'الخطة' },
-    { key: 'profile', en: 'Profile', ar: 'الملف الشخصي' },
-    { key: 'address', en: 'Address', ar: 'العنوان' },
-    { key: 'history', en: 'History', ar: 'السجل' },
-  ]
-
   return (
     <div className="ninoz-acct">
       <style>{`
@@ -537,7 +536,7 @@ export default function Dashboard() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1C1C1A', margin: 0 }}>
-            {isAR ? `أهلاً، ${parentName || ''}` : `Welcome${parentName ? ', ' + parentName.split(' ')[0] : ''}`} 👋
+            {isAR ? `أهلاً، ${parentName || ''}` : `Welcome${parentName ? ', ' + parentName.split(' ')[0] : ''}`} 
           </h1>
           <p style={{ fontSize: 13, color: '#7A7068', margin: '4px 0 0' }}>
             {kidName ? (isAR ? `وجبات ${kidName} في طريقها` : `${kidName}'s meals are on the way`) : ''}
@@ -546,23 +545,20 @@ export default function Dashboard() {
         <button onClick={logout} style={{ background: 'none', border: '1.5px solid #EDE8E0', color: '#7A7068', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', borderRadius: 8, padding: '8px 14px' }}>{isAR ? 'تسجيل الخروج' : 'Sign out'}</button>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 22, borderBottom: '1.5px solid #EDE8E0', overflowX: 'auto' }}>
-        {tabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            padding: '10px 16px', background: 'none', border: 'none', borderBottom: tab === t.key ? '2.5px solid #C84B0F' : '2.5px solid transparent',
-            color: tab === t.key ? '#C84B0F' : '#7A7068', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
-          }}>
-            {isAR ? t.ar : t.en}
-          </button>
-        ))}
-      </div>
-
       {tab === 'plan' && (
-        !sub ? (
+        pendingOrder ? (
+          <div style={{ background: '#FFF8EE', border: '1.5px solid #F0D9B0', borderRadius: 14, padding: '22px 24px', textAlign: 'center' }}>
+            <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#2D6A4F', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+            </div>
+            <h2 style={{ fontSize: 18, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'تم استلام طلبك' : 'Order received'}</h2>
+            <p style={{ fontSize: 13.5, color: '#7A7068', lineHeight: 1.7, maxWidth: 360, margin: '0 auto' }}>{isAR ? 'طلبك قيد المراجعة — سنؤكده خلال ساعة تقريباً ويُفعّل اشتراكك. لا حاجة للاشتراك مرة أخرى.' : "Your order is under review — we'll confirm it within about an hour and activate your subscription. No need to subscribe again."}</p>
+          </div>
+        ) : !sub ? (
           <div style={{ background: '#FDF0E8', border: '1.5px solid #F0C9A8', borderRadius: 14, padding: '20px 22px' }}>
             <h2 style={{ fontSize: 18, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'أنت غير مشترك في أي خطة' : "You're not subscribed to any plan"}</h2>
             <p style={{ fontSize: 13, color: '#7A7068', marginBottom: 20 }}>{isAR ? 'يمكنك تعبئة بياناتك أولاً، وعندما تكون جاهزاً اضغط هنا للاشتراك.' : "You can fill in your details first, and whenever you're ready, press here to subscribe."}</p>
-            <button onClick={() => router.push('/account/plan')} style={btn}>{isAR ? 'ابدأ خطتك' : 'Start Your Plan'}</button>
+            <button onClick={() => router.push('/account/profile')} style={btn}>{isAR ? 'ابدأ خطتك' : 'Start Your Plan'}</button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18 }}>
@@ -572,7 +568,6 @@ export default function Dashboard() {
                 background: sub.stages?.image_url ? `url(${sub.stages.image_url}) center/cover` : '#FDF0E8',
                 display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '16px 20px',
               }}>
-                {!sub.stages?.image_url && <div style={{ fontSize: 40 }}>{sub.stages?.emoji}</div>}
                 {sub.stages?.image_url && (
                   <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0) 55%)' }} />
                 )}
@@ -611,7 +606,7 @@ export default function Dashboard() {
               {sub.status === 'frozen' ? (
                 <>
                   <div style={{ background: '#E0F0FA', border: '1.5px solid #BCD9EC', borderRadius: 12, padding: '14px 16px', marginBottom: 12 }}>
-                    <div style={{ fontWeight: 800, fontSize: 14.5, color: '#1E6091', marginBottom: 4 }}>⏸️ {isAR ? 'الاشتراك موقوف مؤقتاً' : 'Subscription paused'}</div>
+                    <div style={{ fontWeight: 800, fontSize: 14.5, color: '#1E6091', marginBottom: 4 }}> {isAR ? 'الاشتراك موقوف مؤقتاً' : 'Subscription paused'}</div>
                     {info && (
                       <div style={{ fontSize: 12.5, color: '#1E6091', fontWeight: 600 }}>
                         {isAR ? `لديك ${info.remaining} يوم متبقٍّ في اشتراكك` : `You have ${info.remaining} days left on your subscription`}
@@ -715,7 +710,6 @@ export default function Dashboard() {
                 <div style={{ minWidth: 0 }}>
                   {deliveryStatus && STATUS_INFO[deliveryStatus] && (
                     <div style={{ background: deliveryStatus === 'delivered' ? '#E8F5EE' : '#FDF0E8', border: `1.5px solid ${deliveryStatus === 'delivered' ? '#BCE3CC' : '#F0C9A8'}`, borderRadius: 14, padding: '14px 18px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span style={{ fontSize: 26 }}>{STATUS_INFO[deliveryStatus]?.emoji}</span>
                       <div>
                         <div style={{ fontWeight: 800, fontSize: 14.5, color: '#1C1C1A' }}>
                           {isAR ? STATUS_INFO[deliveryStatus]?.ar : STATUS_INFO[deliveryStatus]?.en}
@@ -743,12 +737,12 @@ export default function Dashboard() {
                                 border: '1.5px solid #EDE8E0', background: '#FDF0E8', cursor: entry.meals ? 'pointer' : 'default', position: 'relative',
                               }}>
                                 <div style={{ width: '100%', height: 130, background: entry.meals?.image_url ? `url(${entry.meals.image_url}) center/cover` : '#F3E3D6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  {!entry.meals?.image_url && <span style={{ fontSize: 36 }}>🍽️</span>}
+                                  {!entry.meals?.image_url && <span style={{ fontSize: 36 }}></span>}
                                 </div>
                                 <div style={{ padding: '12px 14px' }}>
                                   <div style={{ fontSize: 11, fontWeight: 700, color: '#C84B0F', textTransform: 'uppercase' }}>{catLabel}</div>
                                   <div style={{ fontWeight: 800, fontSize: 15, color: '#1C1C1A', marginTop: 2 }}>{entry.meals ? ((isAR && entry.meals.name_ar) || entry.meals.name) : (isAR ? 'لم يتم التحديد' : 'Not set')}</div>
-                                  {saved && <div style={{ fontSize: 12.5, color: '#2D6A4F', fontWeight: 700, marginTop: 6 }}>✓ {isAR ? 'تم التقييم' : 'Reviewed'}</div>}
+                                  {saved && <div style={{ fontSize: 12.5, color: '#2D6A4F', fontWeight: 700, marginTop: 6 }}> {isAR ? 'تم التقييم' : 'Reviewed'}</div>}
                                 </div>
                               </div>
                             )
@@ -800,15 +794,15 @@ export default function Dashboard() {
                                 border: '1.5px solid #EDE8E0', background: '#FDF0E8', cursor: saved ? 'default' : 'pointer', position: 'relative',
                               }}>
                                 <div style={{ width: '100%', height: 130, background: entry.meals?.image_url ? `url(${entry.meals.image_url}) center/cover` : '#F3E3D6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  {!entry.meals?.image_url && <span style={{ fontSize: 36 }}>🍽️</span>}
+                                  {!entry.meals?.image_url && <span style={{ fontSize: 36 }}></span>}
                                 </div>
                                 <div style={{ padding: '12px 14px' }}>
                                   <div style={{ fontSize: 11, fontWeight: 700, color: '#C84B0F', textTransform: 'uppercase' }}>{catLabel}</div>
                                   <div style={{ fontWeight: 800, fontSize: 15, color: '#1C1C1A', marginTop: 2 }}>{entry.meals ? ((isAR && entry.meals.name_ar) || entry.meals.name) : ''}</div>
                                   {saved ? (
-                                    <div style={{ fontSize: 12.5, color: '#2D6A4F', fontWeight: 700, marginTop: 6 }}>✓ {isAR ? 'تم الإرسال، شكراً لك' : 'Thanks, submitted'}</div>
+                                    <div style={{ fontSize: 12.5, color: '#2D6A4F', fontWeight: 700, marginTop: 6 }}> {isAR ? 'تم الإرسال، شكراً لك' : 'Thanks, submitted'}</div>
                                   ) : (
-                                    <div style={{ fontSize: 12.5, color: '#C84B0F', fontWeight: 700, marginTop: 6 }}>✍️ {isAR ? 'اضغط للتقييم' : 'Tap to review'}</div>
+                                    <div style={{ fontSize: 12.5, color: '#C84B0F', fontWeight: 700, marginTop: 6 }}> {isAR ? 'اضغط للتقييم' : 'Tap to review'}</div>
                                   )}
                                 </div>
                               </div>
@@ -857,7 +851,7 @@ export default function Dashboard() {
                                 border: '1.5px solid #EDE8E0', background: '#FDF0E8', cursor: entry.meals ? 'pointer' : 'default',
                               }}>
                                 <div style={{ width: '100%', height: 130, background: entry.meals?.image_url ? `url(${entry.meals.image_url}) center/cover` : '#F3E3D6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  {!entry.meals?.image_url && <span style={{ fontSize: 36 }}>🍽️</span>}
+                                  {!entry.meals?.image_url && <span style={{ fontSize: 36 }}></span>}
                                 </div>
                                 <div style={{ padding: '12px 14px' }}>
                                   <div style={{ fontSize: 11, fontWeight: 700, color: '#C84B0F', textTransform: 'uppercase' }}>{catLabel}</div>
@@ -896,66 +890,6 @@ export default function Dashboard() {
         )
       )}
 
-      {tab === 'profile' && (
-        <div style={{ maxWidth: 480 }}>
-          <label style={lbl}>{isAR ? 'اسمك' : 'Your Name'}</label>
-          <input style={inp} value={parentName} onChange={e => setParentName(e.target.value)} />
-
-          <label style={lbl}>{isAR ? 'اسم الطفل' : "Baby's Name"}</label>
-          <input style={inp} value={kidName} onChange={e => setKidName(e.target.value)} />
-
-          <label style={lbl}>{isAR ? 'تاريخ ميلاد الطفل' : "Baby's Birth Date"}</label>
-          <input style={inp} type="date" value={kidBirthDate} onChange={e => setKidBirthDate(e.target.value)} />
-
-          <label style={lbl}>{isAR ? 'البريد الإلكتروني' : 'Email'}</label>
-          <input style={inp} type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
-
-          {customFields.map(f => (
-            <div key={f.id}>
-              <label style={lbl}>{(isAR ? (f.label_ar || f.label_en) : f.label_en)}{f.is_required && <span style={{ color: '#C84B0F' }}> *</span>}</label>
-              {f.field_type === 'select' ? (
-                <select style={inp} value={extra[f.field_key] || ''} onChange={e => setExtra(prev => ({ ...prev, [f.field_key]: e.target.value }))}>
-                  <option value="">{isAR ? 'اختر…' : 'Select…'}</option>
-                  {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              ) : (
-                <input style={inp} type={f.field_type === 'number' ? 'number' : f.field_type === 'date' ? 'date' : 'text'} value={extra[f.field_key] || ''} onChange={e => setExtra(prev => ({ ...prev, [f.field_key]: e.target.value }))} />
-              )}
-            </div>
-          ))}
-
-          {profileMsg && <div style={{ color: profileMsg.includes('Saved') || profileMsg.includes('تم') ? '#2D6A4F' : '#DC2626', fontSize: 12.5, marginBottom: 8 }}>{profileMsg}</div>}
-          <button style={{ ...btn, opacity: profileSaving ? 0.6 : 1 }} disabled={profileSaving} onClick={saveProfile}>{profileSaving ? (isAR ? 'جار الحفظ…' : 'Saving…') : (isAR ? 'حفظ التغييرات' : 'Save Changes')}</button>
-        </div>
-      )}
-
-      {tab === 'address' && (
-        <div style={{ maxWidth: 480 }}>
-          <label style={lbl}>{isAR ? 'عنوان التوصيل' : 'Delivery Address'}</label>
-          <textarea style={{ ...inp, minHeight: 90, resize: 'vertical' }} value={address} onChange={e => setAddress(e.target.value)} placeholder={isAR ? 'الحي، الشارع، تفاصيل المبنى…' : 'District, street, building details…'} />
-          {addressMsg && <div style={{ color: '#2D6A4F', fontSize: 12.5, marginBottom: 8 }}>{addressMsg}</div>}
-          <button style={{ ...btn, opacity: addressSaving ? 0.6 : 1 }} disabled={addressSaving} onClick={saveAddress}>{addressSaving ? (isAR ? 'جار الحفظ…' : 'Saving…') : (isAR ? 'تحديث العنوان' : 'Update Address')}</button>
-        </div>
-      )}
-
-      {tab === 'history' && (
-        <div>
-          {history.length === 0 && <p style={{ fontSize: 13, color: '#7A7068' }}>{isAR ? 'لا يوجد سجل اشتراكات' : 'No subscription history yet'}</p>}
-          {history.map(h => (
-            <div key={h.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', border: '1.5px solid #EDE8E0', borderRadius: 12, padding: '14px 18px', marginBottom: 10 }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 14.5, color: '#1C1C1A' }}>{h.stages?.emoji} {(isAR && h.stages?.name_ar) || h.stages?.name}</div>
-                <div style={{ fontSize: 12.5, color: '#7A7068' }}>{(isAR && h.payment_cycles?.label_ar) || h.payment_cycles?.label} · {new Date(h.start_date).toLocaleDateString(isAR ? 'ar' : 'en')}</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 800, fontSize: 14.5, color: '#1C1C1A' }}>{h.total_price} SAR</div>
-                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 6, background: h.status === 'active' ? '#E8F5EE' : h.status === 'frozen' ? '#E0F0FA' : '#F3F1ED', color: h.status === 'active' ? '#2D6A4F' : h.status === 'frozen' ? '#1E6091' : '#7A7068' }}>{h.status}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
       {infoMeal && (
         <div
           onClick={closeInfoMeal}
@@ -974,7 +908,7 @@ export default function Dashboard() {
             }}
           >
             <div style={{ width: '100%', height: 160, background: infoMeal.meals?.image_url ? `url(${infoMeal.meals.image_url}) center/cover` : '#FDF0E8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {!infoMeal.meals?.image_url && <span style={{ fontSize: 48 }}>🍽️</span>}
+              {!infoMeal.meals?.image_url && <span style={{ fontSize: 48 }}></span>}
             </div>
             <div style={{ padding: '18px 22px 22px' }}>
               <div style={{ fontWeight: 900, fontSize: 18, color: '#1C1C1A', marginBottom: 6 }}>
@@ -1022,8 +956,8 @@ export default function Dashboard() {
                 const key = reviewKey(reviewPopup)
                 const r = ratings[key] || 0
                 return (
-                  <button key={n} onClick={() => setRatings(prev => ({ ...prev, [key]: n }))} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 26, padding: 0, opacity: n <= r ? 1 : 0.3 }}>
-                    ⭐
+                  <button key={n} onClick={() => setRatings(prev => ({ ...prev, [key]: n }))} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 0, color: n <= r ? '#F5C77E' : '#DDD5CC' }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill={n <= r ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
                   </button>
                 )
               })}

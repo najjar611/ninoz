@@ -2,43 +2,45 @@ import { createClient } from '@/lib/supabase/server'
 import { AccountLangProvider } from '@/lib/AccountLangContext'
 import AccountLangToggle from './AccountLangToggle'
 import AccountWidthWrap from './AccountWidthWrap'
+import AccountBottomBar from './AccountBottomBar'
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
-  const [{ data: logoRow }, { data: logoTableRow }, { data: bgRow }, { data: fontRow }, { data: deepBlueRow }] = await Promise.all([
-    supabase.from('site_content').select('value').eq('key', 'logo_url').single(),
-    supabase.from('logo').select('url').limit(1).single(),
-    supabase.from('site_content').select('value').eq('key', 'account_bg_color').single(),
-    supabase.from('site_content').select('value').eq('key', 'site_font').single(),
-    supabase.from('site_content').select('value').eq('key', 'theme_color_deep_blue').single(),
+  const [{ data: logoRow }, { data: logoTableRow }, { data: whatsRow }] = await Promise.all([
+    supabase.from('site_content').select('value').eq('key', 'logo_url').maybeSingle(),
+    supabase.from('logo').select('url').limit(1).maybeSingle(),
+    supabase.from('site_content').select('value').eq('key', 'contact_whatsapp').maybeSingle(),
   ])
-  const logoUrl = logoRow?.value || logoTableRow?.url || null
-  const bgColor = bgRow?.value || '#F7F4F0'
-  const siteFont = fontRow?.value || 'Nunito'
-  const deepBlue = deepBlueRow?.value || '#0A429B'
-  const fontStack = `'${siteFont}', 'Tajawal', sans-serif`
-  const navBackground = deepBlue
+  const logoUrl = (logoRow as any)?.value || (logoTableRow as any)?.url || null
+  const whats = ((whatsRow as any)?.value || '966591976737').replace(/\D/g, '')
+  // Dark-luxe palette to match the home page (Variant D).
+  const fontStack = `'Baloo Bhaijaan 2', 'Tajawal', sans-serif`
 
   return (
     <AccountLangProvider>
-      <link rel="stylesheet" href={`https://fonts.googleapis.com/css2?family=${siteFont.replace(/ /g, '+')}:wght@400;500;600;700;800;900&display=swap`} />
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400;500;600;700;800&display=swap" />
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" />
-      <div style={{ minHeight: '100vh', background: bgColor, fontFamily: fontStack }}>
-        <div style={{ background: navBackground, padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ minHeight: '100vh', fontFamily: fontStack, background: 'radial-gradient(120% 90% at 50% -10%, #122A22, #0C1A15)', paddingBottom: 86 }}>
+        {/* Glass header with a big logo */}
+        <div style={{ position: 'sticky', top: 0, zIndex: 40, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: 'linear-gradient(180deg, #0C1A15 55%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
           <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
             {logoUrl
-              ? <img src={logoUrl} alt="Ninoz" style={{ height: 60, maxWidth: 220, objectFit: 'contain' }} />
-              : <span style={{ fontSize: 28, fontWeight: 900, color: 'white', letterSpacing: '-0.02em' }}>Ninoz</span>}
+              ? <img src={logoUrl} alt="Ninoz" style={{ height: 76, maxHeight: 88, maxWidth: 240, objectFit: 'contain', filter: 'drop-shadow(0 6px 18px rgba(0,0,0,0.5))' }} />
+              : <span style={{ fontSize: 30, fontWeight: 800, color: '#FF7A33' }}>Ninoz</span>}
           </a>
           <AccountLangToggle />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 16px' }}>
+
+        {/* Content sheet — light card on the dark frame so pages stay readable */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 16px 8px' }}>
           <AccountWidthWrap>
-            <div style={{ background: 'white', borderRadius: 18, border: '1px solid #EDEBE8', padding: '32px 28px', boxShadow: '0 4px 24px rgba(0,0,0,0.04)', position: 'relative' }}>
+            <div style={{ background: '#FBF8F2', borderRadius: 22, border: '1px solid rgba(255,255,255,0.08)', padding: '26px 24px', boxShadow: '0 22px 54px rgba(0,0,0,0.34)', position: 'relative' }}>
               {children}
             </div>
           </AccountWidthWrap>
         </div>
+
+        <AccountBottomBar whats={whats} />
       </div>
     </AccountLangProvider>
   )

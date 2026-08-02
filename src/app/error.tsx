@@ -14,7 +14,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18, padding: '40px 24px', background: '#F7F4F0', fontFamily: 'Nunito, sans-serif', textAlign: 'center' }}>
       <div style={{ fontSize: 26, fontWeight: 900, color: '#C84B0F', letterSpacing: '-0.02em' }}>Ninoz</div>
-      <div style={{ fontSize: 48 }}>😕</div>
+      <div style={{ fontSize: 48 }}></div>
       <h1 style={{ fontSize: 20, fontWeight: 900, color: '#1C1C1A', margin: 0 }}>Something went wrong</h1>
       <p style={{ fontSize: 14, color: '#7A7068', maxWidth: 360, margin: 0 }}>
         An unexpected error occurred. Please try again.

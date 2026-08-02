@@ -21,6 +21,7 @@ export default async function HomePage() {
     { data: tickerItems },
     { count: subscriberCount },
     { data: categories },
+    { data: newsItems },
   ] = await Promise.all([
     supabase.from('stages').select('*').order('id'),
     supabase.from('meals').select('*').order('id'),
@@ -36,6 +37,7 @@ export default async function HomePage() {
     supabase.from('ticker_items').select('*').order('id'),
     supabase.from('subscribers').select('id', { count: 'exact', head: true }),
     supabase.from('categories').select('*').eq('is_visible', true).order('position'),
+    supabase.from('news_items').select('*').eq('is_active', true).order('position'),
   ])
 
   const content: Record<string, string> = {}
@@ -79,6 +81,7 @@ export default async function HomePage() {
       tickerItems={tickerItems ?? []}
       subscriberCount={subscriberCount ?? 0}
       categories={categories ?? []}
+      newsItems={newsItems ?? []}
     />
   )
 }

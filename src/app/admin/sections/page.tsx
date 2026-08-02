@@ -6,9 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 type HowStep = { id: string; icon_url: string | null; icon_bg: string; description: string; description_ar: string | null }
 type WhyPoint = { id: string; title: string; description: string; title_color: string; title_ar: string | null; description_ar: string | null }
 type Ingredient = { id: string; name: string; description: string; image_url: string | null; name_ar: string | null; description_ar: string | null }
-type TickerItem = { id: string; text: string; highlight: string; text_ar: string | null; highlight_ar: string | null }
 
-const TABS = ['How It Works', 'Why Points', 'Ingredients', 'Ticker'] as const
+const TABS = ['How It Works', 'Why Points', 'Ingredients'] as const
 type Tab = typeof TABS[number]
 
 export default function SectionsAdmin() {
@@ -17,7 +16,6 @@ export default function SectionsAdmin() {
   const [howSteps, setHowSteps] = useState<HowStep[]>([])
   const [whyPoints, setWhyPoints] = useState<WhyPoint[]>([])
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
-  const [tickerItems, setTickerItems] = useState<TickerItem[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
@@ -25,16 +23,14 @@ export default function SectionsAdmin() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    const [h, w, i, t] = await Promise.all([
+    const [h, w, i] = await Promise.all([
       supabase.from('how_steps').select('*').order('id'),
       supabase.from('why_points').select('*').order('id'),
       supabase.from('ingredients').select('*').order('id'),
-      supabase.from('ticker_items').select('*').order('id'),
     ])
     setHowSteps(h.data || [])
     setWhyPoints(w.data || [])
     setIngredients(i.data || [])
-    setTickerItems(t.data || [])
     setLoading(false)
   }
 
@@ -117,37 +113,14 @@ export default function SectionsAdmin() {
     flash('Deleted')
   }
 
-  // ---- Ticker Items ----
-  function updateTicker(id: string, key: keyof TickerItem, val: any) {
-    setTickerItems(prev => prev.map(t => t.id === id ? { ...t, [key]: val } : t))
-  }
-  async function saveTicker(t: TickerItem) {
-    setSaving(t.id)
-    const { error } = await supabase.from('ticker_items').update({
-      text: t.text, highlight: t.highlight, text_ar: t.text_ar, highlight_ar: t.highlight_ar,
-    }).eq('id', t.id)
-    setSaving(null)
-    flash(error ? 'Error: ' + error.message : 'Saved!')
-  }
-  async function addTicker() {
-    const { data } = await supabase.from('ticker_items').insert({ text: 'New Claim', highlight: '100%' }).select().single()
-    if (data) setTickerItems(prev => [...prev, data])
-  }
-  async function removeTicker(id: string) {
-    if (!confirm('Delete this ticker item?')) return
-    await supabase.from('ticker_items').delete().eq('id', id)
-    setTickerItems(prev => prev.filter(t => t.id !== id))
-    flash('Deleted')
-  }
-
   if (loading) return <div style={{ padding: 40, color: '#7A7068', fontFamily: 'Nunito, sans-serif' }}>Loading…</div>
 
   return (
     <div style={{ fontFamily: 'Nunito, sans-serif', maxWidth: 800 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1C1C1A', marginBottom: 4 }}>Homepage Sections</h1>
-          <p style={{ fontSize: 13, color: '#7A7068' }}>Manage How It Works, Why Ninoz, Ingredients, and the scrolling ticker — in English and Arabic.</p>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1C1C1A', marginBottom: 4 }}>Homepage Cards &amp; Items</h1>
+          <p style={{ fontSize: 13, color: '#7A7068' }}>The actual cards on the homepage — How It Works steps, Why Ninoz points, and Ingredient cards (English &amp; Arabic). For wording use “Homepage Text”; for logo/colours use “Branding &amp; Settings”.</p>
         </div>
         {msg && <div style={{ background: '#E8F5EE', color: '#2D6A4F', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>{msg}</div>}
       </div>
@@ -271,40 +244,6 @@ export default function SectionsAdmin() {
             </div>
           ))}
           <button onClick={addIng} style={{ padding: '9px 18px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', alignSelf: 'flex-start' }}>+ Add Ingredient</button>
-        </div>
-      )}
-
-      {tab === 'Ticker' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {tickerItems.map(t => (
-            <div key={t.id} style={card}>
-              <div style={grid2}>
-                <div>
-                  <label style={lbl}>Highlight (English) e.g. 100%</label>
-                  <input style={inp} value={t.highlight} onChange={e => updateTicker(t.id, 'highlight', e.target.value)} />
-                </div>
-                <div>
-                  <label style={lblAr}>الرقم البارز (عربي)</label>
-                  <input style={{ ...inp, direction: 'rtl', textAlign: 'right' }} value={t.highlight_ar || ''} onChange={e => updateTicker(t.id, 'highlight_ar', e.target.value)} />
-                </div>
-              </div>
-              <div style={grid2}>
-                <div>
-                  <label style={lbl}>Text (English)</label>
-                  <input style={inp} value={t.text} onChange={e => updateTicker(t.id, 'text', e.target.value)} />
-                </div>
-                <div>
-                  <label style={lblAr}>النص (عربي)</label>
-                  <input style={{ ...inp, direction: 'rtl', textAlign: 'right' }} value={t.text_ar || ''} onChange={e => updateTicker(t.id, 'text_ar', e.target.value)} />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button onClick={() => removeTicker(t.id)} style={delBtn}>Delete</button>
-                <button onClick={() => saveTicker(t)} disabled={saving === t.id} style={saveBtn(saving === t.id)}>{saving === t.id ? 'Saving…' : 'Save'}</button>
-              </div>
-            </div>
-          ))}
-          <button onClick={addTicker} style={{ padding: '9px 18px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', alignSelf: 'flex-start' }}>+ Add Ticker Item</button>
         </div>
       )}
     </div>

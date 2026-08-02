@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMockSubscriberId } from '@/lib/mockSession'
 import { useAccountLang } from '@/lib/AccountLangContext'
+import DateField from '@/components/DateField'
 
 type CustomField = {
   id: string; field_key: string; label_en: string; label_ar: string | null
@@ -85,6 +86,10 @@ export default function Profile() {
       setError(isAR ? 'يرجى إدخال تاريخ ميلاد الطفل لنوصي بالمرحلة المناسبة' : "Please enter your baby's birth date so we can recommend the right stage")
       return
     }
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError(isAR ? 'يرجى إدخال بريد إلكتروني صحيح' : 'Please enter a valid email address')
+      return
+    }
     const missing = customFields.find(f => f.is_required && !(extra[f.field_key] || '').trim())
     if (missing) {
       setError(isAR ? `الحقل "${missing.label_ar || missing.label_en}" مطلوب` : `"${missing.label_en}" is required`)
@@ -115,7 +120,7 @@ export default function Profile() {
       <input style={inp} value={kidName} onChange={e => setKidName(e.target.value)} />
 
       <label style={lbl}>{isAR ? 'تاريخ ميلاد الطفل' : "Baby's Birth Date"}{req}</label>
-      <input style={inp} type="date" max={new Date().toISOString().slice(0, 10)} value={kidBirthDate} onChange={e => setKidBirthDate(e.target.value)} />
+      <DateField value={kidBirthDate} onChange={setKidBirthDate} isAR={isAR} max={new Date().toISOString().slice(0, 10)} placeholder={isAR ? 'اختر التاريخ' : 'Select date'} />
       {recStage && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#E8F5EE', border: '1px solid #BFE3CE', borderRadius: 10, padding: '9px 12px', marginTop: -6, marginBottom: 14 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2D6A4F" strokeWidth="2.4"><path d="M20 6 9 17l-5-5" /></svg>
@@ -138,10 +143,12 @@ export default function Profile() {
               <option value="">{isAR ? 'اختر…' : 'Select…'}</option>
               {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
             </select>
+          ) : f.field_type === 'date' ? (
+            <DateField value={extra[f.field_key] || ''} onChange={v => setExtra(prev => ({ ...prev, [f.field_key]: v }))} isAR={isAR} placeholder={isAR ? 'اختر التاريخ' : 'Select date'} />
           ) : (
             <input
               style={inp}
-              type={f.field_type === 'number' ? 'number' : f.field_type === 'date' ? 'date' : 'text'}
+              type={f.field_type === 'number' ? 'number' : 'text'}
               value={extra[f.field_key] || ''}
               onChange={e => setExtra(prev => ({ ...prev, [f.field_key]: e.target.value }))}
             />

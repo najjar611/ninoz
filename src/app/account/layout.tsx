@@ -34,7 +34,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
         {/* Content sheet — light card on the dark frame so pages stay readable */}
         <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 16px 8px' }}>
           <AccountWidthWrap>
-            <div style={{ background: '#FBF8F2', borderRadius: 22, border: '1px solid rgba(255,255,255,0.08)', padding: '26px 24px', boxShadow: '0 22px 54px rgba(0,0,0,0.34)', position: 'relative' }}>
+            <div className="nz-page" style={{ background: '#FBF8F2', borderRadius: 22, border: '1px solid rgba(255,255,255,0.08)', padding: '26px 24px', boxShadow: '0 22px 54px rgba(0,0,0,0.34)', position: 'relative' }}>
               {children}
             </div>
           </AccountWidthWrap>

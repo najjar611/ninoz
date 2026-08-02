@@ -122,26 +122,16 @@ export default function Plan() {
     background: active ? '#FDF0E8' : 'white', cursor: 'pointer', marginBottom: 10,
   })
 
-  async function continueToCheckout() {
+  function continueToCheckout() {
     if (!stageId || !cycleId || !startDate) { setError(isAR ? 'يرجى اختيار مرحلة وخطة وتاريخ بداية' : 'Please choose a stage, plan, and start date'); return }
-    setSaving(true)
     setError('')
-    const id = getMockSubscriberId()
-    const { data, error: err } = await supabase.from('subscriptions').insert({
-      subscriber_id: id,
-      stage_id: stageId,
-      payment_cycle_id: cycleId,
-      meals_per_day: 1,
-      delivery_days: DELIVERY_DAYS,
-      start_date: startDate,
-      total_price: finalPrice,
-      promo_code: promoInfo?.code || null,
-      discount_percent: promoInfo?.discount_percent || null,
-      status: 'pending_payment',
-    }).select('id').single()
-    setSaving(false)
-    if (err) { setError(err.message); return }
-    router.push(`/account/checkout?subscription_id=${data.id}`)
+    // Do NOT create the subscription here — it's created only when the customer
+    // actually pays (so abandoning the wizard never leaves a phantom order).
+    const q = new URLSearchParams({
+      stage_id: stageId, cycle_id: cycleId, start_date: startDate, price: String(finalPrice),
+    })
+    if (promoInfo) { q.set('promo_code', promoInfo.code); q.set('discount', String(promoInfo.discount_percent)) }
+    router.push(`/account/checkout?${q.toString()}`)
   }
 
   if (loading) return <div style={{ textAlign: 'center', color: '#7A7068', padding: 20 }}>{isAR ? 'جار التحميل…' : 'Loading…'}</div>

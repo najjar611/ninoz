@@ -27,6 +27,8 @@ export default function DeliveryArea() {
   const [enforce, setEnforce] = useState(true)
   const [noteEn, setNoteEn] = useState('')
   const [noteAr, setNoteAr] = useState('')
+  const [oorEn, setOorEn] = useState('')
+  const [oorAr, setOorAr] = useState('')
   const [msg, setMsg] = useState('')
   const [reqs, setReqs] = useState<Req[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,13 +42,15 @@ export default function DeliveryArea() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from('site_content').select('key, value').in('key', ['delivery_zone_polygon', 'delivery_zone_enforce', 'service_area_note', 'service_area_note_ar'])
+      const { data } = await supabase.from('site_content').select('key, value').in('key', ['delivery_zone_polygon', 'delivery_zone_enforce', 'service_area_note', 'service_area_note_ar', 'out_of_area_message', 'out_of_area_message_ar'])
       const m: Record<string, string> = {}
       ;((data as any[]) || []).forEach(r => { m[r.key] = r.value })
       if (m.delivery_zone_polygon) { try { const p = JSON.parse(m.delivery_zone_polygon); if (Array.isArray(p)) setPoints(p.map((x: any) => ({ lng: x[0], lat: x[1] }))) } catch {} }
       if (m.delivery_zone_enforce === 'false') setEnforce(false)
       setNoteEn(m.service_area_note || '')
       setNoteAr(m.service_area_note_ar || '')
+      setOorEn(m.out_of_area_message || '')
+      setOorAr(m.out_of_area_message_ar || '')
       const { data: rq } = await supabase.from('delivery_zone_requests').select('id, name, phone, area_text, created_at').order('created_at', { ascending: false }).limit(50)
       setReqs((rq as any) || [])
       setLoading(false)
@@ -89,11 +93,21 @@ export default function DeliveryArea() {
   async function saveAll() {
     if (points.length < 3) { alert('Add at least 3 points to define an area.'); return }
     setMsg('Saving…')
-    await upsert('delivery_zone_polygon', JSON.stringify(points.map(p => [p.lng, p.lat])))
-    await upsert('delivery_zone_enforce', enforce ? 'true' : 'false')
-    await upsert('service_area_note', noteEn)
-    await upsert('service_area_note_ar', noteAr)
-    setMsg('Saved!'); setTimeout(() => setMsg(''), 1800)
+    const results = await Promise.all([
+      upsert('delivery_zone_polygon', JSON.stringify(points.map(p => [p.lng, p.lat]))),
+      upsert('delivery_zone_enforce', enforce ? 'true' : 'false'),
+      upsert('service_area_note', noteEn),
+      upsert('service_area_note_ar', noteAr),
+      upsert('out_of_area_message', oorEn),
+      upsert('out_of_area_message_ar', oorAr),
+    ])
+    const failed = results.find(r => (r as any).error)
+    if (failed) { setMsg('Save failed: ' + ((failed as any).error.message || 'unknown error')); return }
+    // Read the polygon back so we confirm exactly what was persisted.
+    const { data: check } = await supabase.from('site_content').select('value').eq('key', 'delivery_zone_polygon').maybeSingle()
+    let savedCount = 0
+    try { savedCount = (JSON.parse((check as any)?.value || '[]') || []).length } catch {}
+    setMsg(`Saved! ${savedCount} points stored.`); setTimeout(() => setMsg(''), 3000)
   }
 
   const card: React.CSSProperties = { background: '#fff', borderRadius: 14, border: '1px solid #EDEBE8', padding: '18px 20px', marginBottom: 16 }
@@ -142,6 +156,14 @@ export default function DeliveryArea() {
         <label style={lbl}>Homepage note — Arabic</label>
         <input style={{ ...inp, direction: 'rtl', textAlign: 'right' }} value={noteAr} onChange={e => setNoteAr(e.target.value)} placeholder="نوصّل الآن في شمال الرياض" />
         <p style={{ fontSize: 12, color: '#A08070', margin: '8px 0 0' }}>Shown as a banner on the homepage. Leave both empty to hide it.</p>
+      </div>
+
+      <div style={card}>
+        <label style={lbl}>Out-of-area message — English</label>
+        <textarea style={{ ...inp, minHeight: 70, resize: 'vertical', marginBottom: 12 }} value={oorEn} onChange={e => setOorEn(e.target.value)} placeholder="We currently deliver in North Riyadh only. We've noted your interest and will reach you when we expand." />
+        <label style={lbl}>Out-of-area message — Arabic</label>
+        <textarea style={{ ...inp, minHeight: 70, resize: 'vertical', direction: 'rtl', textAlign: 'right' }} value={oorAr} onChange={e => setOorAr(e.target.value)} placeholder="نوصّل حالياً في شمال الرياض فقط. سجّلنا اهتمامك وسنتواصل معك فور توسّعنا." />
+        <p style={{ fontSize: 12, color: '#A08070', margin: '8px 0 0' }}>Shown to customers whose pin is outside the zone. Leave empty to use the default text.</p>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>

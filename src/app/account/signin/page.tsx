@@ -105,9 +105,9 @@ export default function SignIn() {
           <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#7A7068', marginBottom: 6 }}>{isAR ? 'الاسم' : 'Name'}</label>
           <input style={{ ...inp, marginBottom: 14 }} value={name} onChange={e => setName(e.target.value)} placeholder={isAR ? 'مثال: محمد' : 'e.g. Mohammed'} onKeyDown={e => e.key === 'Enter' && sendCode()} />
           <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#7A7068', marginBottom: 6 }}>{isAR ? 'رقم الجوال' : 'Mobile number'}</label>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }} dir="ltr">
             <span style={{ display: 'flex', alignItems: 'center', padding: '0 14px', borderRadius: 10, border: '1.5px solid #EDE8E0', background: '#F7F4F0', fontWeight: 800, color: '#1C1C1A', flexShrink: 0 }}>+966</span>
-            <input style={{ ...inp, flex: 1 }} placeholder="05xxxxxxxx" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" maxLength={10} onKeyDown={e => e.key === 'Enter' && sendCode()} />
+            <input style={{ ...inp, flex: 1, textAlign: 'left' }} placeholder="05xxxxxxxx" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" maxLength={10} onKeyDown={e => e.key === 'Enter' && sendCode()} />
           </div>
           {error && <div style={{ color: '#DC2626', fontSize: 12.5, marginTop: 8 }}>{error}</div>}
           <button style={btn} onClick={sendCode}>{isAR ? 'إرسال الرمز' : 'Send code'}</button>

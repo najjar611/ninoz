@@ -259,7 +259,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
 
       <main className="main">
         <div className="main-inner">
-          <div className="main-sheet">
+          <div className="main-sheet nz-page" key={pathname}>
             {children}
           </div>
         </div>

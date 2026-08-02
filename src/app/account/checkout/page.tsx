@@ -6,16 +6,25 @@ import { createClient } from '@/lib/supabase/client'
 import { getMockSubscriberId } from '@/lib/mockSession'
 import { useAccountLang } from '@/lib/AccountLangContext'
 
-type Sub = { id: string; total_price: number; promo_code: string | null; discount_percent: number | null; stages: { name: string; name_ar?: string | null } | null; payment_cycles: { label: string; label_ar?: string | null } | null }
 type PromoInfo = { code: string; discount_percent: number; max_uses: number | null }
+
+// Friday and Saturday are not delivery days.
+const DELIVERY_DAYS = ['sun', 'mon', 'tue', 'wed', 'thu']
 
 export default function Checkout() {
   const supabase = createClient()
   const router = useRouter()
   const { isAR } = useAccountLang()
   const params = useSearchParams()
-  const subscriptionId = params.get('subscription_id')
-  const [sub, setSub] = useState<Sub | null>(null)
+  const stageId = params.get('stage_id')
+  const cycleId = params.get('cycle_id')
+  const startDate = params.get('start_date')
+  const basePrice = Number(params.get('price') || 0)
+  const prePromoCode = params.get('promo_code')
+  const prePromoDiscount = params.get('discount') ? Number(params.get('discount')) : null
+
+  const [stage, setStage] = useState<{ name?: string; name_ar?: string | null }>({})
+  const [cycle, setCycle] = useState<{ label?: string; label_ar?: string | null }>({})
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState(false)
   const [celebrating, setCelebrating] = useState(false)
@@ -28,14 +37,16 @@ export default function Checkout() {
   useEffect(() => {
     const id = getMockSubscriberId()
     if (!id) { router.replace('/account/signin'); return }
-    if (!subscriptionId) { router.replace('/account/plan'); return }
-    supabase.from('subscriptions').select('id, total_price, promo_code, discount_percent, stages(name, name_ar), payment_cycles(label, label_ar)').eq('id', subscriptionId).single()
-      .then(({ data }) => { setSub(data as any); setLoading(false) })
+    if (!stageId || !cycleId || !startDate) { router.replace('/account/plan'); return }
+    Promise.all([
+      supabase.from('stages').select('name, name_ar').eq('id', stageId).single(),
+      supabase.from('payment_cycles').select('label, label_ar').eq('id', cycleId).single(),
+    ]).then(([s, c]) => { setStage((s.data as any) || {}); setCycle((c.data as any) || {}); setLoading(false) })
   }, [])
 
-  // If a promo was already applied earlier (e.g. on the Build-your-plan page),
-  // total_price is already discounted — show it as applied instead of asking again.
-  const prePromo = !!sub?.promo_code
+  // A promo applied on the Build-your-plan page arrives via the URL; basePrice
+  // is already discounted in that case.
+  const prePromo = !!prePromoCode
 
   async function applyPromo() {
     const code = promoCode.trim()
@@ -57,35 +68,37 @@ export default function Checkout() {
     setPromoMsg(isAR ? `تم تطبيق خصم ${data.discount_percent}%` : `${data.discount_percent}% discount applied`)
   }
 
-  const discountedPrice = sub && promoInfo
-    ? Math.round(sub.total_price * (1 - promoInfo.discount_percent / 100))
-    : sub?.total_price ?? 0
+  const discountedPrice = promoInfo
+    ? Math.round(basePrice * (1 - promoInfo.discount_percent / 100))
+    : basePrice
 
   async function pay() {
-    if (!sub) return
+    const id = getMockSubscriberId()
+    if (!id || !stageId || !cycleId || !startDate) return
     setPaying(true)
     setError('')
     const finalPrice = discountedPrice
-    if (promoInfo) {
-      await supabase.from('subscriptions').update({
-        promo_code: promoInfo.code, discount_percent: promoInfo.discount_percent, total_price: finalPrice,
-      }).eq('id', sub.id)
-    }
-    // Payment gateway (Moyasar) not wired yet: record the order as PENDING and
-    // confirm it manually from admin. No charge happens here.
+    const promo_code = prePromo ? prePromoCode : (promoInfo?.code || null)
+    const discount_percent = prePromo ? prePromoDiscount : (promoInfo?.discount_percent ?? null)
+    // Create the subscription ONLY now (on pay). Payment gateway not wired yet:
+    // record the order as PENDING and confirm it manually from admin.
+    const { data: subRow, error: subErr } = await supabase.from('subscriptions').insert({
+      subscriber_id: id, stage_id: stageId, payment_cycle_id: cycleId, meals_per_day: 1,
+      delivery_days: DELIVERY_DAYS, start_date: startDate, total_price: finalPrice,
+      promo_code, discount_percent, status: 'pending_payment',
+    }).select('id').single()
+    if (subErr) { setError(subErr.message); setPaying(false); return }
     const { error: payErr } = await supabase.from('payments').insert({
-      subscription_id: sub.id, amount: finalPrice, status: 'pending', gateway: 'pending',
+      subscription_id: subRow.id, amount: finalPrice, status: 'pending', gateway: 'pending',
     })
-    if (payErr) { setError(payErr.message); setPaying(false); return }
-    const { error: subErr } = await supabase.from('subscriptions').update({ status: 'pending_payment' }).eq('id', sub.id)
     setPaying(false)
-    if (subErr) { setError(subErr.message); return }
+    if (payErr) { setError(payErr.message); return }
     // Show the "order received" message, then go to the plan (dashboard).
     setCelebrating(true)
     setTimeout(() => router.push('/account/dashboard'), 2400)
   }
 
-  if (loading || !sub) return <div style={{ textAlign: 'center', color: '#7A7068', padding: 20 }}>{isAR ? 'جار التحميل…' : 'Loading…'}</div>
+  if (loading) return <div style={{ textAlign: 'center', color: '#7A7068', padding: 20 }}>{isAR ? 'جار التحميل…' : 'Loading…'}</div>
 
   if (celebrating) {
     return (
@@ -108,21 +121,21 @@ export default function Checkout() {
       <div style={{ background: '#FAF7F4', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
           <span style={{ fontSize: 13, color: '#7A7068' }}>{isAR ? 'المرحلة' : 'Stage'}</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1A' }}>{(isAR && sub.stages?.name_ar) || sub.stages?.name}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1A' }}>{(isAR && stage.name_ar) || stage.name}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
           <span style={{ fontSize: 13, color: '#7A7068' }}>{isAR ? 'الخطة' : 'Plan'}</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1A' }}>{(isAR && sub.payment_cycles?.label_ar) || sub.payment_cycles?.label}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#1C1C1A' }}>{(isAR && cycle.label_ar) || cycle.label}</span>
         </div>
         {promoInfo && (
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2D6A4F', fontSize: 13 }}>
             <span>{isAR ? `خصم ${promoInfo.discount_percent}%` : `${promoInfo.discount_percent}% discount`}</span>
-            <span>−{sub.total_price - discountedPrice} {isAR ? 'ريال' : 'SAR'}</span>
+            <span>−{basePrice - discountedPrice} {isAR ? 'ريال' : 'SAR'}</span>
           </div>
         )}
         {prePromo && !promoInfo && (
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#2D6A4F', fontSize: 13 }}>
-            <span>{isAR ? `كود ${sub.promo_code} (${sub.discount_percent}%)` : `Code ${sub.promo_code} (${sub.discount_percent}%)`}</span>
+            <span>{isAR ? `كود ${prePromoCode} (${prePromoDiscount}%)` : `Code ${prePromoCode} (${prePromoDiscount}%)`}</span>
             <span>{isAR ? 'مُطبّق' : 'applied'}</span>
           </div>
         )}

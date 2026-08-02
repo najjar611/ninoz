@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMockSubscriberId } from '@/lib/mockSession'
 import { useAccountLang } from '@/lib/AccountLangContext'
+import BrandSelect from '@/components/BrandSelect'
+import PlaceSearch from '@/components/PlaceSearch'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
 
@@ -30,7 +32,7 @@ function loadMaps(): Promise<void> {
   if (mapsPromise) return mapsPromise
   mapsPromise = new Promise((resolve, reject) => {
     const s = document.createElement('script')
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places&language=ar&region=SA&loading=async&v=weekly`
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places&language=ar&region=SA&v=weekly`
     s.async = true; s.onload = () => resolve(); s.onerror = () => reject()
     document.head.appendChild(s)
   })
@@ -63,6 +65,9 @@ export default function Location() {
   const [locating, setLocating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [oorMsg, setOorMsg] = useState('')
+  const [oorMsgAr, setOorMsgAr] = useState('')
+  const [waNumber, setWaNumber] = useState('966591976737')
 
   const mapRef = useRef<HTMLDivElement | null>(null)
   const searchRef = useRef<HTMLDivElement | null>(null)
@@ -80,11 +85,14 @@ export default function Location() {
     supabase.from('subscribers').select('parent_name, mobile_number').eq('id', id).maybeSingle().then(({ data }) => {
       if (data) { setSubName((data as any).parent_name || ''); setSubPhone((data as any).mobile_number || '') }
     })
-    supabase.from('site_content').select('key, value').in('key', ['delivery_zone_polygon', 'delivery_zone_enforce']).then(({ data }) => {
+    supabase.from('site_content').select('key, value').in('key', ['delivery_zone_polygon', 'delivery_zone_enforce', 'out_of_area_message', 'out_of_area_message_ar', 'contact_whatsapp']).then(({ data }) => {
       const map: Record<string, string> = {}
       ;((data as any[]) || []).forEach(r => { map[r.key] = r.value })
       if (map.delivery_zone_polygon) { try { const p = JSON.parse(map.delivery_zone_polygon); if (Array.isArray(p) && p.length >= 3) setZone(p) } catch {} }
       if (map.delivery_zone_enforce === 'false') setEnforce(false)
+      setOorMsg(map.out_of_area_message || '')
+      setOorMsgAr(map.out_of_area_message_ar || '')
+      if (map.contact_whatsapp) setWaNumber(map.contact_whatsapp.replace(/\D/g, ''))
     })
     // Admin-managed lists for the dropdowns (defensive: table may not exist yet).
     supabase.from('service_regions').select('id, name, name_en').eq('is_active', true).order('position').then(({ data }) => setRegions((data as any) || []))
@@ -95,7 +103,7 @@ export default function Location() {
     const gmaps = (window as any).google?.maps
     if (!gmaps) return
     new gmaps.Geocoder().geocode({ location: { lat, lng } }, (res: any, status: string) => {
-      if (status === 'OK' && res?.[0]) { setAddress(res[0].formatted_address); setNational(res[0].formatted_address) }
+      if (status === 'OK' && res?.[0]) { setNational(res[0].formatted_address) }
     })
   }
 
@@ -113,27 +121,7 @@ export default function Location() {
       const update = (p: any) => { const lat = p.lat(), lng = p.lng(); setPos({ lat, lng }); reverseGeocode(lat, lng) }
       marker.addListener('dragend', () => update(marker.getPosition()))
       map.addListener('click', (e: any) => { marker.setPosition(e.latLng); update(e.latLng) })
-      new gmaps.Polygon({ map, paths: zone.map(([lng, lat]) => ({ lat, lng })), strokeColor: '#2D6A4F', strokeOpacity: 0.8, strokeWeight: 2, fillColor: '#2D6A4F', fillOpacity: 0.08 })
-      // New Places API: PlaceAutocompleteElement (the legacy Autocomplete is
-      // not available to projects created after March 2025).
-      if (searchRef.current) {
-        try {
-          const places = await gmaps.importLibrary('places')
-          searchRef.current.innerHTML = ''
-          const pac = new places.PlaceAutocompleteElement({ includedRegionCodes: ['sa'] })
-          pac.style.width = '100%'
-          searchRef.current.appendChild(pac)
-          pac.addEventListener('gmp-select', async (ev: any) => {
-            const place = ev.placePrediction.toPlace()
-            await place.fetchFields({ fields: ['location', 'formattedAddress'] })
-            const loc = place.location
-            if (!loc) return
-            map.panTo(loc); map.setZoom(15); marker.setPosition(loc)
-            setPos({ lat: loc.lat(), lng: loc.lng() })
-            setAddress(place.formattedAddress || ''); setNational(place.formattedAddress || '')
-          })
-        } catch {}
-      }
+      new gmaps.Polygon({ map, paths: zone.map(([lng, lat]) => ({ lat, lng })), clickable: false, strokeColor: '#2D6A4F', strokeOpacity: 0.8, strokeWeight: 2, fillColor: '#2D6A4F', fillOpacity: 0.08 })
     }).catch(() => {})
     return () => { cancelled = true }
   }, [checking, zone])
@@ -144,9 +132,30 @@ export default function Location() {
     if (!blocked || leadSentRef.current) return
     leadSentRef.current = true
     supabase.from('delivery_zone_requests').insert({
-      name: subName || null, phone: subPhone || null, area_text: address || null, lat: pos?.lat ?? null, lng: pos?.lng ?? null,
+      name: subName || null, phone: subPhone || null, area_text: national || null, lat: pos?.lat ?? null, lng: pos?.lng ?? null,
     }).then(() => setLeadDone(true))
   }, [blocked])
+
+  // Auto-select region/district from the pin: inside the zone → the served
+  // region (North Riyadh); outside → "Others" for both.
+  const isOthers = (n?: string | null, e?: string | null) => {
+    const v = (s?: string | null) => (s || '').trim().toLowerCase()
+    return ['أخرى', 'اخرى', 'others', 'other'].includes(v(n)) || ['others', 'other'].includes(v(e))
+  }
+  useEffect(() => {
+    if (!pos || regions.length === 0) return
+    const inside = pointInPolygon(pos.lat, pos.lng, zone)
+    const othersRegion = regions.find(r => isOthers(r.name, r.name_en))
+    const servedRegion = regions.find(r => !isOthers(r.name, r.name_en))
+    const othersDistrict = districts.find(d => isOthers(d.name, d.name_en))
+    if (inside) {
+      if (servedRegion) setRegionId(servedRegion.id)
+      setDistrictId(prev => (othersDistrict && prev === othersDistrict.id ? '' : prev))
+    } else {
+      if (othersRegion) setRegionId(othersRegion.id)
+      if (othersDistrict) setDistrictId(othersDistrict.id)
+    }
+  }, [pos, regions, districts, zone])
 
   if (checking) return null
 
@@ -155,16 +164,18 @@ export default function Location() {
   const districtName = (id: string) => { const d = districts.find(x => x.id === id); return d ? ((isAR ? d.name : (d.name_en || d.name))) : '' }
 
   async function save() {
+    // Enforce the zone first: outside → waitlist (auto-recorded elsewhere).
+    if (enforce && pos && !pointInPolygon(pos.lat, pos.lng, zone)) { setBlocked(true); setError(''); return }
+    if (!national.trim() && !pos) { setError(isAR ? 'يرجى تحديد موقعك على الخريطة' : 'Please set your location on the map'); return }
     if (regions.length > 0 && !regionId) { setError(isAR ? 'يرجى اختيار المنطقة' : 'Please choose the region'); return }
     if (districtOptions.length > 0 && !districtId) { setError(isAR ? 'يرجى اختيار الحي' : 'Please choose the district'); return }
-    if (!address.trim()) { setError(isAR ? 'يرجى تحديد موقعك على الخريطة أو إدخال العنوان' : 'Please set your location or enter the address'); return }
-    if (enforce && pos && !pointInPolygon(pos.lat, pos.lng, zone)) { setBlocked(true); setError(''); return }
     setSaving(true); setError('')
     const id = getMockSubscriberId()
-    const { error: err } = await supabase.from('subscribers').update({ delivery_address: address }).eq('id', id)
+    const primary = national.trim() || address.trim()
+    const { error: err } = await supabase.from('subscribers').update({ delivery_address: primary }).eq('id', id)
     if (!err) {
       const { data: cur } = await supabase.from('subscribers').select('address_details').eq('id', id).maybeSingle()
-      const details = { ...((cur as any)?.address_details || {}), lat: pos?.lat ?? null, lng: pos?.lng ?? null, region: regionName(regionId), district: districtName(districtId), national }
+      const details = { ...((cur as any)?.address_details || {}), lat: pos?.lat ?? null, lng: pos?.lng ?? null, region: regionName(regionId), district: districtName(districtId), national, note: address.trim() || null }
       await supabase.from('subscribers').update({ address_details: details }).eq('id', id)
     }
     setSaving(false)
@@ -224,13 +235,16 @@ export default function Location() {
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
         </div>
         <h1 style={{ fontSize: 19, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'شكراً لك!' : 'Thank you!'}</h1>
-        <p style={{ fontSize: 13.5, color: '#7A7068', lineHeight: 1.7, maxWidth: 360, margin: '0 auto' }}>
-          {isAR
+        <p style={{ fontSize: 13.5, color: '#7A7068', lineHeight: 1.7, maxWidth: 360, margin: '0 auto', whiteSpace: 'pre-wrap' }}>
+          {(isAR ? oorMsgAr : oorMsg).trim() || (isAR
             ? 'نحن نوصّل حالياً في شمال الرياض فقط. سجّلنا اهتمامك بالفعل، وسنتواصل معك على رقمك فور توسّعنا إلى منطقتك.'
-            : "We currently deliver in North Riyadh only. We've already noted your interest and will reach you on your number as soon as we expand to your area."}
+            : "We currently deliver in North Riyadh only. We've already noted your interest and will reach you on your number as soon as we expand to your area.")}
         </p>
-        <button style={{ ...btn, background: '#1C1C1A' }} onClick={() => router.push('/')}>{isAR ? 'العودة للرئيسية' : 'Back to home'}</button>
-        <button style={{ width: '100%', padding: '10px', background: 'none', border: 'none', color: '#7A7068', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 6 }} onClick={() => { setBlocked(false); setLeadDone(false); leadSentRef.current = false; setError('') }}>{isAR ? 'تعديل الموقع' : 'Change location'}</button>
+        <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noreferrer" style={{ ...btn, background: '#25D366', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, textDecoration: 'none' }}>
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="#fff"><path d="M17.5 14.4c-.3-.2-1.7-.9-2-1-.3-.1-.5-.2-.6.2-.2.3-.7.9-.8 1-.2.2-.3.2-.6.1-1.5-.7-2.5-1.3-3.5-3-.3-.5.3-.4.7-1.3.1-.2 0-.4 0-.5s-.6-1.5-.9-2.1c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-1 .9-1.2 2.1-.4 3.4 1 1.6 2.3 3 4.4 3.9 2.9 1.2 2.9.8 3.4.8.5 0 1.6-.7 1.9-1.3.2-.6.2-1.2.1-1.3 0-.1-.2-.2-.5-.3zM12 2a10 10 0 0 0-8.5 15.2L2 22l4.9-1.3A10 10 0 1 0 12 2z" /></svg>
+          {isAR ? 'تواصل معنا' : 'Contact us'}
+        </a>
+        <button style={{ width: '100%', padding: '10px', background: 'none', border: 'none', color: '#7A7068', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 6 }} onClick={() => router.push('/')}>{isAR ? 'العودة للرئيسية' : 'Back to home'}</button>
       </div>
     )
   }
@@ -242,13 +256,22 @@ export default function Location() {
 
       {MAPS_KEY ? (
         <>
-          <div ref={searchRef} style={{ marginBottom: 10 }} />
-          <button onClick={useMyLocation} disabled={locating} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', marginBottom: 10, background: '#FDF0E8', color: '#C84B0F', border: '1.5px solid #F0C9A8', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', opacity: locating ? 0.6 : 1 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>
-            {locating ? (isAR ? 'جار تحديد موقعك…' : 'Locating…') : (isAR ? 'استخدم موقعي الحالي' : 'Use my current location')}
-          </button>
+          <div style={{ marginBottom: 10 }}>
+            <PlaceSearch isAR={isAR}
+              onSelect={({ lat, lng, address: addr }) => {
+                setPos({ lat, lng }); setNational(addr)
+                const m = mapObjRef.current, mk = markerRef.current
+                if (m && mk) { const ll = { lat, lng }; m.panTo(ll); m.setZoom(15); mk.setPosition(ll) }
+              }}
+              rightSlot={
+                <button onClick={useMyLocation} disabled={locating} title={isAR ? 'استخدم موقعي الحالي' : 'Use my current location'} style={{ width: 38, height: 38, borderRadius: 10, border: 'none', background: '#FDF0E8', color: '#C84B0F', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: locating ? 0.5 : 1 }}>
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>
+                </button>
+              }
+            />
+          </div>
           <div ref={mapRef} style={{ height: 280, borderRadius: 14, overflow: 'hidden', marginBottom: 12, border: '1.5px solid #EDE8E0' }} />
-          <p style={{ fontSize: 11.5, color: '#B0A098', marginTop: -4, marginBottom: 12 }}>{isAR ? 'استخدم زر «موقعي الحالي»، أو اضغط على الخريطة لتحديد موقعك.' : 'Use the "current location" button, or tap the map to set your spot.'}</p>
+          <p style={{ fontSize: 11.5, color: '#B0A098', marginTop: -4, marginBottom: 12 }}>{isAR ? 'اضغط على أيقونة الموقع بالأعلى، أو اضغط على الخريطة لتحديد موقعك.' : 'Tap the location icon in the search bar, or tap the map to set your spot.'}</p>
         </>
       ) : (
         <div style={{ height: 110, borderRadius: 12, background: '#F2EDE8', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, color: '#B0A098', fontSize: 12.5, fontWeight: 600, textAlign: 'center', padding: '0 16px' }}>
@@ -256,27 +279,27 @@ export default function Location() {
         </div>
       )}
 
-      {regions.length > 0 && (
-        <>
-          <label style={lbl}>{isAR ? 'المنطقة' : 'Region'}</label>
-          <select style={{ ...selStyle, marginBottom: 12 }} value={regionId} onChange={e => { setRegionId(e.target.value); setDistrictId('') }}>
-            <option value="">{isAR ? 'اختر المنطقة' : 'Choose region'}</option>
-            {regions.map(r => <option key={r.id} value={r.id}>{isAR ? r.name : (r.name_en || r.name)}</option>)}
-          </select>
-        </>
-      )}
-      {regions.length > 0 && (
-        <>
-          <label style={lbl}>{isAR ? 'الحي' : 'District'}</label>
-          <select style={{ ...selStyle, marginBottom: 12 }} value={districtId} onChange={e => setDistrictId(e.target.value)} disabled={districtOptions.length === 0}>
-            <option value="">{districtOptions.length === 0 ? (isAR ? 'لا توجد أحياء متاحة بعد' : 'No districts available yet') : (isAR ? 'اختر الحي' : 'Choose district')}</option>
-            {districtOptions.map(d => <option key={d.id} value={d.id}>{isAR ? d.name : (d.name_en || d.name)}</option>)}
-          </select>
-        </>
-      )}
+      {regions.length > 0 && (() => {
+        // Outside the zone → lock both to "Others" only. Inside/no pin → hide Others.
+        const outside = pos ? !pointInPolygon(pos.lat, pos.lng, zone) : false
+        const regionChoices = outside
+          ? regions.filter(r => isOthers(r.name, r.name_en))
+          : regions.filter(r => !isOthers(r.name, r.name_en))
+        const distChoices = outside
+          ? districts.filter(d => isOthers(d.name, d.name_en))
+          : districtOptions.filter(d => !isOthers(d.name, d.name_en))
+        return (
+          <>
+            <label style={lbl}>{isAR ? 'المنطقة' : 'Region'}</label>
+            <BrandSelect isAR={isAR} value={regionId} onChange={v => { setRegionId(v); setDistrictId('') }} disabled={outside} placeholder={isAR ? 'اختر المنطقة' : 'Choose region'} options={regionChoices.map(r => ({ value: r.id, label: isAR ? r.name : (r.name_en || r.name) }))} />
+            <label style={lbl}>{isAR ? 'الحي' : 'District'}</label>
+            <BrandSelect isAR={isAR} value={districtId} onChange={setDistrictId} disabled={outside || distChoices.length === 0} placeholder={distChoices.length === 0 ? (isAR ? 'لا توجد أحياء متاحة بعد' : 'No districts available yet') : (isAR ? 'اختر الحي' : 'Choose district')} options={distChoices.map(d => ({ value: d.id, label: isAR ? d.name : (d.name_en || d.name) }))} />
+          </>
+        )
+      })()}
 
       <label style={lbl}>{isAR ? 'العنوان الوطني (يُملأ تلقائياً من الخريطة)' : 'National address (auto-filled from the map)'}</label>
-      <input style={{ ...inp, marginBottom: 12 }} value={national} onChange={e => setNational(e.target.value)} placeholder={isAR ? 'سيُملأ عند تحديد الموقع' : 'Fills when you pin the map'} />
+      <input style={{ ...inp, marginBottom: 12, background: pos ? '#F5F1EC' : '#fff', color: pos ? '#7A7068' : '#1C1C1A' }} value={national} readOnly={!!pos} onChange={e => setNational(e.target.value)} placeholder={isAR ? 'سيُملأ عند تحديد الموقع' : 'Fills when you pin the map'} />
 
       <label style={lbl}>{isAR ? 'تفاصيل العنوان' : 'Address details'}</label>
       <textarea style={{ ...inp, height: 70, resize: 'vertical' }} placeholder={isAR ? 'المبنى، الشارع، رقم الشقة' : 'Building, street, apartment no.'} value={address} onChange={e => setAddress(e.target.value)} />

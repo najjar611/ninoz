@@ -24,12 +24,12 @@ export default function AccountBottomBar({ whats }: { whats: string }) {
     : { label: isAR ? 'ابدئي خطتك' : 'Start Plan', go: () => router.push('/account/profile'), pulse: true }
 
   const items = [
-    { key: 'home', label: isAR ? 'الرئيسية' : 'Home', go: () => router.push('/'), active: false, pulse: false,
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /></svg> },
-    { key: 'plan', label: planItem.label, go: planItem.go, active: path.startsWith('/account/dashboard') || path.startsWith('/account/plan'), pulse: planItem.pulse,
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M8 10h8M8 14h5" /></svg> },
     { key: 'account', label: isAR ? 'حسابي' : 'Account', go: () => router.push('/account'), active: path === '/account', pulse: false,
       icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="8" r="3.3" /><path d="M5.5 20c0-3 3-4.8 6.5-4.8s6.5 1.8 6.5 4.8" /></svg> },
+    { key: 'plan', label: planItem.label, go: planItem.go, active: path.startsWith('/account/dashboard') || path.startsWith('/account/plan'), pulse: planItem.pulse,
+      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M8 10h8M8 14h5" /></svg> },
+    { key: 'home', label: isAR ? 'الرئيسية' : 'Home', go: () => router.push('/'), active: false, pulse: false,
+      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /></svg> },
   ]
 
   return (

@@ -110,7 +110,7 @@ export default function HomeClient(p: Props) {
   // Auto-advance the news cards every 6 seconds when there's more than one.
   useEffect(() => {
     if (totN <= 1) return
-    const t = setInterval(() => { setNewsOpen(false); setNewsI(i => (i + 1) % totN) }, 6000)
+    const t = setInterval(() => { setNewsOpen(false); setNewsI(i => (i + 1) % totN) }, 20000)
     return () => clearInterval(t)
   }, [totN])
 
@@ -158,27 +158,38 @@ export default function HomeClient(p: Props) {
         .vD .glass{ background:var(--glass); border:1px solid var(--line); backdrop-filter:blur(16px); border-radius:24px; }
         .vD .svcbar{ background:linear-gradient(90deg,var(--orange),var(--gold)); color:#1a120a; text-align:center; padding:9px 16px; font-size:.86rem; font-weight:800; display:flex; align-items:center; justify-content:center; gap:7px; }
         .vD .greet{ margin-top:12px; font-size:1.25rem; font-weight:800; color:var(--gold); } .vD .greet b{ color:var(--tx); }
-        .vD .newsstack{ position:relative; margin-top:16px; }
-        .vD .newsstack .peek{ position:absolute; left:10px; right:10px; top:8px; height:60px; border-radius:20px; background:linear-gradient(120deg,rgba(255,122,51,.10),rgba(245,199,126,.06)); border:1px solid var(--line); z-index:0; }
-        .vD .newsstack .peek.two{ left:20px; right:20px; top:16px; opacity:.6; }
-        .vD .news{ position:relative; z-index:1; padding:18px 18px 16px; border-radius:20px; cursor:pointer; text-align:center; background:linear-gradient(120deg,rgba(255,122,51,.16),rgba(245,199,126,.10)); border:1px solid var(--line); }
-        .vD .news .ntag{ color:var(--gold); font-weight:800; letter-spacing:.2em; text-transform:uppercase; font-size:.9rem; }
-        .vD .news h4{ font-size:1.55rem; font-weight:800; margin:6px 0 0; color:var(--tx); line-height:1.2; }
-        .vD .news .nbody{ color:var(--mut); line-height:1.6; font-size:.92rem; margin-top:10px; }
-        .vD .news .nnav{ display:flex; align-items:center; justify-content:center; gap:12px; margin-top:14px; }
-        .vD .news .nnav button{ width:32px; height:32px; border-radius:50%; border:1px solid var(--line); background:var(--glass); color:var(--gold); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-        .vD .news .ndots{ display:flex; gap:6px; }
-        .vD .news .ndots i{ width:6px; height:6px; border-radius:50%; background:var(--line); display:inline-block; } .vD .news .ndots i.on{ background:var(--gold); width:16px; border-radius:3px; }
+        /* Floating pill news carousel */
+        .vD .newspill{ margin-top:16px; }
+        .vD .newspill .pill{ position:relative; display:flex; align-items:flex-start; gap:12px; width:100%; text-align:start;
+          padding:16px 18px; border-radius:20px; border:1px solid rgba(255,199,126,.22);
+          background:linear-gradient(120deg,rgba(255,122,51,.13),rgba(245,199,126,.08));
+          box-shadow:0 10px 26px rgba(0,0,0,.16);
+          animation:ninozFloat 5.5s ease-in-out infinite; touch-action:pan-y; }
+        .vD .newspill .fade{ animation:ninozNewsFade .5s ease; }
+        @keyframes ninozNewsFade{ 0%{opacity:0; transform:translateX(10px)} 100%{opacity:1; transform:translateX(0)} }
+        .vD .newspill .pill:active{ transform:scale(.985); }
+        .vD .newspill .pill.open{ border-radius:22px; padding:16px 18px; align-items:flex-start; animation:none; }
+        @keyframes ninozFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+        .vD .newspill .bell{ flex-shrink:0; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+          background:linear-gradient(135deg,var(--orange),var(--gold)); color:#1a120a; box-shadow:0 4px 12px rgba(255,122,51,.4); }
+        .vD .newspill .txt{ flex:1; min-width:0; }
+        .vD .newspill .ntag{ display:flex; align-items:center; gap:6px; color:var(--gold); font-weight:800; letter-spacing:.14em; text-transform:uppercase; font-size:.62rem; }
+        .vD .newspill .ntag .dot{ width:6px; height:6px; border-radius:50%; background:var(--orange); box-shadow:0 0 0 0 rgba(255,122,51,.6); animation:ninozBlink 1.6s infinite; }
+        @keyframes ninozBlink{0%{box-shadow:0 0 0 0 rgba(255,122,51,.5)}70%{box-shadow:0 0 0 7px rgba(255,122,51,0)}100%{box-shadow:0 0 0 0 rgba(255,122,51,0)}}
+        .vD .newspill h4{ font-size:1.05rem; font-weight:800; margin:2px 0 0; color:var(--tx); line-height:1.3; }
+        .vD .newspill .nbody{ color:var(--mut); line-height:1.65; font-size:.9rem; margin-top:8px; }
+        .vD .newspill .ndots{ display:flex; gap:6px; justify-content:center; margin-top:11px; }
+        .vD .newspill .ndots button{ width:6px; height:6px; border-radius:50%; background:var(--line); display:inline-block; transition:width .2s, background .2s; } .vD .newspill .ndots button.on{ background:var(--gold); width:16px; border-radius:3px; }
         .vD .foot .frow{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
         .vD .foot .frow a{ display:inline-flex; align-items:center; gap:8px; padding:11px 18px; border-radius:999px; text-decoration:none; font-weight:800; font-size:.86rem; border:1px solid var(--line); }
         .vD .foot .frow .wa2{ background:#25D366; color:#fff; border-color:transparent; } .vD .foot .frow .em{ background:var(--glass); color:var(--tx); } .vD .foot .frow .ig{ background:var(--glass); color:var(--tx); }
 
         .vD .hdr{ position:sticky; top:0; z-index:40; background:linear-gradient(180deg,var(--bg) 60%,transparent); backdrop-filter:blur(10px); }
         .vD .hdrin{ display:flex; align-items:center; justify-content:space-between; padding:26px 8px 14px; direction:ltr; }
-        .vD .brand img{ height:112px; max-height:120px; width:auto; object-fit:contain; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
-        .vD .brand span{ font-size:2.8rem; font-weight:800; color:var(--orange); }
+        .vD .brand img{ height:134px; max-height:140px; width:auto; object-fit:contain; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
+        .vD .brand span{ font-size:3rem; font-weight:800; color:var(--orange); }
         .vD .hr{ display:flex; gap:10px; align-items:center; }
-        .vD .gbtn{ border:1px solid var(--line); background:var(--glass); color:var(--tx); border-radius:999px; padding:6px 12px; font-weight:700; font-size:.72rem; backdrop-filter:blur(10px); transition:transform .15s; }
+        .vD .gbtn{ border:1px solid var(--line); background:var(--glass); color:var(--tx); border-radius:999px; padding:5px 11px; font-weight:700; font-size:.64rem; backdrop-filter:blur(10px); transition:transform .15s; }
         .vD .gbtn:active{ transform:scale(.94); }
         .vD .gic{ width:44px; height:44px; border-radius:50%; border:1px solid var(--line); background:var(--glass); color:var(--lime); display:flex; align-items:center; justify-content:center; }
 
@@ -218,8 +229,10 @@ export default function HomeClient(p: Props) {
         .vD .chip{ flex:0 0 auto; border:1px solid var(--line); background:none; color:var(--lime); padding:6px 14px; border-radius:999px; font-weight:800; font-size:.8rem; }
         .vD .chip.on{ background:var(--lime); color:#0C1A15; border-color:transparent; }
 
-        .vD .meal{ overflow:hidden; display:flex; flex-direction:column; }
-        .vD .meal .body{ min-height:250px; display:flex; flex-direction:column; }
+        .vD .meal{ overflow:hidden; display:flex; flex-direction:column; min-height:520px; }
+        .vD .meal .body{ flex:1; display:flex; flex-direction:column; }
+        .vD .meal .body h3{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:2.4em; }
+        .vD .meal .body .d{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; min-height:4.2em; }
         .vD .meal .ph{ height:210px; background:#0e241c; position:relative; flex-shrink:0; }
         .vD .meal .ph img{ width:100%; height:100%; object-fit:cover; }
         .vD .meal .body{ padding:18px; }
@@ -281,19 +294,22 @@ export default function HomeClient(p: Props) {
 
       {curN && (
         <div className="wrap">
-          <div className="newsstack">
-            {totN > 1 && <div className="peek two" />}
-            {totN > 1 && <div className="peek" />}
-            <div className="news" onClick={() => setNewsOpen(o => !o)}
+          <div className="newspill">
+            <div className="pill"
               onTouchStart={e => { newsTouchX.current = e.touches[0].clientX }}
               onTouchEnd={e => { if (newsTouchX.current == null) return; const d = newsTouchX.current - e.changedTouches[0].clientX; if (d > 40) nextN(); if (d < -40) prevN(); newsTouchX.current = null }}>
-              <div className="ntag">{isAR ? 'أخبار نينوز' : 'Ninoz News'}</div>
-              <h4>{nName(curN)}</h4>
-              {newsOpen && nBody(curN) && <div className="nbody">{nBody(curN)}</div>}
-              {totN > 1 && (
-                <div className="ndots" style={{ justifyContent: 'center', marginTop: 14 }}>{newsItems.map((_, i) => <i key={i} className={i === (newsI % totN) ? 'on' : ''} />)}</div>
-              )}
+              <div className="bell">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
+              </div>
+              <div className="txt fade" key={newsI}>
+                <div className="ntag"><span className="dot" />{isAR ? 'أخبار نينوز' : 'Ninoz News'}</div>
+                <h4>{nName(curN)}</h4>
+                {nBody(curN) && <div className="nbody">{nBody(curN)}</div>}
+              </div>
             </div>
+            {totN > 1 && (
+              <div className="ndots">{newsItems.map((_, i) => <button key={i} aria-label={`news ${i + 1}`} onClick={() => setNewsI(i)} className={i === (newsI % totN) ? 'on' : ''} style={{ padding: 0, border: 'none', cursor: 'pointer' }} />)}</div>
+            )}
           </div>
         </div>
       )}
@@ -326,7 +342,7 @@ export default function HomeClient(p: Props) {
             <div className="glass meal" onTouchStart={e => { mealTouchX.current = e.touches[0].clientX }} onTouchEnd={e => { if (mealTouchX.current == null) return; const d = mealTouchX.current - e.changedTouches[0].clientX; if (d > 40) nextM(); if (d < -40) prevM(); mealTouchX.current = null }}>
               <div className="ph">{currM.image_url ? <img src={currM.image_url} alt={mName(currM)} /> : null}</div>
               <div className="body">
-                <div className="row"><h3>{mName(currM)}</h3><div className="navb"><button className="rnd" onClick={prevM}>{arrow('prev')}</button><button className="rnd" onClick={nextM}>{arrow('next')}</button></div></div>
+                <div className="row"><h3>{mName(currM)}</h3></div>
                 <div className="d">{mDesc(currM)}</div>
                 <div className="mac">{[{ v: currM.weight_g, l: isAR ? 'وزن' : 'Weight' }, { v: currM.protein_g, l: isAR ? 'بروتين' : 'Protein' }, { v: currM.carbs_g, l: isAR ? 'كارب' : 'Carbs' }, { v: currM.fiber_g, l: isAR ? 'ألياف' : 'Fiber' }].map(n => <div key={n.l}><b>{n.v ? `${n.v}g` : '0'}</b><span>{n.l}</span></div>)}</div>
                 {currM.allergens && <div className="aller">{isAR ? 'حساسية: ' : 'Allergens: '}{mAllergens(currM)}</div>}
@@ -361,9 +377,9 @@ export default function HomeClient(p: Props) {
       </div>
 
       <nav className="tabbar">
-        <button className="tbi on" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>{isAR ? 'الرئيسية' : 'Home'}</button>
-        <button className={`tbi ${hasPlan ? '' : 'startplan'}`} onClick={() => hasPlan ? router.push('/account/dashboard') : startPlan()}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 10h8M8 14h5"/></svg>{hasPlan ? (isAR ? 'خطتي' : 'My Plan') : (isAR ? 'ابدئي خطتك' : 'Start Plan')}</button>
         <button className="tbi" onClick={goToAccount}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="8" r="3.3"/><path d="M5.5 20c0-3 3-4.8 6.5-4.8s6.5 1.8 6.5 4.8"/></svg>{isAR ? 'حسابي' : 'Account'}</button>
+        <button className={`tbi ${hasPlan ? '' : 'startplan'}`} onClick={() => hasPlan ? router.push('/account/dashboard') : startPlan()}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 10h8M8 14h5"/></svg>{hasPlan ? (isAR ? 'خطتي' : 'My Plan') : (isAR ? 'ابدئي خطتك' : 'Start Plan')}</button>
+        <button className="tbi on" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>{isAR ? 'الرئيسية' : 'Home'}</button>
       </nav>
     </div>
   )

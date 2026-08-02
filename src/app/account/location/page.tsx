@@ -30,7 +30,7 @@ function loadMaps(): Promise<void> {
   if (mapsPromise) return mapsPromise
   mapsPromise = new Promise((resolve, reject) => {
     const s = document.createElement('script')
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places&language=ar&region=SA`
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places&language=ar&region=SA&loading=async&v=weekly`
     s.async = true; s.onload = () => resolve(); s.onerror = () => reject()
     document.head.appendChild(s)
   })
@@ -64,7 +64,7 @@ export default function Location() {
   const [error, setError] = useState('')
 
   const mapRef = useRef<HTMLDivElement | null>(null)
-  const searchRef = useRef<HTMLInputElement | null>(null)
+  const searchRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const id = getMockSubscriberId()
@@ -93,7 +93,7 @@ export default function Location() {
   useEffect(() => {
     if (checking || !MAPS_KEY || !mapRef.current) return
     let cancelled = false
-    loadMaps().then(() => {
+    loadMaps().then(async () => {
       if (cancelled || !mapRef.current) return
       const gmaps = (window as any).google.maps
       const center = { lat: 24.83, lng: 46.68 }
@@ -103,14 +103,25 @@ export default function Location() {
       marker.addListener('dragend', () => update(marker.getPosition()))
       map.addListener('click', (e: any) => { marker.setPosition(e.latLng); update(e.latLng) })
       new gmaps.Polygon({ map, paths: zone.map(([lng, lat]) => ({ lat, lng })), strokeColor: '#2D6A4F', strokeOpacity: 0.8, strokeWeight: 2, fillColor: '#2D6A4F', fillOpacity: 0.08 })
+      // New Places API: PlaceAutocompleteElement (the legacy Autocomplete is
+      // not available to projects created after March 2025).
       if (searchRef.current) {
-        const ac = new gmaps.places.Autocomplete(searchRef.current, { componentRestrictions: { country: 'sa' }, fields: ['geometry', 'formatted_address'] })
-        ac.addListener('place_changed', () => {
-          const place = ac.getPlace(); if (!place.geometry) return
-          const loc = place.geometry.location
-          map.panTo(loc); map.setZoom(15); marker.setPosition(loc)
-          setPos({ lat: loc.lat(), lng: loc.lng() }); setAddress(place.formatted_address || ''); setNational(place.formatted_address || '')
-        })
+        try {
+          const places = await gmaps.importLibrary('places')
+          searchRef.current.innerHTML = ''
+          const pac = new places.PlaceAutocompleteElement({ includedRegionCodes: ['sa'] })
+          pac.style.width = '100%'
+          searchRef.current.appendChild(pac)
+          pac.addEventListener('gmp-select', async (ev: any) => {
+            const place = ev.placePrediction.toPlace()
+            await place.fetchFields({ fields: ['location', 'formattedAddress'] })
+            const loc = place.location
+            if (!loc) return
+            map.panTo(loc); map.setZoom(15); marker.setPosition(loc)
+            setPos({ lat: loc.lat(), lng: loc.lng() })
+            setAddress(place.formattedAddress || ''); setNational(place.formattedAddress || '')
+          })
+        } catch {}
       }
     }).catch(() => {})
     return () => { cancelled = true }
@@ -207,7 +218,7 @@ export default function Location() {
 
       {MAPS_KEY ? (
         <>
-          <input ref={searchRef} style={{ ...inp, marginBottom: 10 }} placeholder={isAR ? 'ابحث عن موقعك…' : 'Search for your location…'} />
+          <div ref={searchRef} style={{ marginBottom: 10 }} />
           <div ref={mapRef} style={{ height: 280, borderRadius: 14, overflow: 'hidden', marginBottom: 12, border: '1.5px solid #EDE8E0' }} />
           <p style={{ fontSize: 11.5, color: '#B0A098', marginTop: -4, marginBottom: 12 }}>{isAR ? 'اضغط على الخريطة أو اسحب الدبوس لتحديد موقعك.' : 'Tap the map or drag the pin to set your spot.'}</p>
         </>

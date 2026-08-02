@@ -15,7 +15,7 @@ function loadMaps(): Promise<void> {
   if (mapsPromise) return mapsPromise
   mapsPromise = new Promise((resolve, reject) => {
     const s = document.createElement('script')
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places&language=ar&region=SA`
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places&language=ar&region=SA&loading=async&v=weekly`
     s.async = true; s.onload = () => resolve(); s.onerror = () => reject()
     document.head.appendChild(s)
   })
@@ -76,7 +76,7 @@ export default function Account() {
   const [termsContent, setTermsContent] = useState('')
 
   const mapRef = useRef<HTMLDivElement | null>(null)
-  const searchRef = useRef<HTMLInputElement | null>(null)
+  const searchRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => { load() }, [])
 
@@ -131,7 +131,7 @@ export default function Account() {
   useEffect(() => {
     if (!editingAddress || !MAPS_KEY || !mapRef.current) return
     let cancelled = false
-    loadMaps().then(() => {
+    loadMaps().then(async () => {
       if (cancelled || !mapRef.current) return
       const gmaps = (window as any).google.maps
       const center = pos || { lat: 24.83, lng: 46.68 }
@@ -141,13 +141,21 @@ export default function Account() {
       marker.addListener('dragend', () => update(marker.getPosition()))
       map.addListener('click', (e: any) => { marker.setPosition(e.latLng); update(e.latLng) })
       if (searchRef.current) {
-        const ac = new gmaps.places.Autocomplete(searchRef.current, { componentRestrictions: { country: 'sa' }, fields: ['geometry', 'formatted_address'] })
-        ac.addListener('place_changed', () => {
-          const place = ac.getPlace(); if (!place.geometry) return
-          const loc = place.geometry.location
-          map.panTo(loc); map.setZoom(15); marker.setPosition(loc)
-          setPos({ lat: loc.lat(), lng: loc.lng() }); setNational(place.formatted_address || '')
-        })
+        try {
+          const places = await gmaps.importLibrary('places')
+          searchRef.current.innerHTML = ''
+          const pac = new places.PlaceAutocompleteElement({ includedRegionCodes: ['sa'] })
+          pac.style.width = '100%'
+          searchRef.current.appendChild(pac)
+          pac.addEventListener('gmp-select', async (ev: any) => {
+            const place = ev.placePrediction.toPlace()
+            await place.fetchFields({ fields: ['location', 'formattedAddress'] })
+            const loc = place.location
+            if (!loc) return
+            map.panTo(loc); map.setZoom(15); marker.setPosition(loc)
+            setPos({ lat: loc.lat(), lng: loc.lng() }); setNational(place.formattedAddress || '')
+          })
+        } catch {}
       }
     }).catch(() => {})
     return () => { cancelled = true }
@@ -221,14 +229,13 @@ export default function Account() {
             color: '#1C1C1A', fontWeight: 800, fontSize: 15, cursor: 'pointer', fontFamily: 'inherit',
           }}>
             <span>{isAR ? t.ar : t.en}</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C84B0F" strokeWidth="2.2" style={{ transform: isAR ? 'rotate(180deg)' : 'none' }}><path d="M9 6l6 6-6 6" /></svg>
           </button>
         ))}
       </div>
 
       {tab && (
-        <div onClick={() => setTab(null)} style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(12,26,21,0.55)', display: 'flex', alignItems: tab === 'address' ? 'stretch' : 'center', justifyContent: 'center', padding: tab === 'address' ? 0 : 18 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#FBF8F2', width: '100%', maxWidth: tab === 'address' ? '100%' : 520, borderRadius: tab === 'address' ? 0 : 20, padding: '20px 22px 26px', maxHeight: tab === 'address' ? '100%' : '85vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
+        <div onClick={() => setTab(null)} style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(12,26,21,0.28)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#FBF8F2', width: '100%', maxWidth: 520, borderRadius: 20, padding: '20px 22px 26px', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <h2 style={{ fontSize: 18, fontWeight: 900, color: '#1C1C1A', margin: 0 }}>{isAR ? (tabs.find(t => t.key === tab)?.ar) : (tabs.find(t => t.key === tab)?.en)}</h2>
               <button onClick={() => setTab(null)} style={{ background: '#F2EDE8', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 800, color: '#5A5048', cursor: 'pointer', fontFamily: 'inherit' }}>{isAR ? 'إغلاق' : 'Close'}</button>
@@ -285,7 +292,7 @@ export default function Account() {
               <p style={{ fontSize: 13, color: '#7A7068', marginBottom: 14 }}>{isAR ? 'حدّث موقعك بالخريطة والقوائم أدناه.' : 'Update your location with the map and menus below.'}</p>
               {MAPS_KEY ? (
                 <>
-                  <input ref={searchRef} style={inp} placeholder={isAR ? 'ابحث عن موقعك…' : 'Search for your location…'} />
+                  <div ref={searchRef} style={{ marginBottom: 14 }} />
                   <div ref={mapRef} style={{ height: 260, borderRadius: 14, overflow: 'hidden', marginBottom: 12, border: '1.5px solid #EDE8E0' }} />
                   <p style={{ fontSize: 11.5, color: '#B0A098', marginTop: -4, marginBottom: 12 }}>{isAR ? 'اضغط على الخريطة أو اسحب الدبوس لتحديد موقعك.' : 'Tap the map or drag the pin to set your spot.'}</p>
                 </>

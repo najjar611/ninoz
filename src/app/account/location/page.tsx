@@ -57,20 +57,29 @@ export default function Location() {
   const [districtId, setDistrictId] = useState('')
   const [blocked, setBlocked] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
-  const [leadName, setLeadName] = useState('')
-  const [leadPhone, setLeadPhone] = useState('')
+  const [subName, setSubName] = useState('')
+  const [subPhone, setSubPhone] = useState('')
   const [leadDone, setLeadDone] = useState(false)
+  const [locating, setLocating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const mapRef = useRef<HTMLDivElement | null>(null)
   const searchRef = useRef<HTMLDivElement | null>(null)
+  const mapObjRef = useRef<any>(null)
+  const markerRef = useRef<any>(null)
+  const leadSentRef = useRef(false)
 
   useEffect(() => {
     const id = getMockSubscriberId()
     if (!id) { router.replace('/account/signin?next=/account/location'); return }
     // Onboarding step: collect the delivery location before building the plan.
     setChecking(false)
+    // We already have the signed-in customer's name + number — no need to ask
+    // again if they turn out to be outside the delivery area.
+    supabase.from('subscribers').select('parent_name, mobile_number').eq('id', id).maybeSingle().then(({ data }) => {
+      if (data) { setSubName((data as any).parent_name || ''); setSubPhone((data as any).mobile_number || '') }
+    })
     supabase.from('site_content').select('key, value').in('key', ['delivery_zone_polygon', 'delivery_zone_enforce']).then(({ data }) => {
       const map: Record<string, string> = {}
       ;((data as any[]) || []).forEach(r => { map[r.key] = r.value })
@@ -99,6 +108,8 @@ export default function Location() {
       const center = { lat: 24.83, lng: 46.68 }
       const map = new gmaps.Map(mapRef.current, { center, zoom: 12, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy' })
       const marker = new gmaps.Marker({ position: center, map, draggable: true })
+      mapObjRef.current = map
+      markerRef.current = marker
       const update = (p: any) => { const lat = p.lat(), lng = p.lng(); setPos({ lat, lng }); reverseGeocode(lat, lng) }
       marker.addListener('dragend', () => update(marker.getPosition()))
       map.addListener('click', (e: any) => { marker.setPosition(e.latLng); update(e.latLng) })
@@ -152,18 +163,44 @@ export default function Location() {
     router.push('/account/plan')
   }
 
-  async function submitLead() {
-    if (!leadName.trim() || !/^0\d{9}$/.test(leadPhone.trim())) { setError(isAR ? 'أدخل اسمك ورقم جوال صحيح (10 أرقام يبدأ بـ 0)' : 'Enter your name and a valid 10-digit number'); return }
-    setSaving(true); setError('')
-    const { error: err } = await supabase.from('delivery_zone_requests').insert({ name: leadName.trim(), phone: leadPhone.trim(), area_text: address || null, lat: pos?.lat ?? null, lng: pos?.lng ?? null })
-    setSaving(false)
-    if (err) { setError(err.message); return }
-    setLeadDone(true)
+  // "Use my current location" — drop the pin on the device's GPS position
+  // instead of dragging the red marker manually.
+  function useMyLocation() {
+    if (!navigator.geolocation) { setError(isAR ? 'المتصفح لا يدعم تحديد الموقع' : 'Your browser does not support location'); return }
+    setLocating(true); setError('')
+    navigator.geolocation.getCurrentPosition(
+      p => {
+        setLocating(false)
+        const lat = p.coords.latitude, lng = p.coords.longitude
+        setPos({ lat, lng })
+        reverseGeocode(lat, lng)
+        const map = mapObjRef.current, marker = markerRef.current
+        if (map && marker) { const ll = { lat, lng }; map.panTo(ll); map.setZoom(16); marker.setPosition(ll) }
+      },
+      () => { setLocating(false); setError(isAR ? 'تعذّر تحديد موقعك. فعّل إذن الموقع وحاول مجدداً.' : 'Could not get your location. Enable location permission and try again.') },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
   }
 
-  const inp: React.CSSProperties = { width: '100%', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #EDE8E0', fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#1C1C1A', background: '#fff' }
-  const btn: React.CSSProperties = { width: '100%', padding: '13px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', marginTop: 12 }
-  const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 700, color: '#7A7068', marginBottom: 6 }
+  // Out-of-area but signed in: record the request automatically using the
+  // details we already have — no second form, admin gets notified.
+  useEffect(() => {
+    if (!blocked || leadSentRef.current) return
+    leadSentRef.current = true
+    supabase.from('delivery_zone_requests').insert({
+      name: subName || null, phone: subPhone || null, area_text: address || null, lat: pos?.lat ?? null, lng: pos?.lng ?? null,
+    }).then(() => setLeadDone(true))
+  }, [blocked])
+
+  const inp: React.CSSProperties = { width: '100%', padding: '13px 15px', borderRadius: 12, border: '1.5px solid #EAE3D9', fontSize: 14.5, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#1C1C1A', background: '#fff', accentColor: '#C84B0F' }
+  const selStyle: React.CSSProperties = {
+    ...inp, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
+    backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23C84B0F' stroke-width='2.2'><path d='M6 9l6 6 6-6'/></svg>\")",
+    backgroundRepeat: 'no-repeat', backgroundPosition: isAR ? 'left 14px center' : 'right 14px center', backgroundSize: '18px',
+    paddingRight: isAR ? 15 : 40, paddingLeft: isAR ? 40 : 15, cursor: 'pointer',
+  }
+  const btn: React.CSSProperties = { width: '100%', padding: '13px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', marginTop: 12 }
+  const lbl: React.CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 800, color: '#5A5048', marginBottom: 7 }
 
   if (subscribed) {
     return (
@@ -180,33 +217,20 @@ export default function Location() {
     )
   }
 
-  if (leadDone) {
+  if (blocked || leadDone) {
     return (
       <div style={{ textAlign: 'center', padding: '20px 6px' }}>
         <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#2D6A4F', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20 6 9 17l-5-5" /></svg>
         </div>
         <h1 style={{ fontSize: 19, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'شكراً لك!' : 'Thank you!'}</h1>
-        <p style={{ fontSize: 13.5, color: '#7A7068', lineHeight: 1.6, maxWidth: 340, margin: '0 auto' }}>{isAR ? 'سجّلنا اهتمامك. سنتواصل معك فور توسّعنا إلى منطقتك.' : "We've noted your interest and will reach out as soon as we expand to your area."}</p>
+        <p style={{ fontSize: 13.5, color: '#7A7068', lineHeight: 1.7, maxWidth: 360, margin: '0 auto' }}>
+          {isAR
+            ? 'نحن نوصّل حالياً في شمال الرياض فقط. سجّلنا اهتمامك بالفعل، وسنتواصل معك على رقمك فور توسّعنا إلى منطقتك.'
+            : "We currently deliver in North Riyadh only. We've already noted your interest and will reach you on your number as soon as we expand to your area."}
+        </p>
         <button style={{ ...btn, background: '#1C1C1A' }} onClick={() => router.push('/')}>{isAR ? 'العودة للرئيسية' : 'Back to home'}</button>
-      </div>
-    )
-  }
-
-  if (blocked) {
-    return (
-      <div style={{ padding: '10px 4px' }}>
-        <div style={{ background: '#FFF8EE', border: '1.5px solid #F0D9B0', borderRadius: 14, padding: '18px 20px', marginBottom: 18 }}>
-          <h1 style={{ fontSize: 18, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'لا نصل إلى منطقتك بعد' : "We don't reach your area yet"}</h1>
-          <p style={{ fontSize: 13.5, color: '#7A7068', lineHeight: 1.6 }}>{isAR ? 'نحن نوصّل حالياً في شمال الرياض فقط. اترك رقمك وسنبلغك فور توسّعنا إليك.' : "We currently deliver in North Riyadh only. Leave your number and we'll notify you when we expand."}</p>
-        </div>
-        <label style={lbl}>{isAR ? 'الاسم' : 'Name'}</label>
-        <input style={{ ...inp, marginBottom: 12 }} value={leadName} onChange={e => setLeadName(e.target.value)} placeholder={isAR ? 'اسمك' : 'Your name'} />
-        <label style={lbl}>{isAR ? 'رقم الجوال' : 'Mobile number'}</label>
-        <input style={inp} value={leadPhone} onChange={e => setLeadPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" placeholder="05xxxxxxxx" />
-        {error && <div style={{ color: '#DC2626', fontSize: 12.5, marginTop: 8 }}>{error}</div>}
-        <button style={{ ...btn, opacity: saving ? 0.6 : 1 }} disabled={saving} onClick={submitLead}>{saving ? (isAR ? 'جار الإرسال…' : 'Sending…') : (isAR ? 'أبلغوني عند التوسّع' : 'Notify me when you expand')}</button>
-        <button style={{ width: '100%', padding: '10px', background: 'none', border: 'none', color: '#7A7068', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 6 }} onClick={() => { setBlocked(false); setError('') }}>{isAR ? 'تعديل الموقع' : 'Change location'}</button>
+        <button style={{ width: '100%', padding: '10px', background: 'none', border: 'none', color: '#7A7068', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 6 }} onClick={() => { setBlocked(false); setLeadDone(false); leadSentRef.current = false; setError('') }}>{isAR ? 'تعديل الموقع' : 'Change location'}</button>
       </div>
     )
   }
@@ -219,8 +243,12 @@ export default function Location() {
       {MAPS_KEY ? (
         <>
           <div ref={searchRef} style={{ marginBottom: 10 }} />
+          <button onClick={useMyLocation} disabled={locating} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', marginBottom: 10, background: '#FDF0E8', color: '#C84B0F', border: '1.5px solid #F0C9A8', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', opacity: locating ? 0.6 : 1 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>
+            {locating ? (isAR ? 'جار تحديد موقعك…' : 'Locating…') : (isAR ? 'استخدم موقعي الحالي' : 'Use my current location')}
+          </button>
           <div ref={mapRef} style={{ height: 280, borderRadius: 14, overflow: 'hidden', marginBottom: 12, border: '1.5px solid #EDE8E0' }} />
-          <p style={{ fontSize: 11.5, color: '#B0A098', marginTop: -4, marginBottom: 12 }}>{isAR ? 'اضغط على الخريطة أو اسحب الدبوس لتحديد موقعك.' : 'Tap the map or drag the pin to set your spot.'}</p>
+          <p style={{ fontSize: 11.5, color: '#B0A098', marginTop: -4, marginBottom: 12 }}>{isAR ? 'استخدم زر «موقعي الحالي»، أو اضغط على الخريطة لتحديد موقعك.' : 'Use the "current location" button, or tap the map to set your spot.'}</p>
         </>
       ) : (
         <div style={{ height: 110, borderRadius: 12, background: '#F2EDE8', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, color: '#B0A098', fontSize: 12.5, fontWeight: 600, textAlign: 'center', padding: '0 16px' }}>
@@ -231,7 +259,7 @@ export default function Location() {
       {regions.length > 0 && (
         <>
           <label style={lbl}>{isAR ? 'المنطقة' : 'Region'}</label>
-          <select style={{ ...inp, marginBottom: 12 }} value={regionId} onChange={e => { setRegionId(e.target.value); setDistrictId('') }}>
+          <select style={{ ...selStyle, marginBottom: 12 }} value={regionId} onChange={e => { setRegionId(e.target.value); setDistrictId('') }}>
             <option value="">{isAR ? 'اختر المنطقة' : 'Choose region'}</option>
             {regions.map(r => <option key={r.id} value={r.id}>{isAR ? r.name : (r.name_en || r.name)}</option>)}
           </select>
@@ -240,7 +268,7 @@ export default function Location() {
       {regions.length > 0 && (
         <>
           <label style={lbl}>{isAR ? 'الحي' : 'District'}</label>
-          <select style={{ ...inp, marginBottom: 12 }} value={districtId} onChange={e => setDistrictId(e.target.value)} disabled={districtOptions.length === 0}>
+          <select style={{ ...selStyle, marginBottom: 12 }} value={districtId} onChange={e => setDistrictId(e.target.value)} disabled={districtOptions.length === 0}>
             <option value="">{districtOptions.length === 0 ? (isAR ? 'لا توجد أحياء متاحة بعد' : 'No districts available yet') : (isAR ? 'اختر الحي' : 'Choose district')}</option>
             {districtOptions.map(d => <option key={d.id} value={d.id}>{isAR ? d.name : (d.name_en || d.name)}</option>)}
           </select>

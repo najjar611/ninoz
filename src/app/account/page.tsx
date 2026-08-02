@@ -77,6 +77,9 @@ export default function Account() {
 
   const mapRef = useRef<HTMLDivElement | null>(null)
   const searchRef = useRef<HTMLDivElement | null>(null)
+  const mapObjRef = useRef<any>(null)
+  const markerRef = useRef<any>(null)
+  const [locating, setLocating] = useState(false)
 
   useEffect(() => { load() }, [])
 
@@ -137,6 +140,8 @@ export default function Account() {
       const center = pos || { lat: 24.83, lng: 46.68 }
       const map = new gmaps.Map(mapRef.current, { center, zoom: pos ? 15 : 12, disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy' })
       const marker = new gmaps.Marker({ position: center, map, draggable: true })
+      mapObjRef.current = map
+      markerRef.current = marker
       const update = (p: any) => { const lat = p.lat(), lng = p.lng(); setPos({ lat, lng }); reverseGeocode(lat, lng) }
       marker.addListener('dragend', () => update(marker.getPosition()))
       map.addListener('click', (e: any) => { marker.setPosition(e.latLng); update(e.latLng) })
@@ -160,6 +165,22 @@ export default function Account() {
     }).catch(() => {})
     return () => { cancelled = true }
   }, [editingAddress])
+
+  function useMyLocation() {
+    if (!navigator.geolocation) { showToast(isAR ? 'المتصفح لا يدعم تحديد الموقع' : 'Location not supported'); return }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      p => {
+        setLocating(false)
+        const lat = p.coords.latitude, lng = p.coords.longitude
+        setPos({ lat, lng }); reverseGeocode(lat, lng)
+        const map = mapObjRef.current, marker = markerRef.current
+        if (map && marker) { const ll = { lat, lng }; map.panTo(ll); map.setZoom(16); marker.setPosition(ll) }
+      },
+      () => { setLocating(false); showToast(isAR ? 'تعذّر تحديد موقعك' : 'Could not get your location') },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
 
   function logout() { clearMockSession(); router.push('/account/signin') }
   function showToast(m: string) { setToast(m); setTimeout(() => setToast(''), 2600) }
@@ -195,8 +216,14 @@ export default function Account() {
     setEditingAddress(false); showToast(isAR ? 'تم تحديث عنوان التوصيل' : 'Delivery address updated')
   }
 
-  const inp: React.CSSProperties = { width: '100%', padding: '12px 14px', borderRadius: 10, border: '1.5px solid #EDE8E0', fontSize: 15, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#1C1C1A', marginBottom: 14, background: '#fff' }
-  const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 700, color: '#7A7068', marginBottom: 6 }
+  const inp: React.CSSProperties = { width: '100%', padding: '13px 15px', borderRadius: 12, border: '1.5px solid #EAE3D9', fontSize: 15, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#1C1C1A', marginBottom: 14, background: '#fff', accentColor: '#C84B0F' }
+  const selStyle: React.CSSProperties = {
+    ...inp, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
+    backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23C84B0F' stroke-width='2.2'><path d='M6 9l6 6 6-6'/></svg>\")",
+    backgroundRepeat: 'no-repeat', backgroundPosition: isAR ? 'left 14px center' : 'right 14px center', backgroundSize: '18px',
+    paddingRight: isAR ? 15 : 40, paddingLeft: isAR ? 40 : 15, cursor: 'pointer',
+  }
+  const lbl: React.CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 800, color: '#5A5048', marginBottom: 7 }
   const btn: React.CSSProperties = { padding: '13px 22px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }
 
   if (loading) return <div style={{ textAlign: 'center', color: '#7A7068', padding: 20 }}>{isAR ? 'جار التحميل…' : 'Loading…'}</div>
@@ -255,7 +282,7 @@ export default function Account() {
             <div key={f.id}>
               <label style={lbl}>{(isAR ? (f.label_ar || f.label_en) : f.label_en)}{f.is_required && <span style={{ color: '#C84B0F' }}> *</span>}</label>
               {f.field_type === 'select' ? (
-                <select style={inp} value={extra[f.field_key] || ''} onChange={e => setExtra(prev => ({ ...prev, [f.field_key]: e.target.value }))}>
+                <select style={selStyle} value={extra[f.field_key] || ''} onChange={e => setExtra(prev => ({ ...prev, [f.field_key]: e.target.value }))}>
                   <option value="">{isAR ? 'اختر…' : 'Select…'}</option>
                   {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
@@ -292,7 +319,11 @@ export default function Account() {
               <p style={{ fontSize: 13, color: '#7A7068', marginBottom: 14 }}>{isAR ? 'حدّث موقعك بالخريطة والقوائم أدناه.' : 'Update your location with the map and menus below.'}</p>
               {MAPS_KEY ? (
                 <>
-                  <div ref={searchRef} style={{ marginBottom: 14 }} />
+                  <div ref={searchRef} style={{ marginBottom: 10 }} />
+                  <button onClick={useMyLocation} disabled={locating} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px', marginBottom: 12, background: '#FDF0E8', color: '#C84B0F', border: '1.5px solid #F0C9A8', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', opacity: locating ? 0.6 : 1 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3.2" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></svg>
+                    {locating ? (isAR ? 'جار تحديد موقعك…' : 'Locating…') : (isAR ? 'استخدم موقعي الحالي' : 'Use my current location')}
+                  </button>
                   <div ref={mapRef} style={{ height: 260, borderRadius: 14, overflow: 'hidden', marginBottom: 12, border: '1.5px solid #EDE8E0' }} />
                   <p style={{ fontSize: 11.5, color: '#B0A098', marginTop: -4, marginBottom: 12 }}>{isAR ? 'اضغط على الخريطة أو اسحب الدبوس لتحديد موقعك.' : 'Tap the map or drag the pin to set your spot.'}</p>
                 </>
@@ -302,12 +333,12 @@ export default function Account() {
               {regions.length > 0 && (
                 <>
                   <label style={lbl}>{isAR ? 'المنطقة' : 'Region'}</label>
-                  <select style={inp} value={regionId} onChange={e => { setRegionId(e.target.value); setDistrictId('') }}>
+                  <select style={selStyle} value={regionId} onChange={e => { setRegionId(e.target.value); setDistrictId('') }}>
                     <option value="">{isAR ? 'اختر المنطقة' : 'Choose region'}</option>
                     {regions.map(r => <option key={r.id} value={r.id}>{isAR ? r.name : (r.name_en || r.name)}</option>)}
                   </select>
                   <label style={lbl}>{isAR ? 'الحي' : 'District'}</label>
-                  <select style={inp} value={districtId} onChange={e => setDistrictId(e.target.value)} disabled={districtOptions.length === 0}>
+                  <select style={selStyle} value={districtId} onChange={e => setDistrictId(e.target.value)} disabled={districtOptions.length === 0}>
                     <option value="">{districtOptions.length === 0 ? (isAR ? 'لا توجد أحياء متاحة بعد' : 'No districts available yet') : (isAR ? 'اختر الحي' : 'Choose district')}</option>
                     {districtOptions.map(d => <option key={d.id} value={d.id}>{isAR ? d.name : (d.name_en || d.name)}</option>)}
                   </select>

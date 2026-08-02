@@ -9,7 +9,7 @@ const UNREAD_KEY = 'admin_notifications_unread_ids'
 
 type NotifItem = {
   id: string
-  type: 'review' | 'subscription' | 'freeze' | 'payment'
+  type: 'review' | 'subscription' | 'freeze' | 'payment' | 'zone'
   created_at: string
   label: string
   sub: string
@@ -28,7 +28,7 @@ export default function AdminNotifications() {
     const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()
     const previousSeen = localStorage.getItem(SEEN_KEY) || new Date(0).toISOString()
 
-    const [reviewRes, subRes, freezeRes, paymentRes] = await Promise.all([
+    const [reviewRes, subRes, freezeRes, paymentRes, zoneRes] = await Promise.all([
       supabase.from('meal_reviews')
         .select('id, created_at, comment, rating, subscribers(parent_name, kid_name)')
         .gte('created_at', since)
@@ -47,6 +47,11 @@ export default function AdminNotifications() {
         .limit(50),
       supabase.from('payments')
         .select('id, created_at, amount, status, subscriptions(subscribers(parent_name, kid_name))')
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabase.from('delivery_zone_requests')
+        .select('id, created_at, name, phone, area_text')
         .gte('created_at', since)
         .order('created_at', { ascending: false })
         .limit(50),
@@ -104,6 +109,16 @@ export default function AdminNotifications() {
       })
     })
 
+    ;((zoneRes.data || []) as any[]).forEach(z => {
+      out.push({
+        id: 'z_' + z.id,
+        type: 'zone',
+        created_at: z.created_at,
+        label: `Out-of-area request — ${z.name || 'Unknown'}`,
+        sub: `${z.phone || '—'}${z.area_text ? ' · ' + z.area_text.slice(0, 60) : ''}`,
+      })
+    })
+
     out.sort((a, b) => b.created_at.localeCompare(a.created_at))
     setItems(out)
     setLoading(false)
@@ -141,13 +156,13 @@ export default function AdminNotifications() {
   }
 
   const iconFor = (type: NotifItem['type']) =>
-    type === 'review' ? '⭐' : type === 'subscription' ? '✅' : type === 'freeze' ? '❄️' : '💳'
+    type === 'review' ? '⭐' : type === 'subscription' ? '✅' : type === 'freeze' ? '❄️' : type === 'zone' ? '📍' : '💳'
 
   const colorFor = (type: NotifItem['type']) =>
-    type === 'review' ? '#C84B0F' : type === 'subscription' ? '#2D6A4F' : type === 'freeze' ? '#1E6091' : '#8A6D3B'
+    type === 'review' ? '#C84B0F' : type === 'subscription' ? '#2D6A4F' : type === 'freeze' ? '#1E6091' : type === 'zone' ? '#8A3FFC' : '#8A6D3B'
 
   const bgFor = (type: NotifItem['type']) =>
-    type === 'review' ? '#FDF0E8' : type === 'subscription' ? '#E8F5EE' : type === 'freeze' ? '#E0F0FA' : '#FFF8EE'
+    type === 'review' ? '#FDF0E8' : type === 'subscription' ? '#E8F5EE' : type === 'freeze' ? '#E0F0FA' : type === 'zone' ? '#F3ECFD' : '#FFF8EE'
 
   function relativeTime(iso: string) {
     const diff = Date.now() - new Date(iso).getTime()

@@ -218,10 +218,8 @@ export default function HomeClient(p: Props) {
         .vD .chip{ flex:0 0 auto; border:1px solid var(--line); background:none; color:var(--lime); padding:6px 14px; border-radius:999px; font-weight:800; font-size:.8rem; }
         .vD .chip.on{ background:var(--lime); color:#0C1A15; border-color:transparent; }
 
-        .vD .meal{ overflow:hidden; display:flex; flex-direction:column; min-height:520px; }
-        .vD .meal .body{ flex:1; display:flex; flex-direction:column; }
-        .vD .meal .body h3{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:2.4em; }
-        .vD .meal .body .d{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; min-height:4.2em; }
+        .vD .meal{ overflow:hidden; display:flex; flex-direction:column; }
+        .vD .meal .body{ min-height:250px; display:flex; flex-direction:column; }
         .vD .meal .ph{ height:210px; background:#0e241c; position:relative; flex-shrink:0; }
         .vD .meal .ph img{ width:100%; height:100%; object-fit:cover; }
         .vD .meal .body{ padding:18px; }
@@ -328,7 +326,7 @@ export default function HomeClient(p: Props) {
             <div className="glass meal" onTouchStart={e => { mealTouchX.current = e.touches[0].clientX }} onTouchEnd={e => { if (mealTouchX.current == null) return; const d = mealTouchX.current - e.changedTouches[0].clientX; if (d > 40) nextM(); if (d < -40) prevM(); mealTouchX.current = null }}>
               <div className="ph">{currM.image_url ? <img src={currM.image_url} alt={mName(currM)} /> : null}</div>
               <div className="body">
-                <div className="row"><h3>{mName(currM)}</h3></div>
+                <div className="row"><h3>{mName(currM)}</h3><div className="navb"><button className="rnd" onClick={prevM}>{arrow('prev')}</button><button className="rnd" onClick={nextM}>{arrow('next')}</button></div></div>
                 <div className="d">{mDesc(currM)}</div>
                 <div className="mac">{[{ v: currM.weight_g, l: isAR ? 'وزن' : 'Weight' }, { v: currM.protein_g, l: isAR ? 'بروتين' : 'Protein' }, { v: currM.carbs_g, l: isAR ? 'كارب' : 'Carbs' }, { v: currM.fiber_g, l: isAR ? 'ألياف' : 'Fiber' }].map(n => <div key={n.l}><b>{n.v ? `${n.v}g` : '0'}</b><span>{n.l}</span></div>)}</div>
                 {currM.allergens && <div className="aller">{isAR ? 'حساسية: ' : 'Allergens: '}{mAllergens(currM)}</div>}

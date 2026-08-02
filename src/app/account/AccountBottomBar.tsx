@@ -33,7 +33,7 @@ export default function AccountBottomBar({ whats }: { whats: string }) {
   ]
 
   return (
-    <nav style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 50, background: 'rgba(12,26,21,0.9)', borderTop: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', display: 'flex', justifyContent: 'space-around', padding: '9px 0 14px' }}>
+    <nav style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 50, background: 'rgba(12,26,21,0.82)', borderTop: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', display: 'flex', justifyContent: 'space-around', padding: '9px 0 14px', direction: 'ltr' }}>
       <style>{`@keyframes ninozBarPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.16)}}`}</style>
       {items.map(it => (
         <button key={it.key} onClick={it.go} style={{ background: 'none', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.66rem', fontWeight: 800, color: it.pulse ? '#FF7A33' : (it.active ? '#F5C77E' : '#9DB4A8') }}>

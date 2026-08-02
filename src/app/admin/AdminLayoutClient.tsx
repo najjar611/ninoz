@@ -82,13 +82,14 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
       const unread = loadUnreadCount()
       if (unread !== null) { setNotifCount(unread); return }
       const lastSeen = localStorage.getItem(SEEN_KEY) || new Date(0).toISOString()
-      const [r1, r2, r3, r4] = await Promise.all([
+      const [r1, r2, r3, r4, r5] = await Promise.all([
         supabase.from('meal_reviews').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen),
         supabase.from('subscriptions').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen).in('status', ['active', 'pending_payment']),
         supabase.from('freeze_requests').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen),
         supabase.from('payments').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen),
+        supabase.from('delivery_zone_requests').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen),
       ])
-      setNotifCount((r1.count || 0) + (r2.count || 0) + (r3.count || 0) + (r4.count || 0))
+      setNotifCount((r1.count || 0) + (r2.count || 0) + (r3.count || 0) + (r4.count || 0) + (r5.count || 0))
     }
     loadNotifCount()
     const handler = () => loadNotifCount()

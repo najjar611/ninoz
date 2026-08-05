@@ -9,7 +9,7 @@ const QUICK = [
   { label: 'Manage Stages', href: '/admin/stages', desc: 'Age-based meal plans' },
   { label: 'Site Settings', href: '/admin/settings', desc: 'Logo, fonts, colors' },
   { label: 'Manage Waitlist', href: '/admin/waitlist', desc: 'View signups, edit page' },
-  { label: 'View Subscribers', href: '/admin/subscribers', desc: 'All registered customers' },
+  { label: 'View Customers', href: '/admin/customers', desc: 'All signups & their records' },
 ]
 
 function timeGreeting() {
@@ -26,6 +26,7 @@ function fmt(n: number) {
 export default function AdminDashboard() {
   const supabase = createClient()
   const [stats, setStats] = useState({ waitlist: 0, subscribers: 0, meals: 0, stages: 0 })
+  const [actions, setActions] = useState({ addr: 0, oor: 0 })
   const [recent, setRecent] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -45,6 +46,11 @@ export default function AdminDashboard() {
         stages: stages.count || 0,
       })
       setRecent(recentW.data || [])
+      const [addrC, oorC] = await Promise.all([
+        supabase.from('address_change_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('subscribers').select('id', { count: 'exact', head: true }).eq('out_of_area', true),
+      ])
+      setActions({ addr: addrC.count || 0, oor: oorC.count || 0 })
       setLoading(false)
     }
     load()
@@ -54,7 +60,7 @@ export default function AdminDashboard() {
 
   const STATS = [
     { label: 'Waitlist Signups', value: stats.waitlist, href: '/admin/waitlist', color: '#C84B0F', bg: '#FDF0E8' },
-    { label: 'Subscribers', value: stats.subscribers, href: '/admin/subscribers', color: '#0A429B', bg: '#EEF3FB' },
+    { label: 'Subscribers', value: stats.subscribers, href: '/admin/customers', color: '#0A429B', bg: '#EEF3FB' },
     { label: 'Meals', value: stats.meals, href: '/admin/meals', color: '#2D6A4F', bg: '#E8F5EE' },
     { label: 'Stages', value: stats.stages, href: '/admin/stages', color: '#7B5EA7', bg: '#F2EEF8' },
   ]
@@ -70,6 +76,27 @@ export default function AdminDashboard() {
         </h1>
         <p style={{ fontSize: 14, color: '#7A7068', marginTop: 4 }}>Here's what's happening with Ninoz today.</p>
       </div>
+
+      {/* Action needed */}
+      {(actions.addr > 0 || actions.oor > 0) && (
+        <div style={{ background: '#FFF8EE', border: '1.5px solid #F0D9B0', borderRadius: 16, padding: '16px 20px', marginBottom: 24 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: '#8A6D3B', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Action needed</div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {actions.addr > 0 && (
+              <Link href="/admin/delivery-area" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #F0D9B0', borderRadius: 10, padding: '10px 14px' }}>
+                <span style={{ fontSize: 20, fontWeight: 900, color: '#C84B0F' }}>{actions.addr}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#5A5048' }}>location change{actions.addr > 1 ? 's' : ''} to review</span>
+              </Link>
+            )}
+            {actions.oor > 0 && (
+              <Link href="/admin/delivery-area" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #F0D9B0', borderRadius: 10, padding: '10px 14px' }}>
+                <span style={{ fontSize: 20, fontWeight: 900, color: '#8A3FFC' }}>{actions.oor}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#5A5048' }}>out-of-area customer{actions.oor > 1 ? 's' : ''}</span>
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 28 }}>

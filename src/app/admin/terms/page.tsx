@@ -22,8 +22,8 @@ export default function TermsAdmin() {
 
   async function save() {
     setMsg('Saving…')
-    await supabase.from('site_content').upsert({ key: 'terms_content', value: en }, { onConflict: 'key' })
-    await supabase.from('site_content').upsert({ key: 'terms_content_ar', value: ar }, { onConflict: 'key' })
+    await supabase.from('site_content').upsert({ key: 'terms_content', value: en, label: 'Terms', section: 'terms' }, { onConflict: 'key' })
+    await supabase.from('site_content').upsert({ key: 'terms_content_ar', value: ar, label: 'Terms (Arabic)', section: 'terms' }, { onConflict: 'key' })
     setMsg('Saved!'); setTimeout(() => setMsg(''), 1800)
   }
 

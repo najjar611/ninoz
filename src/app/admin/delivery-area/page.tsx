@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
@@ -31,6 +32,7 @@ export default function DeliveryArea() {
   const [oorAr, setOorAr] = useState('')
   const [msg, setMsg] = useState('')
   const [reqs, setReqs] = useState<Req[]>([])
+  const [changeReqs, setChangeReqs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   const mapRef = useRef<HTMLDivElement | null>(null)
@@ -53,6 +55,8 @@ export default function DeliveryArea() {
       setOorAr(m.out_of_area_message_ar || '')
       const { data: rq } = await supabase.from('delivery_zone_requests').select('id, name, phone, area_text, created_at').order('created_at', { ascending: false }).limit(50)
       setReqs((rq as any) || [])
+      const { data: cr } = await supabase.from('address_change_requests').select('id, subscriber_id, delivery_address, address_details, created_at, status, subscribers(parent_name, mobile_number)').eq('status', 'pending').order('created_at', { ascending: false }).limit(50)
+      setChangeReqs((cr as any) || [])
       setLoading(false)
     }
     load()
@@ -87,8 +91,31 @@ export default function DeliveryArea() {
 
   useEffect(() => { redraw() }, [points])
 
+  async function reloadChangeReqs() {
+    const { data: cr } = await supabase.from('address_change_requests').select('id, subscriber_id, delivery_address, address_details, created_at, status, subscribers(parent_name, mobile_number)').eq('status', 'pending').order('created_at', { ascending: false }).limit(50)
+    setChangeReqs((cr as any) || [])
+  }
+  async function approveChange(r: any) {
+    await supabase.from('subscribers').update({ delivery_address: r.delivery_address, address_details: r.address_details }).eq('id', r.subscriber_id)
+    await supabase.from('address_change_requests').update({ status: 'approved' }).eq('id', r.id)
+    reloadChangeReqs()
+  }
+  async function rejectChange(r: any) {
+    await supabase.from('address_change_requests').update({ status: 'rejected' }).eq('id', r.id)
+    reloadChangeReqs()
+  }
+  // Let an out-of-area customer go through the wizard again (e.g. once we serve them).
+  async function allowRetry(phone: string) {
+    if (!phone) return
+    await supabase.from('subscribers').update({ out_of_area: false }).eq('mobile_number', phone)
+    await supabase.from('delivery_zone_requests').delete().eq('phone', phone)
+    const { data: rq } = await supabase.from('delivery_zone_requests').select('id, name, phone, area_text, created_at').order('created_at', { ascending: false }).limit(50)
+    setReqs((rq as any) || [])
+    setMsg('Customer can retry now.'); setTimeout(() => setMsg(''), 2500)
+  }
+
   async function upsert(key: string, value: string) {
-    return supabase.from('site_content').upsert({ key, value }, { onConflict: 'key' })
+    return supabase.from('site_content').upsert({ key, value, label: key, section: 'delivery' }, { onConflict: 'key' })
   }
   async function saveAll() {
     if (points.length < 3) { alert('Add at least 3 points to define an area.'); return }
@@ -172,13 +199,40 @@ export default function DeliveryArea() {
       </div>
 
       <div style={card}>
+        <label style={lbl}>Location change requests ({changeReqs.length})</label>
+        {changeReqs.length === 0 ? <p style={{ fontSize: 13, color: '#B0A098' }}>No pending requests.</p> : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {changeReqs.map(r => (
+              <div key={r.id} style={{ borderBottom: '1px solid #F5F1EC', paddingBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                  <div>
+                    <Link href={`/admin/customers/${r.subscriber_id}`} style={{ color: '#1C1C1A', fontSize: 13.5, fontWeight: 800, textDecoration: 'none' }}>{r.subscribers?.parent_name || 'Customer'}</Link>{' '}
+                    <span style={{ color: '#7A7068', fontFamily: 'monospace', fontSize: 12.5 }}>{r.subscribers?.mobile_number || ''}</span>
+                    <div style={{ fontSize: 12.5, color: '#4A3C34', marginTop: 2 }}>{r.delivery_address || r.address_details?.national || '—'}</div>
+                    {r.address_details?.district && <div style={{ fontSize: 11.5, color: '#A08070' }}>{r.address_details?.region} · {r.address_details?.district}</div>}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                    <button style={{ ...btn, background: '#2D6A4F', padding: '8px 14px' }} onClick={() => approveChange(r)}>Approve</button>
+                    <button style={{ ...ghost, padding: '8px 14px' }} onClick={() => rejectChange(r)}>Reject</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={card}>
         <label style={lbl}>Out-of-area requests ({reqs.length})</label>
         {reqs.length === 0 ? <p style={{ fontSize: 13, color: '#B0A098' }}>No requests yet.</p> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {reqs.map(r => (
               <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', borderBottom: '1px solid #F5F1EC', paddingBottom: 8 }}>
-                <div><b style={{ color: '#1C1C1A', fontSize: 13.5 }}>{r.name}</b> <span style={{ color: '#7A7068', fontFamily: 'monospace', fontSize: 12.5 }}>{r.phone}</span><div style={{ fontSize: 12, color: '#A08070' }}>{r.area_text || '—'}</div></div>
-                <span style={{ fontSize: 11.5, color: '#B0A098' }}>{new Date(r.created_at).toLocaleDateString('en-SA', { day: 'numeric', month: 'short' })}</span>
+                <div><Link href={`/admin/customers?q=${encodeURIComponent(r.phone || r.name || '')}`} style={{ color: '#1C1C1A', fontSize: 13.5, fontWeight: 800, textDecoration: 'none' }}>{r.name}</Link> <span style={{ color: '#7A7068', fontFamily: 'monospace', fontSize: 12.5 }}>{r.phone}</span><div style={{ fontSize: 12, color: '#A08070' }}>{r.area_text || '—'}</div></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button style={{ ...ghost, padding: '7px 12px', fontSize: 12 }} onClick={() => allowRetry(r.phone)}>Allow retry</button>
+                  <span style={{ fontSize: 11.5, color: '#B0A098' }}>{new Date(r.created_at).toLocaleDateString('en-SA', { day: 'numeric', month: 'short' })}</span>
+                </div>
               </div>
             ))}
           </div>

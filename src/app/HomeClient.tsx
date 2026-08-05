@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMockSubscriberId } from '@/lib/mockSession'
+import { resumePlanRoute } from '@/lib/resumeStep'
 import { getAccountLang, setAccountLang } from '@/lib/accountLang'
 
 type Stage = { id: string; name: string; name_ar?: string | null; age_range: string; age_range_ar?: string | null; description: string; description_ar?: string | null; emoji: string; card_bg: string; image_url: string | null }
@@ -39,11 +40,21 @@ export default function HomeClient(p: Props) {
   const isAR = lang === 'ar'
   const [customerName, setCustomerName] = useState('')
   const [hasPlan, setHasPlan] = useState(false)
+  const [outOfArea, setOutOfArea] = useState(false)
   const [gate, setGate] = useState(false)
+  // Calm "Start your plan" CTA: appears only after a little scroll, dismissible.
+  const [scrolled, setScrolled] = useState(false)
+  const [ctaOff, setCtaOff] = useState(false)
+  // Out-of-area: pressing Start Plan opens a gentle "we'll contact you" modal.
+  const [ooaModal, setOoaModal] = useState(false)
   function goToAccount() { router.push('/account') }
   // The single entry point to subscribing: Start Plan -> plan page (which sends
   // guests to sign-up first, and blocks anyone who already has a plan).
-  function startPlan() { router.push('/account/profile') }
+  async function startPlan() {
+    const id = getMockSubscriberId()
+    if (!id) { router.push('/account/profile'); return }
+    router.push(await resumePlanRoute(createClient(), id))
+  }
   function chooseEntry(guest: boolean) {
     if (typeof window !== 'undefined') localStorage.setItem('ninoz_entry', guest ? 'guest' : 'signin')
     setGate(false)
@@ -66,11 +77,33 @@ export default function HomeClient(p: Props) {
       return
     }
     const sb = createClient()
+    // Show out-of-area instantly from a device flag set when they registered
+    // interest — no wait on the DB, no RLS surprises.
+    if (typeof window !== 'undefined' && localStorage.getItem('ninoz_ooa') === '1') setOutOfArea(true)
     sb.from('subscribers').select('parent_name').eq('id', id).maybeSingle()
       .then(({ data }) => { const n = (data as any)?.parent_name; if (n) setCustomerName(n) })
+    // DB is the source of truth: confirm out-of-area or clear it if admin allowed
+    // a retry. Queried on its own so a missing column can't break the rest.
+    sb.from('subscribers').select('out_of_area').eq('id', id).maybeSingle()
+      .then(({ data, error }) => {
+        if (error) return
+        if ((data as any)?.out_of_area) { setOutOfArea(true); if (typeof window !== 'undefined') localStorage.setItem('ninoz_ooa', '1') }
+        else { setOutOfArea(false); if (typeof window !== 'undefined') localStorage.removeItem('ninoz_ooa') }
+      })
     sb.from('subscriptions').select('id').eq('subscriber_id', id).in('status', ['active', 'frozen', 'pending_payment']).limit(1).maybeSingle()
       .then(({ data }) => { if (data) setHasPlan(true) })
   }, [])
+
+  // Reveal the sticky CTA after the customer scrolls a bit; remember dismissal.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (sessionStorage.getItem('ninoz_cta_off') === '1') setCtaOff(true)
+    const onScroll = () => setScrolled(window.scrollY > 320)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    onScroll()
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+  function dismissCta() { setCtaOff(true); if (typeof window !== 'undefined') sessionStorage.setItem('ninoz_cta_off', '1') }
 
   // Language toggle plays the full-screen logo, then switches under the cover.
   function switchLang() {
@@ -98,21 +131,27 @@ export default function HomeClient(p: Props) {
   const [faq, setFaq] = useState<string | null>(null)
   const mealTouchX = useRef<number | null>(null)
   const [newsI, setNewsI] = useState(0)
-  const [newsOpen, setNewsOpen] = useState(false)
+  const [newsNudge, setNewsNudge] = useState(0)   // bumping this restarts the auto-timer
   const newsTouchX = useRef<number | null>(null)
   const totN = newsItems.length
   const curN = totN ? newsItems[newsI % totN] : null
   const nName = (n: NewsItem) => (isAR ? n.title : (n.title_en || n.title))
   const nBody = (n: NewsItem) => (isAR ? n.body : (n.body_en || n.body))
-  const prevN = () => { if (totN > 1) { setNewsOpen(false); setNewsI(i => (i - 1 + totN) % totN) } }
-  const nextN = () => { if (totN > 1) { setNewsOpen(false); setNewsI(i => (i + 1) % totN) } }
+  // Direction-aware card slide: incoming card enters from the side of travel.
+  const [newsDir, setNewsDir] = useState<'next' | 'prev'>('next')
+  const [stageDir, setStageDir] = useState<'next' | 'prev'>('next')
+  const [mealDir, setMealDir] = useState<'next' | 'prev'>('next')
+  const slideX = (dir: 'next' | 'prev') => { let s = dir === 'next' ? 1 : -1; if (isAR) s = -s; return s * 14 }
+  const goNews = (i: number) => { setNewsI((i + totN) % totN); setNewsNudge(n => n + 1) }
+  const prevN = () => { if (totN > 1) { setNewsDir('prev'); goNews(newsI - 1) } }
+  const nextN = () => { if (totN > 1) { setNewsDir('next'); goNews(newsI + 1) } }
 
   // Auto-advance the news cards every 6 seconds when there's more than one.
   useEffect(() => {
     if (totN <= 1) return
-    const t = setInterval(() => { setNewsOpen(false); setNewsI(i => (i + 1) % totN) }, 20000)
+    const t = setInterval(() => setNewsI(i => (i + 1) % totN), 20000)
     return () => clearInterval(t)
-  }, [totN])
+  }, [totN, newsNudge])
 
   useEffect(() => {
     const targets = document.querySelectorAll('.reveal')
@@ -128,12 +167,12 @@ export default function HomeClient(p: Props) {
   const totS = stages.length
   const totH = howSteps.length
   const totI = ingredients.length
-  const prevM = () => { if (totM > 1) setMealI(i => (i - 1 + totM) % totM) }
-  const nextM = () => { if (totM > 1) setMealI(i => (i + 1) % totM) }
+  const prevM = () => { if (totM > 1) { setMealDir('prev'); setMealI(i => (i - 1 + totM) % totM) } }
+  const nextM = () => { if (totM > 1) { setMealDir('next'); setMealI(i => (i + 1) % totM) } }
   const [stageI, setStageI] = useState(0)
   const stageTouchX = useRef<number | null>(null)
-  const prevS = () => { if (totS > 1) setStageI(i => (i - 1 + totS) % totS) }
-  const nextS = () => { if (totS > 1) setStageI(i => (i + 1) % totS) }
+  const prevS = () => { if (totS > 1) { setStageDir('prev'); setStageI(i => (i - 1 + totS) % totS) } }
+  const nextS = () => { if (totS > 1) { setStageDir('next'); setStageI(i => (i + 1) % totS) } }
 
   const arrow = (dir: 'prev' | 'next') => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
@@ -157,7 +196,7 @@ export default function HomeClient(p: Props) {
         .vD .reveal{ opacity:0; transform:translateY(22px); transition:.8s cubic-bezier(.16,1,.3,1); } .vD .reveal.in-view{ opacity:1; transform:none; }
         .vD .glass{ background:var(--glass); border:1px solid var(--line); backdrop-filter:blur(16px); border-radius:24px; }
         .vD .svcbar{ background:linear-gradient(90deg,var(--orange),var(--gold)); color:#1a120a; text-align:center; padding:9px 16px; font-size:.86rem; font-weight:800; display:flex; align-items:center; justify-content:center; gap:7px; }
-        .vD .greet{ margin-top:12px; font-size:1.25rem; font-weight:800; color:var(--gold); } .vD .greet b{ color:var(--tx); }
+        .vD .greet{ margin-top:12px; font-size:1.12rem; font-weight:800; color:var(--gold); } .vD .greet b{ color:var(--tx); }
         /* Floating pill news carousel */
         .vD .newspill{ margin-top:16px; }
         .vD .newspill .pill{ position:relative; display:flex; align-items:flex-start; gap:12px; width:100%; text-align:start;
@@ -167,6 +206,10 @@ export default function HomeClient(p: Props) {
           animation:ninozFloat 5.5s ease-in-out infinite; touch-action:pan-y; }
         .vD .newspill .fade{ animation:ninozNewsFade .5s ease; }
         @keyframes ninozNewsFade{ 0%{opacity:0; transform:translateX(10px)} 100%{opacity:1; transform:translateX(0)} }
+        /* Direction-aware slide+fade for the whole card (News / Stages / Meals). */
+        .vD .nzcard{ animation:nzCardIn .28s cubic-bezier(.16,1,.3,1); }
+        @keyframes nzCardIn{ 0%{opacity:0; transform:translateX(var(--nzx,14px)) scale(.985)} 100%{opacity:1; transform:none} }
+        @media (prefers-reduced-motion: reduce){ .vD .nzcard{ animation:none; } }
         .vD .newspill .pill:active{ transform:scale(.985); }
         .vD .newspill .pill.open{ border-radius:22px; padding:16px 18px; align-items:flex-start; animation:none; }
         @keyframes ninozFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
@@ -178,43 +221,48 @@ export default function HomeClient(p: Props) {
         @keyframes ninozBlink{0%{box-shadow:0 0 0 0 rgba(255,122,51,.5)}70%{box-shadow:0 0 0 7px rgba(255,122,51,0)}100%{box-shadow:0 0 0 0 rgba(255,122,51,0)}}
         .vD .newspill h4{ font-size:1.05rem; font-weight:800; margin:2px 0 0; color:var(--tx); line-height:1.3; }
         .vD .newspill .nbody{ color:var(--mut); line-height:1.65; font-size:.9rem; margin-top:8px; }
-        .vD .newspill .ndots{ display:flex; gap:6px; justify-content:center; margin-top:11px; }
+        .vD .newspill .nnav2{ display:flex; align-items:center; justify-content:center; gap:12px; margin-top:11px; }
+        .vD .newspill .narw{ width:30px; height:30px; border-radius:50%; border:1px solid var(--line); background:var(--glass); color:var(--gold); display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:transform .15s, background .2s; }
+        .vD .newspill .narw:active{ transform:scale(.9); }
+        .vD .newspill .ndots{ display:flex; gap:6px; justify-content:center; }
         .vD .newspill .ndots button{ width:6px; height:6px; border-radius:50%; background:var(--line); display:inline-block; transition:width .2s, background .2s; } .vD .newspill .ndots button.on{ background:var(--gold); width:16px; border-radius:3px; }
         .vD .foot .frow{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
         .vD .foot .frow a{ display:inline-flex; align-items:center; gap:8px; padding:11px 18px; border-radius:999px; text-decoration:none; font-weight:800; font-size:.86rem; border:1px solid var(--line); }
         .vD .foot .frow .wa2{ background:#25D366; color:#fff; border-color:transparent; } .vD .foot .frow .em{ background:var(--glass); color:var(--tx); } .vD .foot .frow .ig{ background:var(--glass); color:var(--tx); }
 
         .vD .hdr{ position:sticky; top:0; z-index:40; background:linear-gradient(180deg,var(--bg) 60%,transparent); backdrop-filter:blur(10px); }
-        .vD .hdrin{ display:flex; align-items:center; justify-content:space-between; padding:26px 8px 14px; direction:ltr; }
+        .vD .hdrin{ display:flex; align-items:center; justify-content:space-between; padding:12px 8px 6px; direction:ltr; }
         .vD .brand img{ height:134px; max-height:140px; width:auto; object-fit:contain; filter:drop-shadow(0 6px 18px rgba(0,0,0,.5)); }
         .vD .brand span{ font-size:3rem; font-weight:800; color:var(--orange); }
         .vD .hr{ display:flex; gap:10px; align-items:center; }
-        .vD .gbtn{ border:1px solid var(--line); background:var(--glass); color:var(--tx); border-radius:999px; padding:5px 11px; font-weight:700; font-size:.64rem; backdrop-filter:blur(10px); transition:transform .15s; }
+        .vD .gbtn{ border:1px solid var(--line); background:var(--glass); color:var(--tx); border-radius:999px; padding:7px 14px; font-weight:800; font-size:.78rem; backdrop-filter:blur(10px); transition:transform .15s; }
         .vD .gbtn:active{ transform:scale(.94); }
         .vD .gic{ width:44px; height:44px; border-radius:50%; border:1px solid var(--line); background:var(--glass); color:var(--lime); display:flex; align-items:center; justify-content:center; }
 
-        .vD .hero{ text-align:center; padding:26px 6px 20px; position:relative; }
+        .vD .hero{ text-align:center; padding:6px 6px 16px; position:relative; }
         .vD .hero .glow{ position:absolute; width:280px; height:280px; border-radius:50%; background:radial-gradient(circle,rgba(255,122,51,.28),transparent 70%); top:-40px; left:50%; transform:translateX(-50%); z-index:0; }
-        .vD .hero h1{ position:relative; font-size:clamp(2.5rem,9vw,3.6rem); line-height:1.04; font-weight:800; }
-        .vD .hero h1 em{ font-style:normal; background:linear-gradient(90deg,var(--gold),var(--orange)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+        .vD .hero h1{ position:relative; font-size:clamp(2.2rem,8vw,3.1rem); line-height:1.04; font-weight:800; }
+        .vD .hero h1 em{ font-style:normal; background:linear-gradient(100deg,var(--gold),var(--orange),#FFE3B8,var(--gold)); background-size:220% 100%; -webkit-background-clip:text; background-clip:text; color:transparent; animation:nzSheen 6s ease-in-out infinite; }
+        @keyframes nzSheen{ 0%,100%{ background-position:0% 50%; } 50%{ background-position:100% 50%; } }
+        @media (prefers-reduced-motion: reduce){ .vD .hero h1 em{ animation:none; } }
         .vD .hero p{ position:relative; color:var(--mut); margin:14px auto 0; max-width:40ch; line-height:1.6; }
-        .vD .hcta{ position:relative; margin-top:22px; border:none; background:linear-gradient(90deg,var(--orange),var(--gold)); color:#1a120a; padding:15px 30px; border-radius:999px; font-weight:800; font-size:1.02rem; box-shadow:0 12px 30px rgba(255,122,51,.35); transition:transform .15s; }
+        .vD .hcta{ position:relative; margin-top:20px; border:none; background:linear-gradient(90deg,var(--orange),var(--gold)); color:#1a120a; padding:13px 26px; border-radius:999px; font-weight:800; font-size:.95rem; box-shadow:0 12px 30px rgba(255,122,51,.35); transition:transform .15s; }
         .vD .hcta:active{ transform:scale(.96); }
 
-        .vD .sec{ padding:26px 0; }
+        .vD .sec{ padding:20px 0; }
         .vD .kick{ color:var(--gold); font-weight:800; letter-spacing:.16em; text-transform:uppercase; font-size:.72rem; }
-        .vD .h2{ font-size:1.7rem; font-weight:800; margin:6px 0 16px; }
+        .vD .h2{ font-size:1.5rem; font-weight:800; margin:6px 0 16px; }
         .vD .row{ display:flex; align-items:center; justify-content:space-between; }
         .vD .navb{ display:flex; gap:8px; }
         .vD .rnd{ width:42px; height:42px; border-radius:50%; border:1px solid var(--line); background:var(--glass); color:var(--lime); display:flex; align-items:center; justify-content:center; transition:transform .15s,background .2s; }
         .vD .rnd:active{ transform:scale(.9); background:rgba(143,227,154,.14); }
 
-        .vD .stage{ position:relative; border-radius:26px; overflow:hidden; min-height:360px; display:flex; }
+        .vD .stage{ position:relative; border-radius:24px; overflow:hidden; min-height:320px; display:flex; }
         .vD .stage .bg{ position:absolute; inset:0; background-size:cover; background-position:center; transition:transform .6s cubic-bezier(.16,1,.3,1); }
         .vD .stage:active .bg{ transform:scale(1.04); }
         .vD .stage .ov{ position:absolute; inset:0; background:linear-gradient(180deg,rgba(8,18,14,.15),rgba(8,18,14,.9)); }
         .vD .stage .c{ position:relative; margin-top:auto; padding:24px; }
-        .vD .stage h3{ font-size:1.7rem; font-weight:800; } .vD .stage p{ color:#d7e5dc; margin-top:6px; line-height:1.5; font-size:.92rem; }
+        .vD .stage h3{ font-size:1.45rem; font-weight:800; } .vD .stage p{ color:#d7e5dc; margin-top:6px; line-height:1.5; font-size:.92rem; }
         .vD .stage .age{ display:inline-block; margin-top:14px; background:linear-gradient(90deg,var(--orange),var(--gold)); color:#1a120a; padding:6px 16px; border-radius:999px; font-weight:800; font-size:.85rem; }
         .vD .idx{ text-align:center; color:var(--mut); font-weight:700; font-size:.82rem; margin-top:10px; }
         .vD .dots{ display:flex; gap:7px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
@@ -229,14 +277,14 @@ export default function HomeClient(p: Props) {
         .vD .chip{ flex:0 0 auto; border:1px solid var(--line); background:none; color:var(--lime); padding:6px 14px; border-radius:999px; font-weight:800; font-size:.8rem; }
         .vD .chip.on{ background:var(--lime); color:#0C1A15; border-color:transparent; }
 
-        .vD .meal{ overflow:hidden; display:flex; flex-direction:column; min-height:520px; }
+        .vD .meal{ overflow:hidden; display:flex; flex-direction:column; min-height:468px; }
         .vD .meal .body{ flex:1; display:flex; flex-direction:column; }
         .vD .meal .body h3{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:2.4em; }
         .vD .meal .body .d{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; min-height:4.2em; }
-        .vD .meal .ph{ height:210px; background:#0e241c; position:relative; flex-shrink:0; }
+        .vD .meal .ph{ height:186px; background:#0e241c; position:relative; flex-shrink:0; }
         .vD .meal .ph img{ width:100%; height:100%; object-fit:cover; }
         .vD .meal .body{ padding:18px; }
-        .vD .meal h3{ font-size:1.35rem; font-weight:800; } .vD .meal .d{ color:var(--mut); margin-top:6px; line-height:1.5; font-size:.9rem; }
+        .vD .meal h3{ font-size:1.2rem; font-weight:800; } .vD .meal .d{ color:var(--mut); margin-top:6px; line-height:1.5; font-size:.9rem; }
         .vD .mac{ display:flex; gap:8px; margin-top:14px; }
         .vD .mac div{ flex:1; text-align:center; border:1px solid var(--line); border-radius:14px; padding:10px 4px; background:rgba(143,227,154,.06); }
         .vD .mac b{ display:block; color:var(--lime); } .vD .mac span{ font-size:.56rem; text-transform:uppercase; color:var(--mut); font-weight:800; letter-spacing:.05em; }
@@ -262,6 +310,17 @@ export default function HomeClient(p: Props) {
         .vD .tbi.startplan{ color:var(--orange) !important; }
         .vD .tbi.startplan svg{ animation:ninozPulse 1.25s ease-in-out infinite; }
         .vD .wa{ position:fixed; ${isAR ? 'left' : 'right'}:16px; bottom:98px; z-index:55; width:54px; height:54px; border-radius:50%; background:#25D366; box-shadow:0 12px 26px rgba(37,211,102,.4); display:flex; align-items:center; justify-content:center; }
+        /* Calm, dismissible "Start your plan" CTA docked above the tab bar. */
+        .vD .startcta{ position:fixed; left:0; right:0; bottom:78px; z-index:45; display:flex; justify-content:center; padding:0 16px; animation:nzCtaUp .4s cubic-bezier(.16,1,.3,1); pointer-events:none; }
+        @keyframes nzCtaUp{ from{opacity:0; transform:translateY(14px)} to{opacity:1; transform:none} }
+        .vD .startcta .inner{ pointer-events:auto; display:flex; align-items:center; gap:10px; width:100%; max-width:520px; padding:11px 12px 11px 16px; border-radius:16px;
+          background:linear-gradient(120deg,rgba(20,42,34,.96),rgba(12,26,21,.96)); border:1px solid rgba(245,199,126,.28); box-shadow:0 14px 34px rgba(0,0,0,.4); backdrop-filter:blur(10px); }
+        .vD .startcta .lbl{ flex:1; min-width:0; }
+        .vD .startcta .lbl b{ display:block; font-size:.9rem; font-weight:800; color:var(--tx); }
+        .vD .startcta .lbl span{ display:block; font-size:.72rem; color:var(--mut); margin-top:1px; }
+        .vD .startcta .go{ flex-shrink:0; border:none; background:linear-gradient(90deg,var(--orange),var(--gold)); color:#1a120a; padding:10px 18px; border-radius:999px; font-weight:800; font-size:.86rem; box-shadow:0 8px 20px rgba(255,122,51,.32); }
+        .vD .startcta .go:active{ transform:scale(.96); }
+        .vD .startcta .x{ flex-shrink:0; width:28px; height:28px; border-radius:50%; border:1px solid var(--line); background:var(--glass); color:var(--mut); display:flex; align-items:center; justify-content:center; }
       `}</style>
 
       {gate && (
@@ -275,10 +334,10 @@ export default function HomeClient(p: Props) {
       )}
 
       <div className="hdr"><div className="wrap hdrin">
+        <a className="brand" href="/">{logo?.url ? <img src={logo.url} alt="Ninoz" /> : <span>Ninoz</span>}</a>
         <div className="hr">
           <button className="gbtn" onClick={switchLang}>{isAR ? 'English' : 'عربي'}</button>
         </div>
-        <a className="brand" href="/">{logo?.url ? <img src={logo.url} alt="Ninoz" /> : <span>Ninoz</span>}</a>
       </div></div>
 
       {gg('service_area_note') && (
@@ -298,17 +357,21 @@ export default function HomeClient(p: Props) {
             <div className="pill"
               onTouchStart={e => { newsTouchX.current = e.touches[0].clientX }}
               onTouchEnd={e => { if (newsTouchX.current == null) return; const d = newsTouchX.current - e.changedTouches[0].clientX; if (d > 40) nextN(); if (d < -40) prevN(); newsTouchX.current = null }}>
-              <div className="bell">
-                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
-              </div>
-              <div className="txt fade" key={newsI}>
-                <div className="ntag"><span className="dot" />{isAR ? 'أخبار نينوز' : 'Ninoz News'}</div>
-                <h4>{nName(curN)}</h4>
-                {nBody(curN) && <div className="nbody">{nBody(curN)}</div>}
+              <div className="nzcard" key={newsI} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, width: '100%', ['--nzx' as any]: `${slideX(newsDir)}px` }}>
+                <div className="bell">
+                  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
+                </div>
+                <div className="txt">
+                  <div className="ntag"><span className="dot" />{isAR ? 'أخبار نينوز' : 'Ninoz News'}</div>
+                  <h4>{nName(curN)}</h4>
+                  {nBody(curN) && <div className="nbody">{nBody(curN)}</div>}
+                </div>
               </div>
             </div>
             {totN > 1 && (
-              <div className="ndots">{newsItems.map((_, i) => <button key={i} aria-label={`news ${i + 1}`} onClick={() => setNewsI(i)} className={i === (newsI % totN) ? 'on' : ''} style={{ padding: 0, border: 'none', cursor: 'pointer' }} />)}</div>
+              <div className="nnav2">
+                <div className="ndots">{newsItems.map((_, i) => <button key={i} aria-label={`news ${i + 1}`} onClick={() => { setNewsDir(i > (newsI % totN) ? 'next' : 'prev'); goNews(i) }} className={i === (newsI % totN) ? 'on' : ''} style={{ padding: 0, border: 'none', cursor: 'pointer' }} />)}</div>
+              </div>
             )}
           </div>
         </div>
@@ -326,11 +389,11 @@ export default function HomeClient(p: Props) {
           <div className="row" style={{ marginBottom: 14 }}>
             <div><div className="kick">{isAR ? 'المراحل' : 'Stages'}</div><div className="h2" style={{ margin: 0 }}>{gg('stages_built_for', isAR ? 'لكل مرحلة' : 'Their stage')}</div></div>
           </div>
-          <div className="stage" onTouchStart={e => { stageTouchX.current = e.touches[0].clientX }} onTouchEnd={e => { if (stageTouchX.current == null) return; const d = stageTouchX.current - e.changedTouches[0].clientX; if (d > 40) nextS(); if (d < -40) prevS(); stageTouchX.current = null }}>
+          <div className="stage nzcard" key={stageI} style={{ ['--nzx' as any]: `${slideX(stageDir)}px` }} onTouchStart={e => { stageTouchX.current = e.touches[0].clientX }} onTouchEnd={e => { if (stageTouchX.current == null) return; const d = stageTouchX.current - e.changedTouches[0].clientX; if (d > 40) nextS(); if (d < -40) prevS(); stageTouchX.current = null }}>
             {curS.image_url && <div className="bg" style={{ backgroundImage: `url(${curS.image_url})` }} />}
             <div className="ov" /><div className="c"><h3>{sName(curS)}</h3><p>{sDesc(curS)}</p><span className="age">{sAge(curS)}</span></div>
           </div>
-          {totS > 1 && <div className="dots">{stages.map((_, i) => <button key={i} aria-label={`stage ${i + 1}`} className={i === (stageI % totS) ? 'on' : ''} onClick={() => setStageI(i)} />)}</div>}
+          {totS > 1 && <div className="dots">{stages.map((_, i) => <button key={i} aria-label={`stage ${i + 1}`} className={i === (stageI % totS) ? 'on' : ''} onClick={() => { setStageDir(i > (stageI % totS) ? 'next' : 'prev'); setStageI(i) }} />)}</div>}
         </section>)}
 
         <section className="sec">
@@ -339,14 +402,14 @@ export default function HomeClient(p: Props) {
           <div className="tabs">{categories.map(c => <button key={c.id} className={`tb ${tab === c.slug ? 'on' : ''}`} onClick={() => setTab(c.slug)}>{cName(c)}</button>)}</div>
           {stages.length > 0 && <div className="chips">{stages.map(s => { const on = stageFilter === s.id; return <button key={s.id} className={`chip ${on ? 'on' : ''}`} onClick={() => setStageFilter(on ? '' : s.id)}>{sName(s)}</button> })}</div>}
           {currM ? (
-            <div className="glass meal" onTouchStart={e => { mealTouchX.current = e.touches[0].clientX }} onTouchEnd={e => { if (mealTouchX.current == null) return; const d = mealTouchX.current - e.changedTouches[0].clientX; if (d > 40) nextM(); if (d < -40) prevM(); mealTouchX.current = null }}>
+            <div className="glass meal nzcard" key={`${tab}-${stageFilter}-${mealI}`} style={{ ['--nzx' as any]: `${slideX(mealDir)}px` }} onTouchStart={e => { mealTouchX.current = e.touches[0].clientX }} onTouchEnd={e => { if (mealTouchX.current == null) return; const d = mealTouchX.current - e.changedTouches[0].clientX; if (d > 40) nextM(); if (d < -40) prevM(); mealTouchX.current = null }}>
               <div className="ph">{currM.image_url ? <img src={currM.image_url} alt={mName(currM)} /> : null}</div>
               <div className="body">
                 <div className="row"><h3>{mName(currM)}</h3></div>
                 <div className="d">{mDesc(currM)}</div>
                 <div className="mac">{[{ v: currM.weight_g, l: isAR ? 'وزن' : 'Weight' }, { v: currM.protein_g, l: isAR ? 'بروتين' : 'Protein' }, { v: currM.carbs_g, l: isAR ? 'كارب' : 'Carbs' }, { v: currM.fiber_g, l: isAR ? 'ألياف' : 'Fiber' }].map(n => <div key={n.l}><b>{n.v ? `${n.v}g` : '0'}</b><span>{n.l}</span></div>)}</div>
                 {currM.allergens && <div className="aller">{isAR ? 'حساسية: ' : 'Allergens: '}{mAllergens(currM)}</div>}
-                {totM > 1 && <div className="dots" style={{ marginTop: 'auto', paddingTop: 12 }}>{mls.map((_, i) => <button key={i} aria-label={`meal ${i + 1}`} className={i === mealI ? 'on' : ''} onClick={() => setMealI(i)} />)}</div>}
+                {totM > 1 && <div className="dots" style={{ marginTop: 'auto', paddingTop: 12 }}>{mls.map((_, i) => <button key={i} aria-label={`meal ${i + 1}`} className={i === mealI ? 'on' : ''} onClick={() => { setMealDir(i > mealI ? 'next' : 'prev'); setMealI(i) }} />)}</div>}
               </div>
             </div>
           ) : <p style={{ color: 'var(--mut)' }}>{isAR ? 'لا توجد وجبات.' : 'No meals here.'}</p>}
@@ -374,12 +437,52 @@ export default function HomeClient(p: Props) {
           </div>
           <div className="r">{gg('footer_rights', '© 2026 Ninoz. All rights reserved.')}</div>
         </div>) })()}
+        {/* Clearance so the docked "Start plan" CTA never overlaps the footer. */}
+        {!hasPlan && !outOfArea && <div aria-hidden style={{ height: 84 }} />}
       </div>
 
+      {!gate && !hasPlan && !ctaOff && scrolled && !outOfArea && (
+        <div className="startcta">
+          <div className="inner">
+            <div className="lbl">
+              <b>{isAR ? 'جاهزة للبدء؟' : 'Ready to begin?'}</b>
+              <span>{isAR ? 'اختاري خطة طفلك في دقيقة' : "Set up your baby's plan in a minute"}</span>
+            </div>
+            <button className="go" onClick={startPlan}>{isAR ? 'ابدئي خطتك' : 'Start plan'}</button>
+            <button className="x" aria-label="dismiss" onClick={dismissCta}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+          </div>
+        </div>
+      )}
+
+      {ooaModal && (
+        <div onClick={() => setOoaModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 3600, background: 'rgba(6,14,11,0.6)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} dir={isAR ? 'rtl' : 'ltr'} style={{ width: '100%', maxWidth: 460, background: 'linear-gradient(160deg,#16352A,#0C1A15)', border: '1px solid rgba(245,199,126,.22)', borderRadius: '24px 24px 0 0', padding: '26px 24px 30px', boxShadow: '0 -20px 60px rgba(0,0,0,.5)', animation: 'nzOoaUp .32s cubic-bezier(.16,1,.3,1)', textAlign: 'center' }}>
+            <style>{`@keyframes nzOoaUp{from{transform:translateY(44px);opacity:.4}to{transform:translateY(0);opacity:1}}@keyframes nzOoaPing{0%{box-shadow:0 0 0 0 rgba(245,199,126,.4)}70%{box-shadow:0 0 0 16px rgba(245,199,126,0)}100%{box-shadow:0 0 0 0 rgba(245,199,126,0)}}`}</style>
+            <div style={{ width: 40, height: 4, borderRadius: 4, background: 'rgba(255,255,255,.18)', margin: '0 auto 18px' }} />
+            <div style={{ width: 62, height: 62, margin: '0 auto 16px', borderRadius: '50%', background: 'linear-gradient(135deg,#FF7A33,#F5C77E)', color: '#1a120a', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'nzOoaPing 1.8s ease-out infinite' }}>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
+            </div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#EAF3EE', margin: '0 0 8px' }}>{gg('ooa_modal_title', isAR ? 'منطقتك قادمة قريباً' : 'Your area is coming soon')}</h3>
+            <p style={{ fontSize: '.94rem', color: '#9DB4A8', lineHeight: 1.7, margin: '0 auto 22px', maxWidth: 340 }}>
+              {gg('ooa_modal_body', isAR ? 'شكراً لاهتمامك! لا نوصّل إلى منطقتك بعد، لكننا سجّلنا اهتمامك وسنتواصل معك فور وصول التوصيل إليك.' : "Thanks for your interest! We don't deliver to your area yet — we've noted your interest and will contact you the moment we arrive.")}
+            </p>
+            <button onClick={() => setOoaModal(false)} style={{ width: '100%', padding: '14px', border: 'none', borderRadius: 14, background: 'linear-gradient(90deg,#FF7A33,#F5C77E)', color: '#1a120a', fontWeight: 800, fontSize: '.98rem', fontFamily: 'inherit', cursor: 'pointer', boxShadow: '0 12px 30px rgba(255,122,51,.32)' }}>{gg('ooa_modal_btn', isAR ? 'حسناً، فهمت' : 'Okay, got it')}</button>
+          </div>
+        </div>
+      )}
+
       <nav className="tabbar">
-        <button className="tbi" onClick={goToAccount}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="8" r="3.3"/><path d="M5.5 20c0-3 3-4.8 6.5-4.8s6.5 1.8 6.5 4.8"/></svg>{isAR ? 'حسابي' : 'Account'}</button>
-        <button className={`tbi ${hasPlan ? '' : 'startplan'}`} onClick={() => hasPlan ? router.push('/account/dashboard') : startPlan()}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 10h8M8 14h5"/></svg>{hasPlan ? (isAR ? 'خطتي' : 'My Plan') : (isAR ? 'ابدئي خطتك' : 'Start Plan')}</button>
-        <button className="tbi on" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>{isAR ? 'الرئيسية' : 'Home'}</button>
+        {(() => {
+          const homeBtn = <button key="home" className="tbi on" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>{isAR ? 'الرئيسية' : 'Home'}</button>
+          const planBtn = hasPlan
+            ? <button key="plan" className="tbi" onClick={() => router.push('/account/dashboard')}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 10h8M8 14h5"/></svg>{isAR ? 'خطتي' : 'My Plan'}</button>
+            : outOfArea
+              ? <button key="plan" className="tbi startplan" onClick={() => setOoaModal(true)}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 10h8M8 14h5"/></svg>{isAR ? 'ابدئي خطتك' : 'Start Plan'}</button>
+              : <button key="plan" className="tbi startplan" onClick={startPlan}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 10h8M8 14h5"/></svg>{isAR ? 'ابدئي خطتك' : 'Start Plan'}</button>
+          const accountBtn = <button key="account" className="tbi" onClick={goToAccount}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="8" r="3.3"/><path d="M5.5 20c0-3 3-4.8 6.5-4.8s6.5 1.8 6.5 4.8"/></svg>{isAR ? 'حسابي' : 'Account'}</button>
+          // English → Home on the left; Arabic (RTL) → Home on the right.
+          return isAR ? [accountBtn, planBtn, homeBtn] : [homeBtn, planBtn, accountBtn]
+        })()}
       </nav>
     </div>
   )

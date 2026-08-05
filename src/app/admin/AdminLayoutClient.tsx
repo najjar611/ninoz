@@ -10,39 +10,24 @@ const NAV = [
     items: [{ label: 'Dashboard', href: '/admin' }],
   },
   {
-    title: 'Content',
-    items: [
-      { label: 'Edit Text', href: '/admin/content' },
-      { label: 'Sections', href: '/admin/sections' },
-      { label: 'Meals', href: '/admin/meals' },
-      { label: 'Categories', href: '/admin/categories' },
-      { label: 'Stages', href: '/admin/stages' },
-      { label: 'Payment Plans', href: '/admin/payment-cycles' },
-      { label: 'Daily Menu', href: '/admin/daily-menu' },
-      { label: 'FAQ', href: '/admin/faq' },
-      { label: 'News', href: '/admin/news' },
-      { label: 'Terms & Conditions', href: '/admin/terms' },
-    ],
-  },
-  {
     title: 'Customers',
-    items: [
-      { label: 'Subscribers', href: '/admin/subscribers' },
-      { label: 'Reviews', href: '/admin/reviews' },
-      { label: 'Delivery Status', href: '/admin/delivery-status' },
-      { label: 'Delivery Area', href: '/admin/delivery-area' },
-      { label: 'Regions & Districts', href: '/admin/regions' },
-      { label: 'Waitlist', href: '/admin/waitlist' },
-      { label: 'Profile Fields', href: '/admin/customer-fields' },
-      { label: 'Promo Codes', href: '/admin/promo-codes' },
-    ],
+    items: [{ label: 'Customers', href: '/admin/customers' }],
   },
   {
-    title: 'System',
-    items: [
-      { label: 'Notifications', href: '/admin/notifications' },
-      { label: 'Settings', href: '/admin/settings' },
-    ],
+    title: 'Catalog',
+    items: [{ label: 'Catalog', href: '/admin/catalog' }],
+  },
+  {
+    title: 'Website',
+    items: [{ label: 'Website', href: '/admin/website' }],
+  },
+  {
+    title: 'Delivery',
+    items: [{ label: 'Delivery', href: '/admin/delivery' }],
+  },
+  {
+    title: 'Settings',
+    items: [{ label: 'Settings', href: '/admin/settings-hub' }],
   },
 ]
 
@@ -54,6 +39,7 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
   const pathname = usePathname()
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [notifCount, setNotifCount] = useState(0)
 
@@ -82,14 +68,15 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
       const unread = loadUnreadCount()
       if (unread !== null) { setNotifCount(unread); return }
       const lastSeen = localStorage.getItem(SEEN_KEY) || new Date(0).toISOString()
-      const [r1, r2, r3, r4, r5] = await Promise.all([
+      const [r1, r2, r3, r4, r5, r6] = await Promise.all([
         supabase.from('meal_reviews').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen),
         supabase.from('subscriptions').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen).in('status', ['active', 'pending_payment']),
         supabase.from('freeze_requests').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen),
         supabase.from('payments').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen),
         supabase.from('delivery_zone_requests').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen),
+        supabase.from('address_change_requests').select('id', { count: 'exact', head: true }).gt('created_at', lastSeen),
       ])
-      setNotifCount((r1.count || 0) + (r2.count || 0) + (r3.count || 0) + (r4.count || 0) + (r5.count || 0))
+      setNotifCount((r1.count || 0) + (r2.count || 0) + (r3.count || 0) + (r4.count || 0) + (r5.count || 0) + (r6.count || 0))
     }
     loadNotifCount()
     const handler = () => loadNotifCount()
@@ -225,6 +212,13 @@ export default function AdminLayoutClient({ children }: { children: React.ReactN
               : 'Ninoz'}
           </Link>
           <div className="sb-sub">Admin Console</div>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && search.trim()) { setOpen(false); router.push(`/admin/customers?q=${encodeURIComponent(search.trim())}`); setSearch('') } }}
+            placeholder="Search customer…"
+            style={{ marginTop: 14, width: '100%', padding: '8px 12px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.06)', color: '#EAF3EE', fontSize: 12.5, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+          />
         </div>
 
         <nav style={{ flex: 1 }}>

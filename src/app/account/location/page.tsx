@@ -82,8 +82,12 @@ export default function Location() {
     setChecking(false)
     // We already have the signed-in customer's name + number — no need to ask
     // again if they turn out to be outside the delivery area.
-    supabase.from('subscribers').select('parent_name, mobile_number').eq('id', id).maybeSingle().then(({ data }) => {
-      if (data) { setSubName((data as any).parent_name || ''); setSubPhone((data as any).mobile_number || '') }
+    supabase.from('subscribers').select('parent_name, mobile_number, out_of_area').eq('id', id).maybeSingle().then(({ data }) => {
+      if (data) {
+        setSubName((data as any).parent_name || ''); setSubPhone((data as any).mobile_number || '')
+        // Already flagged out-of-area → show the message, not the wizard again.
+        if ((data as any).out_of_area) { leadSentRef.current = true; setBlocked(true); setLeadDone(true); if (typeof window !== 'undefined') localStorage.setItem('ninoz_ooa', '1') }
+      }
     })
     supabase.from('site_content').select('key, value').in('key', ['delivery_zone_polygon', 'delivery_zone_enforce', 'out_of_area_message', 'out_of_area_message_ar', 'contact_whatsapp']).then(({ data }) => {
       const map: Record<string, string> = {}
@@ -126,16 +130,6 @@ export default function Location() {
     return () => { cancelled = true }
   }, [checking, zone])
 
-  // Out-of-area but signed in: record the request automatically using the
-  // details we already have — no second form, admin gets notified.
-  useEffect(() => {
-    if (!blocked || leadSentRef.current) return
-    leadSentRef.current = true
-    supabase.from('delivery_zone_requests').insert({
-      name: subName || null, phone: subPhone || null, area_text: national || null, lat: pos?.lat ?? null, lng: pos?.lng ?? null,
-    }).then(() => setLeadDone(true))
-  }, [blocked])
-
   // Auto-select region/district from the pin: inside the zone → the served
   // region (North Riyadh); outside → "Others" for both.
   const isOthers = (n?: string | null, e?: string | null) => {
@@ -159,13 +153,23 @@ export default function Location() {
 
   if (checking) return null
 
+  // Pin is set and lands outside the served zone → surface it right away.
+  const outsideZone = enforce && !!pos && !pointInPolygon(pos.lat, pos.lng, zone)
   const districtOptions = districts.filter(d => !regionId || d.region_id === regionId || !d.region_id)
   const regionName = (id: string) => { const r = regions.find(x => x.id === id); return r ? ((isAR ? r.name : (r.name_en || r.name))) : '' }
   const districtName = (id: string) => { const d = districts.find(x => x.id === id); return d ? ((isAR ? d.name : (d.name_en || d.name))) : '' }
 
   async function save() {
     // Enforce the zone first: outside → waitlist (auto-recorded elsewhere).
-    if (enforce && pos && !pointInPolygon(pos.lat, pos.lng, zone)) { setBlocked(true); setError(''); return }
+    if (enforce && pos && !pointInPolygon(pos.lat, pos.lng, zone)) {
+      const id = getMockSubscriberId()
+      // Device flag → the home reflects out-of-area instantly; loading logo plays.
+      if (typeof window !== 'undefined') { localStorage.setItem('ninoz_ooa', '1'); window.dispatchEvent(new Event('ninoz:flash')) }
+      leadSentRef.current = true
+      await supabase.from('delivery_zone_requests').insert({ name: subName || null, phone: subPhone || null, area_text: national || null, lat: pos?.lat ?? null, lng: pos?.lng ?? null })
+      if (id) await supabase.from('subscribers').update({ out_of_area: true }).eq('id', id)
+      setBlocked(true); setLeadDone(true); setError(''); return
+    }
     if (!national.trim() && !pos) { setError(isAR ? 'يرجى تحديد موقعك على الخريطة' : 'Please set your location on the map'); return }
     if (regions.length > 0 && !regionId) { setError(isAR ? 'يرجى اختيار المنطقة' : 'Please choose the region'); return }
     if (districtOptions.length > 0 && !districtId) { setError(isAR ? 'يرجى اختيار الحي' : 'Please choose the district'); return }
@@ -180,7 +184,8 @@ export default function Location() {
     }
     setSaving(false)
     if (err) { setError(err.message); return }
-    // Location captured and in range — continue to build the plan.
+    // In-area now → clear any prior out-of-area device flag, then build the plan.
+    if (typeof window !== 'undefined') localStorage.removeItem('ninoz_ooa')
     router.push('/account/plan')
   }
 
@@ -203,7 +208,7 @@ export default function Location() {
     )
   }
 
-  const inp: React.CSSProperties = { width: '100%', padding: '13px 15px', borderRadius: 12, border: '1.5px solid #EAE3D9', fontSize: 14.5, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#1C1C1A', background: '#fff', accentColor: '#C84B0F' }
+  const inp: React.CSSProperties = { width: '100%', padding: '11px 14px', borderRadius: 11, border: '1.5px solid #EAE3D9', fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#1C1C1A', background: '#fff', accentColor: '#C84B0F' }
   const selStyle: React.CSSProperties = {
     ...inp, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
     backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23C84B0F' stroke-width='2.2'><path d='M6 9l6 6 6-6'/></svg>\")",
@@ -211,7 +216,7 @@ export default function Location() {
     paddingRight: isAR ? 15 : 40, paddingLeft: isAR ? 40 : 15, cursor: 'pointer',
   }
   const btn: React.CSSProperties = { width: '100%', padding: '13px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', marginTop: 12 }
-  const lbl: React.CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 800, color: '#5A5048', marginBottom: 7 }
+  const lbl: React.CSSProperties = { display: 'block', fontSize: 11.5, fontWeight: 800, color: '#5A5048', marginBottom: 6 }
 
   if (subscribed) {
     return (
@@ -251,7 +256,10 @@ export default function Location() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 20, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'موقع التوصيل' : 'Delivery location'}</h1>
+      <button onClick={() => router.push('/account/profile')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#7A7068', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0, marginBottom: 10 }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ transform: isAR ? 'scaleX(-1)' : 'none' }}><path d="M15 6l-6 6 6 6" /></svg>{isAR ? 'رجوع' : 'Back'}
+      </button>
+      <h1 style={{ fontSize: 18, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'موقع التوصيل' : 'Delivery location'}</h1>
       <p style={{ fontSize: 13, color: '#7A7068', marginBottom: 14 }}>{isAR ? 'حدّد موقعك على الخريطة — نوصّل حالياً في شمال الرياض.' : 'Pin your location on the map — we currently deliver in North Riyadh.'}</p>
 
       {MAPS_KEY ? (
@@ -270,8 +278,15 @@ export default function Location() {
               }
             />
           </div>
-          <div ref={mapRef} style={{ height: 280, borderRadius: 14, overflow: 'hidden', marginBottom: 12, border: '1.5px solid #EDE8E0' }} />
+          <div ref={mapRef} style={{ height: 230, borderRadius: 14, overflow: 'hidden', marginBottom: 12, border: '1.5px solid #EDE8E0' }} />
           <p style={{ fontSize: 11.5, color: '#B0A098', marginTop: -4, marginBottom: 12 }}>{isAR ? 'اضغط على أيقونة الموقع بالأعلى، أو اضغط على الخريطة لتحديد موقعك.' : 'Tap the location icon in the search bar, or tap the map to set your spot.'}</p>
+          {outsideZone && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FDECEA', border: '1px solid #F5C6C0', borderRadius: 12, padding: '10px 13px', marginTop: -4, marginBottom: 12, animation: 'nzOor .3s ease both' }}>
+              <style>{`@keyframes nzOor{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}`}</style>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B5321E" strokeWidth="2.2" style={{ flexShrink: 0 }}><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z" /><path d="M9.5 10h5" /></svg>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: '#B5321E' }}>{isAR ? 'هذا الموقع خارج نطاق التوصيل الحالي' : 'This spot is outside our current delivery area'}</span>
+            </div>
+          )}
         </>
       ) : (
         <div style={{ height: 110, borderRadius: 12, background: '#F2EDE8', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14, color: '#B0A098', fontSize: 12.5, fontWeight: 600, textAlign: 'center', padding: '0 16px' }}>
@@ -279,32 +294,34 @@ export default function Location() {
         </div>
       )}
 
-      {regions.length > 0 && (() => {
-        // Outside the zone → lock both to "Others" only. Inside/no pin → hide Others.
-        const outside = pos ? !pointInPolygon(pos.lat, pos.lng, zone) : false
-        const regionChoices = outside
-          ? regions.filter(r => isOthers(r.name, r.name_en))
-          : regions.filter(r => !isOthers(r.name, r.name_en))
-        const distChoices = outside
-          ? districts.filter(d => isOthers(d.name, d.name_en))
-          : districtOptions.filter(d => !isOthers(d.name, d.name_en))
-        return (
-          <>
-            <label style={lbl}>{isAR ? 'المنطقة' : 'Region'}</label>
-            <BrandSelect isAR={isAR} value={regionId} onChange={v => { setRegionId(v); setDistrictId('') }} disabled={outside} placeholder={isAR ? 'اختر المنطقة' : 'Choose region'} options={regionChoices.map(r => ({ value: r.id, label: isAR ? r.name : (r.name_en || r.name) }))} />
-            <label style={lbl}>{isAR ? 'الحي' : 'District'}</label>
-            <BrandSelect isAR={isAR} value={districtId} onChange={setDistrictId} disabled={outside || distChoices.length === 0} placeholder={distChoices.length === 0 ? (isAR ? 'لا توجد أحياء متاحة بعد' : 'No districts available yet') : (isAR ? 'اختر الحي' : 'Choose district')} options={distChoices.map(d => ({ value: d.id, label: isAR ? d.name : (d.name_en || d.name) }))} />
-          </>
-        )
-      })()}
+      {/* Outside the zone we don't collect an address — just surface the
+          "register interest" button. In-area customers fill these normally. */}
+      {!outsideZone && (
+        <>
+          {regions.length > 0 && (() => {
+            const regionChoices = regions.filter(r => !isOthers(r.name, r.name_en))
+            const distChoices = districtOptions.filter(d => !isOthers(d.name, d.name_en))
+            return (
+              <>
+                <label style={lbl}>{isAR ? 'المنطقة' : 'Region'}</label>
+                <BrandSelect isAR={isAR} value={regionId} onChange={v => { setRegionId(v); setDistrictId('') }} placeholder={isAR ? 'اختر المنطقة' : 'Choose region'} options={regionChoices.map(r => ({ value: r.id, label: isAR ? r.name : (r.name_en || r.name) }))} />
+                <label style={lbl}>{isAR ? 'الحي' : 'District'}</label>
+                <BrandSelect isAR={isAR} value={districtId} onChange={setDistrictId} disabled={distChoices.length === 0} placeholder={distChoices.length === 0 ? (isAR ? 'لا توجد أحياء متاحة بعد' : 'No districts available yet') : (isAR ? 'اختر الحي' : 'Choose district')} options={distChoices.map(d => ({ value: d.id, label: isAR ? d.name : (d.name_en || d.name) }))} />
+              </>
+            )
+          })()}
 
-      <label style={lbl}>{isAR ? 'العنوان الوطني (يُملأ تلقائياً من الخريطة)' : 'National address (auto-filled from the map)'}</label>
-      <input style={{ ...inp, marginBottom: 12, background: pos ? '#F5F1EC' : '#fff', color: pos ? '#7A7068' : '#1C1C1A' }} value={national} readOnly={!!pos} onChange={e => setNational(e.target.value)} placeholder={isAR ? 'سيُملأ عند تحديد الموقع' : 'Fills when you pin the map'} />
+          <label style={lbl}>{isAR ? 'العنوان الوطني (يُملأ تلقائياً من الخريطة)' : 'National address (auto-filled from the map)'}</label>
+          <input style={{ ...inp, marginBottom: 12, background: pos ? '#F5F1EC' : '#fff', color: pos ? '#7A7068' : '#1C1C1A' }} value={national} readOnly={!!pos} onChange={e => setNational(e.target.value)} placeholder={isAR ? 'سيُملأ عند تحديد الموقع' : 'Fills when you pin the map'} />
 
-      <label style={lbl}>{isAR ? 'تفاصيل العنوان' : 'Address details'}</label>
-      <textarea style={{ ...inp, height: 70, resize: 'vertical' }} placeholder={isAR ? 'المبنى، الشارع، رقم الشقة' : 'Building, street, apartment no.'} value={address} onChange={e => setAddress(e.target.value)} />
+          <label style={lbl}>{isAR ? 'تفاصيل العنوان' : 'Address details'}</label>
+          <textarea style={{ ...inp, height: 70, resize: 'vertical' }} placeholder={isAR ? 'المبنى، الشارع، رقم الشقة' : 'Building, street, apartment no.'} value={address} onChange={e => setAddress(e.target.value)} />
+        </>
+      )}
       {error && <div style={{ color: '#DC2626', fontSize: 12.5, marginTop: 8 }}>{error}</div>}
-      <button style={{ ...btn, opacity: saving ? 0.6 : 1 }} disabled={saving} onClick={save}>{saving ? (isAR ? 'جار الحفظ…' : 'Saving…') : (isAR ? 'التالي' : 'Continue')}</button>
+      <button style={{ ...btn, opacity: saving ? 0.6 : 1, background: outsideZone ? '#2D6A4F' : '#C84B0F' }} disabled={saving} onClick={save}>
+        {saving ? (isAR ? 'جار الحفظ…' : 'Saving…') : outsideZone ? (isAR ? 'سجّل اهتمامك' : 'Register interest') : (isAR ? 'التالي' : 'Continue')}
+      </button>
     </div>
   )
 }

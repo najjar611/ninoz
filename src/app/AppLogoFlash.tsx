@@ -15,6 +15,10 @@ export default function AppLogoFlash({ logoUrl }: { logoUrl?: string | null }) {
   useEffect(() => {
     if (first.current) { first.current = false; return }
     if (isAdmin) return
+    // Allow specific transitions to opt out of the flash (e.g. after payment).
+    if (typeof window !== 'undefined' && sessionStorage.getItem('ninoz_skip_flash')) {
+      sessionStorage.removeItem('ninoz_skip_flash'); return
+    }
     setShow(true); setN(x => x + 1)
   }, [pathname, isAdmin])
 

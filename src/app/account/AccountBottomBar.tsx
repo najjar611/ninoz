@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAccountLang } from '@/lib/AccountLangContext'
 import { createClient } from '@/lib/supabase/client'
 import { getMockSubscriberId } from '@/lib/mockSession'
+import { resumePlanRoute } from '@/lib/resumeStep'
 
 export default function AccountBottomBar({ whats }: { whats: string }) {
   const { isAR } = useAccountLang()
@@ -21,16 +22,22 @@ export default function AccountBottomBar({ whats }: { whats: string }) {
 
   const planItem = hasPlan
     ? { label: isAR ? 'خطتي' : 'My Plan', go: () => router.push('/account/dashboard'), pulse: false }
-    : { label: isAR ? 'ابدئي خطتك' : 'Start Plan', go: () => router.push('/account/profile'), pulse: true }
+    : { label: isAR ? 'ابدئي خطتك' : 'Start Plan', go: async () => { const id = getMockSubscriberId(); router.push(id ? await resumePlanRoute(createClient(), id) : '/account/profile') }, pulse: true }
 
-  const items = [
-    { key: 'account', label: isAR ? 'حسابي' : 'Account', go: () => router.push('/account'), active: path === '/account', pulse: false,
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="8" r="3.3" /><path d="M5.5 20c0-3 3-4.8 6.5-4.8s6.5 1.8 6.5 4.8" /></svg> },
-    { key: 'plan', label: planItem.label, go: planItem.go, active: path.startsWith('/account/dashboard') || path.startsWith('/account/plan'), pulse: planItem.pulse,
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M8 10h8M8 14h5" /></svg> },
+  // English → Home on the left (Home·Plan·Account); Arabic (RTL) → Home on the
+  // right (Account·Plan·Home). Bar direction is locked, so order is deterministic.
+  const base = [
     { key: 'home', label: isAR ? 'الرئيسية' : 'Home', go: () => router.push('/'), active: false, pulse: false,
       icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /></svg> },
+    { key: 'plan', label: planItem.label, go: planItem.go, active: path.startsWith('/account/dashboard') || path.startsWith('/account/plan'), pulse: planItem.pulse,
+      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M8 10h8M8 14h5" /></svg> },
+    { key: 'account', label: isAR ? 'حسابي' : 'Account', go: () => router.push('/account'), active: path === '/account', pulse: false,
+      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><circle cx="12" cy="8" r="3.3" /><path d="M5.5 20c0-3 3-4.8 6.5-4.8s6.5 1.8 6.5 4.8" /></svg> },
   ]
+  const items = isAR ? [...base].reverse() : base
+
+  // Create-account screen is a focused flow — hide the tab bar there.
+  if (path.startsWith('/account/signin')) return null
 
   return (
     <nav style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 50, background: 'rgba(12,26,21,0.82)', borderTop: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', display: 'flex', justifyContent: 'space-around', padding: '9px 0 14px', direction: 'ltr' }}>

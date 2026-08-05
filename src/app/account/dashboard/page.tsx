@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMockSubscriberId, clearMockSession } from '@/lib/mockSession'
+import { resumePlanRoute } from '@/lib/resumeStep'
 import { useAccountLang } from '@/lib/AccountLangContext'
 
 type Sub = {
@@ -535,7 +536,7 @@ export default function Dashboard() {
       )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1C1C1A', margin: 0 }}>
+          <h1 style={{ fontSize: 19, fontWeight: 900, color: '#1C1C1A', margin: 0 }}>
             {isAR ? `أهلاً، ${parentName || ''}` : `Welcome${parentName ? ', ' + parentName.split(' ')[0] : ''}`} 
           </h1>
           <p style={{ fontSize: 13, color: '#7A7068', margin: '4px 0 0' }}>
@@ -547,7 +548,7 @@ export default function Dashboard() {
 
       {tab === 'plan' && (
         pendingOrder ? (
-          <div style={{ background: '#FFF8EE', border: '1.5px solid #F0D9B0', borderRadius: 14, padding: '22px 24px', textAlign: 'center' }}>
+          <div style={{ background: '#FFF8EE', border: '1.5px solid #F0D9B0', borderRadius: 14, padding: '22px 24px', textAlign: 'center', maxWidth: 460, margin: '0 auto' }}>
             <div style={{ width: 60, height: 60, borderRadius: '50%', background: '#2D6A4F', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
             </div>
@@ -555,10 +556,10 @@ export default function Dashboard() {
             <p style={{ fontSize: 13.5, color: '#7A7068', lineHeight: 1.7, maxWidth: 360, margin: '0 auto' }}>{isAR ? 'طلبك قيد المراجعة — سنؤكده خلال ساعة تقريباً ويُفعّل اشتراكك. لا حاجة للاشتراك مرة أخرى.' : "Your order is under review — we'll confirm it within about an hour and activate your subscription. No need to subscribe again."}</p>
           </div>
         ) : !sub ? (
-          <div style={{ background: '#FDF0E8', border: '1.5px solid #F0C9A8', borderRadius: 14, padding: '20px 22px' }}>
+          <div style={{ background: '#FDF0E8', border: '1.5px solid #F0C9A8', borderRadius: 14, padding: '20px 22px', maxWidth: 460, margin: '0 auto' }}>
             <h2 style={{ fontSize: 18, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'أنت غير مشترك في أي خطة' : "You're not subscribed to any plan"}</h2>
             <p style={{ fontSize: 13, color: '#7A7068', marginBottom: 20 }}>{isAR ? 'يمكنك تعبئة بياناتك أولاً، وعندما تكون جاهزاً اضغط هنا للاشتراك.' : "You can fill in your details first, and whenever you're ready, press here to subscribe."}</p>
-            <button onClick={() => router.push('/account/profile')} style={btn}>{isAR ? 'ابدأ خطتك' : 'Start Your Plan'}</button>
+            <button onClick={async () => { const id = getMockSubscriberId(); router.push(id ? await resumePlanRoute(supabase, id) : '/account/profile') }} style={btn}>{isAR ? 'ابدأ خطتك' : 'Start Your Plan'}</button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18 }}>

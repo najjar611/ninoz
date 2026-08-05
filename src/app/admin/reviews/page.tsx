@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 type Review = {
@@ -108,6 +109,7 @@ export default function ReviewsAdmin() {
                 </button>
                 {isOpen && (
                   <div style={{ borderTop: '1.5px solid #EDE8E0', padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <Link href={`/admin/customers/${g.subscriberId}`} style={{ fontSize: 12.5, fontWeight: 800, color: '#C84B0F', textDecoration: 'none' }}>View customer profile →</Link>
                     {g.reviews.map(r => (
                       <div key={r.id}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>

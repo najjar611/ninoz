@@ -6,6 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 import { setMockSubscriberId } from '@/lib/mockSession'
 import { useAccountLang } from '@/lib/AccountLangContext'
 
+// Names are text only — strip Western + Arabic-Indic digits as the user types.
+const stripDigits = (s: string) => s.replace(/[0-9٠-٩۰-۹]/g, '')
+
 const MOCK_OTP = '1234'
 const OTP_LEN = 4
 const RESEND_SECONDS = 30
@@ -39,10 +42,25 @@ export default function SignIn() {
   const phoneDigits = phone.replace(/\D/g, '')
   const nationalDigits = phoneDigits.startsWith('0') ? phoneDigits.slice(1) : phoneDigits
   const fullPhone = `+966${nationalDigits}`
+  const phoneValid = /^0\d{9}$/.test(phoneDigits)
+  // Live hint under the phone field: nudge to start with 0, then to complete 10 digits.
+  const phoneHint = phoneDigits.length === 0
+    ? (isAR ? 'يبدأ الرقم بـ 0 (مثال: 05xxxxxxxx)' : 'Number must start with 0 (e.g. 05xxxxxxxx)')
+    : !phoneDigits.startsWith('0')
+      ? (isAR ? 'يجب أن يبدأ الرقم بـ 0' : 'Number must start with 0')
+      : !phoneValid
+        ? (isAR ? 'الرقم مكوّن من 10 أرقام' : 'Number must be 10 digits')
+        : ''
+  const nameValid = !!name.trim()
+
+  function goGuest() {
+    if (typeof window !== 'undefined') localStorage.setItem('ninoz_entry', 'guest')
+    router.push('/')
+  }
 
   function sendCode() {
-    if (!name.trim()) { setError(isAR ? 'يرجى إدخال اسمك' : 'Please enter your name'); return }
-    if (!/^0\d{9}$/.test(phoneDigits)) { setError(isAR ? 'أدخل رقم جوال مكوّن من 10 أرقام يبدأ بـ 0' : 'Enter a 10-digit number starting with 0'); return }
+    if (!nameValid) { setError(isAR ? 'يرجى إدخال اسمك' : 'Please enter your name'); return }
+    if (!phoneValid) { setError(isAR ? 'أدخل رقم جوال مكوّن من 10 أرقام يبدأ بـ 0' : 'Enter a 10-digit number starting with 0'); return }
     setError(''); setDigits(Array(OTP_LEN).fill(''))
     setStep('otp')
     setTimeout(() => inputsRef.current[0]?.focus(), 50)
@@ -89,8 +107,25 @@ export default function SignIn() {
     else inputsRef.current[Math.min(pasted.length, OTP_LEN - 1)]?.focus()
   }
 
+  // Soft, classy inline notification (replaces the bare red line).
+  const softNote = (text: string, tone: 'error' | 'hint' = 'error') => (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, padding: '9px 12px', borderRadius: 12,
+      background: tone === 'error' ? '#FDECEA' : '#FBF3EC', border: `1px solid ${tone === 'error' ? '#F5C6C0' : '#EFDCC9'}`,
+      color: tone === 'error' ? '#B5321E' : '#A9713B', fontSize: 12.5, fontWeight: 700,
+      animation: 'nzNote .28s cubic-bezier(.16,1,.3,1) both',
+    }}>
+      <style>{`@keyframes nzNote{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}`}</style>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16.5v.2" /></svg>
+      <span>{text}</span>
+    </div>
+  )
+
   return (
     <div>
+      <button onClick={() => router.push('/')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#7A7068', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0, marginBottom: 12 }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ transform: isAR ? 'scaleX(-1)' : 'none' }}><path d="M15 6l-6 6 6 6" /></svg>{isAR ? 'رجوع' : 'Back'}
+      </button>
       <h1 style={{ fontSize: 20, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>
         {step === 'phone' ? (isAR ? 'إنشاء حساب' : 'Create your account') : (isAR ? 'أدخل رمز التحقق' : 'Enter verification code')}
       </h1>
@@ -103,14 +138,22 @@ export default function SignIn() {
       {step === 'phone' ? (
         <>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#7A7068', marginBottom: 6 }}>{isAR ? 'الاسم' : 'Name'}</label>
-          <input style={{ ...inp, marginBottom: 14 }} value={name} onChange={e => setName(e.target.value)} placeholder={isAR ? 'مثال: محمد' : 'e.g. Mohammed'} onKeyDown={e => e.key === 'Enter' && sendCode()} />
+          <input style={{ ...inp, marginBottom: 14 }} value={name} onChange={e => setName(stripDigits(e.target.value))} placeholder={isAR ? 'مثال: محمد' : 'e.g. Mohammed'} onKeyDown={e => e.key === 'Enter' && sendCode()} />
           <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#7A7068', marginBottom: 6 }}>{isAR ? 'رقم الجوال' : 'Mobile number'}</label>
           <div style={{ display: 'flex', gap: 8 }} dir="ltr">
             <span style={{ display: 'flex', alignItems: 'center', padding: '0 14px', borderRadius: 10, border: '1.5px solid #EDE8E0', background: '#F7F4F0', fontWeight: 800, color: '#1C1C1A', flexShrink: 0 }}>+966</span>
-            <input style={{ ...inp, flex: 1, textAlign: 'left' }} placeholder="05xxxxxxxx" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" maxLength={10} onKeyDown={e => e.key === 'Enter' && sendCode()} />
+            <input style={{ ...inp, flex: 1, textAlign: 'left', borderColor: phoneDigits.length > 0 && !phoneValid ? '#E8A79C' : '#EDE8E0' }} placeholder="05xxxxxxxx" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} inputMode="numeric" maxLength={10} onKeyDown={e => e.key === 'Enter' && phoneValid && sendCode()} />
           </div>
-          {error && <div style={{ color: '#DC2626', fontSize: 12.5, marginTop: 8 }}>{error}</div>}
-          <button style={btn} onClick={sendCode}>{isAR ? 'إرسال الرمز' : 'Send code'}</button>
+          {phoneHint && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 6, color: '#C25B48', fontSize: 11.5, fontWeight: 700 }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#C25B48', display: 'inline-block' }} />{phoneHint}
+            </div>
+          )}
+          {error && softNote(error)}
+          <button style={{ ...btn, opacity: nameValid && phoneValid ? 1 : 0.55 }} disabled={!nameValid || !phoneValid} onClick={sendCode}>{isAR ? 'إرسال الرمز' : 'Send code'}</button>
+          <button onClick={goGuest} style={{ display: 'block', width: '100%', marginTop: 14, background: 'none', border: 'none', color: '#A79C90', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+            {isAR ? 'المتابعة كضيف' : 'Continue as guest'}
+          </button>
         </>
       ) : (
         <>
@@ -120,7 +163,7 @@ export default function SignIn() {
                 style={{ width: 56, height: 62, textAlign: 'center', fontSize: 24, fontWeight: 800, borderRadius: 12, border: d ? '2px solid #C84B0F' : '1.5px solid #EDE8E0', outline: 'none', fontFamily: 'inherit', color: '#1C1C1A', transition: 'border-color 0.15s, transform 0.15s', transform: d ? 'scale(1.05)' : 'scale(1)' }} />
             ))}
           </div>
-          {error && <div style={{ color: '#DC2626', fontSize: 12.5, marginTop: 12, textAlign: 'center' }}>{error}</div>}
+          {error && softNote(error)}
           <button style={{ ...btn, opacity: loading ? 0.6 : 1 }} disabled={loading} onClick={() => verify(digits.join(''))}>{loading ? (isAR ? 'جار التحقق…' : 'Verifying…') : (isAR ? 'تحقق' : 'Verify')}</button>
           <div style={{ textAlign: 'center', marginTop: 12 }}>
             {resendIn > 0

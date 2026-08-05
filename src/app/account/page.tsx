@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMockSubscriberId, clearMockSession } from '@/lib/mockSession'
@@ -10,6 +11,17 @@ import BrandSelect from '@/components/BrandSelect'
 import PlaceSearch from '@/components/PlaceSearch'
 
 const MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
+
+const DEFAULT_ZONE: [number, number][] = [[46.55, 24.95], [46.82, 24.95], [46.82, 24.74], [46.55, 24.74]]
+function pointInPolygon(lat: number, lng: number, poly: [number, number][]) {
+  let inside = false
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1]
+    const intersect = (yi > lat) !== (yj > lat) && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi
+    if (intersect) inside = !inside
+  }
+  return inside
+}
 
 let mapsPromise: Promise<void> | null = null
 function loadMaps(): Promise<void> {
@@ -47,6 +59,8 @@ export default function Account() {
   const router = useRouter()
   const { isAR } = useAccountLang()
   const [tab, setTab] = useState<Tab | null>(null)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
 
@@ -74,6 +88,8 @@ export default function Account() {
   const [savedRegion, setSavedRegion] = useState('')
   const [savedDistrict, setSavedDistrict] = useState('')
   const [addressSaving, setAddressSaving] = useState(false)
+  const [zone, setZone] = useState<[number, number][]>(DEFAULT_ZONE)
+  const [enforce, setEnforce] = useState(true)
 
   // Terms
   const [termsContent, setTermsContent] = useState('')
@@ -95,7 +111,7 @@ export default function Account() {
       supabase.from('subscriptions').select('id, start_date, status, total_price, stage_id, stages(name, name_ar, emoji), payment_cycles(label, label_ar, days, meals_total)').eq('subscriber_id', id).order('created_at', { ascending: false }),
       supabase.from('service_regions').select('id, name, name_en').eq('is_active', true).order('position'),
       supabase.from('service_districts').select('id, region_id, name, name_en').eq('is_active', true).order('position'),
-      supabase.from('site_content').select('key, value').in('key', ['terms_content', 'terms_content_ar']),
+      supabase.from('site_content').select('key, value').in('key', ['terms_content', 'terms_content_ar', 'delivery_zone_polygon', 'delivery_zone_enforce']),
     ])
     if (subscriberRes.data) {
       const s = subscriberRes.data as Subscriber
@@ -119,6 +135,8 @@ export default function Account() {
     const tmap: Record<string, string> = {}
     ;((termsRes.data as any[]) || []).forEach(r => { tmap[r.key] = r.value })
     setTermsContent((isAR ? tmap.terms_content_ar : tmap.terms_content) || tmap.terms_content || tmap.terms_content_ar || '')
+    if (tmap.delivery_zone_polygon) { try { const pz = JSON.parse(tmap.delivery_zone_polygon); if (Array.isArray(pz) && pz.length >= 3) setZone(pz) } catch {} }
+    if (tmap.delivery_zone_enforce === 'false') setEnforce(false)
     setLoading(false)
   }
 
@@ -193,27 +211,34 @@ export default function Account() {
 
   async function saveAddress() {
     if (regions.length > 0 && !regionId) { showToast(isAR ? 'يرجى اختيار المنطقة' : 'Please choose the region'); return }
-    if (!details.trim() && !national.trim()) { showToast(isAR ? 'يرجى إدخال تفاصيل العنوان' : 'Please enter address details'); return }
+    if (!national.trim() && !pos) { showToast(isAR ? 'يرجى تحديد موقعك على الخريطة' : 'Please set your location on the map'); return }
+    // Subscribers can only move to a spot INSIDE the delivery area.
+    if (enforce && pos && !pointInPolygon(pos.lat, pos.lng, zone)) {
+      showToast(isAR ? 'لا يمكن تغيير الموقع لمكان خارج منطقة التوصيل' : "That location is outside the delivery area — change isn't possible")
+      return
+    }
     setAddressSaving(true)
     const id = getMockSubscriberId()
-    const addr = details.trim() || national.trim()
-    const { data: cur } = await supabase.from('subscribers').select('address_details').eq('id', id).maybeSingle()
-    const detailsObj = { ...((cur as any)?.address_details || {}), lat: pos?.lat ?? null, lng: pos?.lng ?? null, region: regionName(regionId) || savedRegion, district: districtName(districtId) || savedDistrict, national }
-    const { error } = await supabase.from('subscribers').update({ delivery_address: addr, address_details: detailsObj }).eq('id', id)
+    const addr = national.trim() || details.trim()
+    const detailsObj = { lat: pos?.lat ?? null, lng: pos?.lng ?? null, region: regionName(regionId) || savedRegion, district: districtName(districtId) || savedDistrict, national, note: details.trim() || null }
+    // Do NOT change the address directly — file a request for admin approval.
+    const { error } = await supabase.from('address_change_requests').insert({
+      subscriber_id: id, delivery_address: addr, address_details: detailsObj, status: 'pending',
+    })
     setAddressSaving(false)
     if (error) { showToast(error.message); return }
-    setSavedAddress(addr); setSavedRegion(detailsObj.region); setSavedDistrict(detailsObj.district)
-    setEditingAddress(false); showToast(isAR ? 'تم تحديث عنوان التوصيل' : 'Delivery address updated')
+    setEditingAddress(false)
+    showToast(isAR ? 'تم إرسال طلب تغيير الموقع — بانتظار موافقة الإدارة' : 'Location change requested — pending admin approval')
   }
 
-  const inp: React.CSSProperties = { width: '100%', padding: '13px 15px', borderRadius: 12, border: '1.5px solid #EAE3D9', fontSize: 15, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#1C1C1A', marginBottom: 14, background: '#fff', accentColor: '#C84B0F' }
+  const inp: React.CSSProperties = { width: '100%', padding: '11px 14px', borderRadius: 11, border: '1.5px solid #EAE3D9', fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#1C1C1A', marginBottom: 14, background: '#fff', accentColor: '#C84B0F' }
   const selStyle: React.CSSProperties = {
     ...inp, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
     backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23C84B0F' stroke-width='2.2'><path d='M6 9l6 6 6-6'/></svg>\")",
     backgroundRepeat: 'no-repeat', backgroundPosition: isAR ? 'left 14px center' : 'right 14px center', backgroundSize: '18px',
     paddingRight: isAR ? 15 : 40, paddingLeft: isAR ? 40 : 15, cursor: 'pointer',
   }
-  const lbl: React.CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 800, color: '#5A5048', marginBottom: 7 }
+  const lbl: React.CSSProperties = { display: 'block', fontSize: 11.5, fontWeight: 800, color: '#5A5048', marginBottom: 6 }
   const btn: React.CSSProperties = { padding: '13px 22px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }
 
   if (loading) return <div style={{ textAlign: 'center', color: '#7A7068', padding: 20 }}>{isAR ? 'جار التحميل…' : 'Loading…'}</div>
@@ -232,7 +257,7 @@ export default function Account() {
       )}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#1C1C1A', margin: 0 }}>{isAR ? `حسابي` : 'My Account'}</h1>
+          <h1 style={{ fontSize: 19, fontWeight: 900, color: '#1C1C1A', margin: 0 }}>{isAR ? `حسابي` : 'My Account'}</h1>
           <p style={{ fontSize: 13, color: '#7A7068', margin: '4px 0 0' }}>{parentName ? (isAR ? `مرحباً، ${parentName.split(' ')[0]}` : `Hi, ${parentName.split(' ')[0]}`) : ''}</p>
         </div>
         <button onClick={logout} style={{ background: 'none', border: '1.5px solid #EDE8E0', color: '#7A7068', fontSize: 12.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', borderRadius: 8, padding: '8px 14px' }}>{isAR ? 'تسجيل الخروج' : 'Sign out'}</button>
@@ -250,9 +275,11 @@ export default function Account() {
         ))}
       </div>
 
-      {tab && (
-        <div onClick={() => setTab(null)} style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(12,26,21,0.28)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: '#FBF8F2', width: '100%', maxWidth: 520, borderRadius: 20, padding: '20px 22px 26px', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
+      {tab && mounted && createPortal(
+        <div onClick={() => setTab(null)} style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(8,18,14,0.62)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontFamily: "'Baloo Bhaijaan 2','Tajawal',sans-serif" }}>
+          <div onClick={e => e.stopPropagation()} dir={isAR ? 'rtl' : 'ltr'} style={{ background: '#FBF8F2', width: '100%', maxWidth: 520, borderRadius: '22px 22px 0 0', padding: '14px 22px 30px', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 -18px 60px rgba(0,0,0,0.45)', animation: 'nzSheetUp .3s cubic-bezier(.16,1,.3,1)' }}>
+            <style>{`@keyframes nzSheetUp{from{transform:translateY(40px);opacity:.5}to{transform:translateY(0);opacity:1}}`}</style>
+            <div style={{ width: 40, height: 4, borderRadius: 4, background: '#E2D8CB', margin: '0 auto 14px' }} />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <h2 style={{ fontSize: 18, fontWeight: 900, color: '#1C1C1A', margin: 0 }}>{isAR ? (tabs.find(t => t.key === tab)?.ar) : (tabs.find(t => t.key === tab)?.en)}</h2>
               <button onClick={() => setTab(null)} style={{ background: '#F2EDE8', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 800, color: '#5A5048', cursor: 'pointer', fontFamily: 'inherit' }}>{isAR ? 'إغلاق' : 'Close'}</button>
@@ -322,7 +349,7 @@ export default function Account() {
                       }
                     />
                   </div>
-                  <div ref={mapRef} style={{ height: 260, borderRadius: 14, overflow: 'hidden', marginBottom: 12, border: '1.5px solid #EDE8E0' }} />
+                  <div ref={mapRef} style={{ height: 220, borderRadius: 14, overflow: 'hidden', marginBottom: 12, border: '1.5px solid #EDE8E0' }} />
                   <p style={{ fontSize: 11.5, color: '#B0A098', marginTop: -4, marginBottom: 12 }}>{isAR ? 'اضغط على الخريطة أو اسحب الدبوس لتحديد موقعك.' : 'Tap the map or drag the pin to set your spot.'}</p>
                 </>
               ) : (
@@ -342,7 +369,7 @@ export default function Account() {
               <textarea style={{ ...inp, height: 70, resize: 'vertical' }} value={details} onChange={e => setDetails(e.target.value)} placeholder={isAR ? 'المبنى، الشارع، رقم الشقة' : 'Building, street, apartment no.'} />
               <div style={{ display: 'flex', gap: 8 }}>
                 <button style={{ flex: 1, padding: '12px', background: '#F2EDE8', color: '#5A5048', border: 'none', borderRadius: 10, fontSize: 13.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }} onClick={() => setEditingAddress(false)}>{isAR ? 'إلغاء' : 'Cancel'}</button>
-                <button style={{ flex: 1, ...btn, opacity: addressSaving ? 0.6 : 1 }} disabled={addressSaving} onClick={saveAddress}>{addressSaving ? (isAR ? 'جار الحفظ…' : 'Saving…') : (isAR ? 'حفظ الموقع' : 'Save location')}</button>
+                <button style={{ flex: 1, ...btn, opacity: addressSaving ? 0.6 : 1 }} disabled={addressSaving} onClick={saveAddress}>{addressSaving ? (isAR ? 'جار الإرسال…' : 'Sending…') : (isAR ? 'طلب تغيير' : 'Request a change')}</button>
               </div>
             </>
           )}
@@ -378,7 +405,7 @@ export default function Account() {
       )}
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   )
 }

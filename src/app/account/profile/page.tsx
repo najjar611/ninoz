@@ -13,6 +13,9 @@ type CustomField = {
 }
 type Stage = { id: string; name: string; name_ar?: string | null; min_age_months?: number | null; max_age_months?: number | null }
 
+// Names are text only — strip Western + Arabic-Indic digits as the user types.
+const stripDigits = (s: string) => s.replace(/[0-9٠-٩۰-۹]/g, '')
+
 function ageInMonths(dateStr: string | null): number | null {
   if (!dateStr) return null
   const birth = new Date(dateStr)
@@ -40,7 +43,7 @@ export default function Profile() {
 
   useEffect(() => {
     const id = getMockSubscriberId()
-    if (!id) { router.replace('/account/signin'); return }
+    if (!id) { router.replace('/account/signin?next=/account/profile'); return }
     Promise.all([
       supabase.from('subscribers').select('parent_name, kid_name, kid_birth_date, email, extra_fields').eq('id', id).single(),
       supabase.from('customer_fields').select('*').eq('is_active', true).order('position'),
@@ -66,14 +69,14 @@ export default function Profile() {
     return stages.find(s => s.min_age_months != null && s.max_age_months != null && months >= s.min_age_months && months <= s.max_age_months) || null
   })()
 
-  const inp: React.CSSProperties = { width: '100%', padding: '13px 15px', borderRadius: 12, border: '1.5px solid #EAE3D9', fontSize: 15, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#1C1C1A', marginBottom: 14, background: '#fff', accentColor: '#C84B0F' }
+  const inp: React.CSSProperties = { width: '100%', padding: '11px 14px', borderRadius: 11, border: '1.5px solid #EAE3D9', fontSize: 14, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', color: '#1C1C1A', marginBottom: 14, background: '#fff', accentColor: '#C84B0F' }
   const selStyle: React.CSSProperties = {
     ...inp, appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
     backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23C84B0F' stroke-width='2.2'><path d='M6 9l6 6 6-6'/></svg>\")",
     backgroundRepeat: 'no-repeat', backgroundPosition: isAR ? 'left 14px center' : 'right 14px center', backgroundSize: '18px',
     paddingRight: isAR ? 15 : 40, paddingLeft: isAR ? 40 : 15, cursor: 'pointer',
   }
-  const lbl: React.CSSProperties = { display: 'block', fontSize: 12.5, fontWeight: 800, color: '#5A5048', marginBottom: 7 }
+  const lbl: React.CSSProperties = { display: 'block', fontSize: 11.5, fontWeight: 800, color: '#5A5048', marginBottom: 6 }
   const req = <span style={{ color: '#DC2626' }}> *</span>
   const btn: React.CSSProperties = { width: '100%', padding: '14px', background: '#C84B0F', color: 'white', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', marginTop: 6, opacity: saving ? 0.6 : 1 }
 
@@ -110,17 +113,26 @@ export default function Profile() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 20, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'أخبرنا عنك' : 'Tell us about you'}</h1>
+      <button onClick={() => router.push('/')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#7A7068', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0, marginBottom: 10 }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ transform: isAR ? 'scaleX(-1)' : 'none' }}><path d="M15 6l-6 6 6 6" /></svg>{isAR ? 'رجوع' : 'Back'}
+      </button>
+      <h1 style={{ fontSize: 18, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'أخبرنا عنك' : 'Tell us about you'}</h1>
       <p style={{ fontSize: 13, color: '#7A7068', marginBottom: 20 }}>{isAR ? 'هذا يساعدنا على تخصيص وجبات طفلك.' : "This helps us personalize your baby's meals."}</p>
 
       <label style={lbl}>{isAR ? 'الاسم الأول' : 'First Name'}{req}</label>
-      <input style={inp} value={parentName} onChange={e => setParentName(e.target.value)} />
+      <input style={inp} value={parentName} onChange={e => setParentName(stripDigits(e.target.value))} />
 
       <label style={lbl}>{isAR ? 'اسم الطفل' : "Baby's Name"}{req}</label>
-      <input style={inp} value={kidName} onChange={e => setKidName(e.target.value)} />
+      <input style={inp} value={kidName} onChange={e => setKidName(stripDigits(e.target.value))} />
 
       <label style={lbl}>{isAR ? 'تاريخ ميلاد الطفل' : "Baby's Birth Date"}{req}</label>
-      <DateField value={kidBirthDate} onChange={setKidBirthDate} isAR={isAR} max={new Date().toISOString().slice(0, 10)} placeholder={isAR ? 'اختر التاريخ' : 'Select date'} />
+      <DateField value={kidBirthDate} onChange={setKidBirthDate} isAR={isAR} max={new Date().toISOString().slice(0, 10)} placeholder={isAR ? 'اختر التاريخ' : 'Select date'}
+        recommend={(d) => {
+          const m = ageInMonths(d)
+          if (m === null) return null
+          const s = stages.find(st => st.min_age_months != null && st.max_age_months != null && m >= st.min_age_months && m <= st.max_age_months)
+          return s ? ((isAR && s.name_ar) || s.name) : null
+        }} />
       {recStage && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#E8F5EE', border: '1px solid #BFE3CE', borderRadius: 10, padding: '9px 12px', marginTop: -6, marginBottom: 14 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2D6A4F" strokeWidth="2.4"><path d="M20 6 9 17l-5-5" /></svg>

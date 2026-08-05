@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 type Props = {
   value: string                    // 'YYYY-MM-DD' or ''
@@ -8,6 +9,7 @@ type Props = {
   isAR: boolean
   max?: string                     // 'YYYY-MM-DD'
   placeholder?: string
+  recommend?: (iso: string) => string | null   // optional: label to show for a date
 }
 
 const MONTHS_EN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
@@ -18,10 +20,16 @@ const DOW_AR = ['أحد', 'إثن', 'ثلا', 'أرب', 'خمي', 'جمع', 'س�
 function pad(n: number) { return String(n).padStart(2, '0') }
 function iso(y: number, m: number, d: number) { return `${y}-${pad(m + 1)}-${pad(d)}` }
 
-export default function DateField({ value, onChange, isAR, max, placeholder }: Props) {
+export default function DateField({ value, onChange, isAR, max, placeholder, recommend }: Props) {
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  // Tentative pick while the sheet is open — nothing commits until "Confirm",
+  // so the customer sees the recommended stage before it's applied.
+  const [draft, setDraft] = useState<string>('')
   const today = new Date()
   const sel = value ? new Date(value + 'T00:00:00') : null
+  const draftDate = draft ? new Date(draft + 'T00:00:00') : null
   const [vy, setVy] = useState(sel ? sel.getFullYear() : today.getFullYear() - 1)
   const [vm, setVm] = useState(sel ? sel.getMonth() : today.getMonth())
   const [yearGrid, setYearGrid] = useState(false)
@@ -30,8 +38,11 @@ export default function DateField({ value, onChange, isAR, max, placeholder }: P
   useEffect(() => {
     if (!open) return
     if (sel) { setVy(sel.getFullYear()); setVm(sel.getMonth()) }
+    setDraft(value || '')
     setYearGrid(false)
   }, [open])
+
+  const draftRec = draft && recommend ? recommend(draft) : null
 
   const maxDate = max ? new Date(max + 'T23:59:59') : null
   const months = isAR ? MONTHS_AR : MONTHS_EN
@@ -71,8 +82,8 @@ export default function DateField({ value, onChange, isAR, max, placeholder }: P
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C84B0F" strokeWidth="1.9"><rect x="3" y="4.5" width="18" height="16" rx="2.5" /><path d="M3 9h18M8 2.5v4M16 2.5v4" /></svg>
       </button>
 
-      {open && (
-        <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 4000, background: 'rgba(12,26,21,0.4)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      {open && mounted && createPortal(
+        <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 4000, background: 'rgba(12,26,21,0.4)', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontFamily: "'Baloo Bhaijaan 2','Tajawal',sans-serif" }}>
           <div onClick={e => e.stopPropagation()} dir={isAR ? 'rtl' : 'ltr'} style={{ background: '#FBF8F2', width: '100%', maxWidth: 420, borderRadius: '22px 22px 0 0', padding: '18px 18px 26px', boxShadow: '0 -18px 50px rgba(0,0,0,0.3)', animation: 'ninozSheet .26s cubic-bezier(.16,1,.3,1)' }}>
             <style>{`@keyframes ninozSheet{from{transform:translateY(30px);opacity:.4}to{transform:translateY(0);opacity:1}}`}</style>
             <div style={{ width: 40, height: 4, borderRadius: 4, background: '#E2D8CB', margin: '0 auto 16px' }} />
@@ -99,17 +110,19 @@ export default function DateField({ value, onChange, isAR, max, placeholder }: P
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 6 }}>
                   {dow.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 11, fontWeight: 800, color: '#B0A098', padding: '4px 0' }}>{d}</div>)}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+                <div key={`${vy}-${vm}`} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridAutoRows: '40px', gap: 4, animation: 'nzGridFade .22s ease' }}>
+                  <style>{`@keyframes nzGridFade{from{opacity:0}to{opacity:1}}@keyframes nzDayPop{0%{transform:scale(.8)}60%{transform:scale(1.08)}100%{transform:scale(1)}}`}</style>
                   {cells.map((d, i) => {
-                    if (d === null) return <div key={i} style={{ aspectRatio: '1 / 1' }} />
-                    const isSel = sel && sel.getFullYear() === vy && sel.getMonth() === vm && sel.getDate() === d
+                    if (d === null) return <div key={i} />
+                    const isSel = draftDate && draftDate.getFullYear() === vy && draftDate.getMonth() === vm && draftDate.getDate() === d
                     const isToday = today.getFullYear() === vy && today.getMonth() === vm && today.getDate() === d
                     const disabled = isDisabled(d)
                     return (
-                      <button key={i} type="button" disabled={disabled} onClick={() => { onChange(iso(vy, vm, d)); setOpen(false) }} style={{
-                        aspectRatio: '1 / 1', borderRadius: 10, border: isToday && !isSel ? '1.5px solid #F0C9A8' : 'none',
+                      <button key={i} type="button" disabled={disabled} onClick={() => setDraft(iso(vy, vm, d))} style={{
+                        width: '100%', height: '100%', borderRadius: 10, border: isToday && !isSel ? '1.5px solid #F0C9A8' : 'none',
                         background: isSel ? '#C84B0F' : 'transparent', color: disabled ? '#D8CFC4' : isSel ? '#fff' : '#1C1C1A',
                         fontFamily: 'inherit', fontSize: 14, fontWeight: isSel ? 900 : 600, cursor: disabled ? 'not-allowed' : 'pointer',
+                        animation: isSel ? 'nzDayPop .28s cubic-bezier(.16,1,.3,1)' : undefined,
                       }}>{d}</button>
                     )
                   })}
@@ -117,12 +130,30 @@ export default function DateField({ value, onChange, isAR, max, placeholder }: P
               </>
             )}
 
-            <button type="button" onClick={() => setOpen(false)} style={{ width: '100%', marginTop: 16, padding: '12px', background: '#F2EDE6', color: '#5A5048', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
-              {isAR ? 'إغلاق' : 'Close'}
-            </button>
+            {draftRec && (
+              <div key={draftRec} style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'linear-gradient(120deg,#E8F5EE,#DCF0E4)', border: '1px solid #BFE3CE', borderRadius: 14, padding: '12px 14px', marginTop: 14, animation: 'nzRecPop .4s cubic-bezier(.16,1,.3,1) both' }}>
+                <style>{`@keyframes nzRecPop{0%{opacity:0;transform:scale(.92) translateY(6px)}100%{opacity:1;transform:none}}@keyframes nzRecRing{0%{box-shadow:0 0 0 0 rgba(45,106,79,.35)}70%{box-shadow:0 0 0 9px rgba(45,106,79,0)}100%{box-shadow:0 0 0 0 rgba(45,106,79,0)}}`}</style>
+                <span style={{ flexShrink: 0, width: 28, height: 28, borderRadius: '50%', background: '#2D6A4F', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'nzRecRing 1.6s ease-out 1' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>
+                </span>
+                <div>
+                  <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: '#5C8A72' }}>{isAR ? 'الخطة الموصى بها' : 'Recommended plan'}</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: '#1F5137' }}>{draftRec}</div>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+              <button type="button" onClick={() => setOpen(false)} style={{ flex: '0 0 auto', padding: '12px 18px', background: '#F2EDE6', color: '#5A5048', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {isAR ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button type="button" disabled={!draft} onClick={() => { onChange(draft); setOpen(false) }} style={{ flex: 1, padding: '12px', background: '#C84B0F', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14.5, fontWeight: 800, cursor: draft ? 'pointer' : 'not-allowed', fontFamily: 'inherit', opacity: draft ? 1 : 0.5 }}>
+                {isAR ? 'تأكيد' : 'Confirm'}
+              </button>
+            </div>
           </div>
         </div>
-      )}
+      , document.body)}
     </div>
   )
 }

@@ -138,7 +138,10 @@ export default function Plan() {
 
   return (
     <div>
-      <h1 style={{ fontSize: 20, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'بناء خطتك' : 'Build your plan'}</h1>
+      <button onClick={() => router.push('/account/location')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#7A7068', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0, marginBottom: 10 }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ transform: isAR ? 'scaleX(-1)' : 'none' }}><path d="M15 6l-6 6 6 6" /></svg>{isAR ? 'رجوع' : 'Back'}
+      </button>
+      <h1 style={{ fontSize: 18, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'بناء خطتك' : 'Build your plan'}</h1>
       <p style={{ fontSize: 13, color: '#7A7068', marginBottom: 18 }}>{isAR ? 'اختر مرحلة طفلك وعدد مرات توصيل الوجبات.' : "Choose your baby's stage and how often you'd like meals delivered."}</p>
 
       <div style={{ fontSize: 11, fontWeight: 800, color: '#C9A98A', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>{isAR ? 'المرحلة' : 'Stage'}</div>

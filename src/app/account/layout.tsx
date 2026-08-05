@@ -22,7 +22,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" />
       <div style={{ minHeight: '100vh', fontFamily: fontStack, background: 'radial-gradient(120% 90% at 50% -10%, #122A22, #0C1A15)', paddingBottom: 86 }}>
         {/* Glass header with a big logo */}
-        <div style={{ position: 'sticky', top: 0, zIndex: 40, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: 'linear-gradient(180deg, #0C1A15 55%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+        <div style={{ position: 'sticky', top: 0, zIndex: 40, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', background: 'linear-gradient(180deg, #0C1A15 55%, transparent)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', direction: 'ltr' }}>
           <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
             {logoUrl
               ? <img src={logoUrl} alt="Ninoz" style={{ height: 76, maxHeight: 88, maxWidth: 240, objectFit: 'contain', filter: 'drop-shadow(0 6px 18px rgba(0,0,0,0.5))' }} />
@@ -34,7 +34,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
         {/* Content sheet — light card on the dark frame so pages stay readable */}
         <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 16px 8px' }}>
           <AccountWidthWrap>
-            <div className="nz-page" style={{ background: '#FBF8F2', borderRadius: 22, border: '1px solid rgba(255,255,255,0.08)', padding: '26px 24px', boxShadow: '0 22px 54px rgba(0,0,0,0.34)', position: 'relative' }}>
+            <div className="nz-page" style={{ background: '#FBF8F2', borderRadius: 20, border: '1px solid rgba(255,255,255,0.08)', padding: '20px 18px', boxShadow: '0 22px 54px rgba(0,0,0,0.34)', position: 'relative' }}>
               {children}
             </div>
           </AccountWidthWrap>

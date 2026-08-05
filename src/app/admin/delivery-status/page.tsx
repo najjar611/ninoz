@@ -29,11 +29,14 @@ export default function DeliveryStatusAdmin() {
   useEffect(() => { load() }, [])
 
   async function load() {
-    const [subsRes, statusRes] = await Promise.all([
+    const [subsRes, statusRes, activeRes] = await Promise.all([
       supabase.from('subscribers').select('id, parent_name, kid_name').order('parent_name'),
       supabase.from('delivery_status').select('subscriber_id, status').eq('menu_date', date),
+      supabase.from('subscriptions').select('subscriber_id').eq('status', 'active'),
     ])
-    setSubscribers((subsRes.data as any) || [])
+    // Only customers with an ACTIVE subscription actually receive deliveries.
+    const activeIds = new Set(((activeRes.data as any[]) || []).map(s => s.subscriber_id))
+    setSubscribers(((subsRes.data as any[]) || []).filter(s => activeIds.has(s.id)) as any)
     const map: Record<string, string> = {}
     ;((statusRes.data as any as Status[]) || []).forEach(s => { map[s.subscriber_id] = s.status })
     setStatuses(map)

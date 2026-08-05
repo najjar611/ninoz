@@ -27,7 +27,6 @@ export default function Checkout() {
   const [cycle, setCycle] = useState<{ label?: string; label_ar?: string | null }>({})
   const [loading, setLoading] = useState(true)
   const [paying, setPaying] = useState(false)
-  const [celebrating, setCelebrating] = useState(false)
   const [error, setError] = useState('')
   const [promoCode, setPromoCode] = useState('')
   const [promoInfo, setPromoInfo] = useState<PromoInfo | null>(null)
@@ -91,31 +90,21 @@ export default function Checkout() {
     const { error: payErr } = await supabase.from('payments').insert({
       subscription_id: subRow.id, amount: finalPrice, status: 'pending', gateway: 'pending',
     })
-    setPaying(false)
-    if (payErr) { setError(payErr.message); return }
-    // Show the "order received" message, then go to the plan (dashboard).
-    setCelebrating(true)
-    setTimeout(() => router.push('/account/dashboard'), 2400)
+    if (payErr) { setError(payErr.message); setPaying(false); return }
+    // Single confirmation: skip the logo flash and land on the dashboard's
+    // "order received" card (no duplicate popup).
+    if (typeof window !== 'undefined') sessionStorage.setItem('ninoz_skip_flash', '1')
+    router.push('/account/dashboard')
   }
 
   if (loading) return <div style={{ textAlign: 'center', color: '#7A7068', padding: 20 }}>{isAR ? 'جار التحميل…' : 'Loading…'}</div>
 
-  if (celebrating) {
-    return (
-      <div style={{ position: 'fixed', inset: 0, background: '#F7F4F0', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, zIndex: 3000, padding: 28, textAlign: 'center' }}>
-        <style>{`@keyframes ninozPop { 0% { transform: scale(0); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }`}</style>
-        <div style={{ width: 84, height: 84, borderRadius: '50%', background: '#2D6A4F', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'ninozPop .5s cubic-bezier(.16,1,.3,1)' }}>
-          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-        </div>
-        <div style={{ fontSize: 20, fontWeight: 900, color: '#1C1C1A' }}>{isAR ? 'تم استلام طلبك!' : 'Order received!'}</div>
-        <div style={{ fontSize: 13.5, color: '#7A7068', maxWidth: 320, lineHeight: 1.6 }}>{isAR ? 'شكراً لك! سنؤكد طلبك خلال ساعة تقريباً ويُفعّل اشتراكك.' : "Thank you! We'll confirm your order within about an hour and activate your subscription."}</div>
-      </div>
-    )
-  }
-
   return (
     <div>
-      <h1 style={{ fontSize: 20, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'الدفع' : 'Checkout'}</h1>
+      <button onClick={() => router.push('/account/plan')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: '#7A7068', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', padding: 0, marginBottom: 10 }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style={{ transform: isAR ? 'scaleX(-1)' : 'none' }}><path d="M15 6l-6 6 6 6" /></svg>{isAR ? 'رجوع' : 'Back'}
+      </button>
+      <h1 style={{ fontSize: 18, fontWeight: 900, color: '#1C1C1A', marginBottom: 6 }}>{isAR ? 'الدفع' : 'Checkout'}</h1>
       <p style={{ fontSize: 13, color: '#7A7068', marginBottom: 20 }}>{isAR ? 'راجع خطتك قبل الدفع.' : 'Review your plan before paying.'}</p>
 
       <div style={{ background: '#FAF7F4', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>

@@ -1,30 +1,34 @@
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Ninoz</title>
-  <style>
-    html,body{margin:0;height:100%;background:radial-gradient(120% 90% at 50% -10%,#122A22,#0C1A15);
-      font-family:'Baloo Bhaijaan 2','Tajawal',-apple-system,system-ui,sans-serif;color:#EAF3EE}
-    .wrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:28px}
-    .logo{font-size:2.4rem;font-weight:800;color:#FF7A33;letter-spacing:.5px}
-    .msg{color:#9DB4A8;max-width:300px;line-height:1.7;font-size:.95rem}
-    .btn{margin-top:8px;border:none;background:linear-gradient(90deg,#FF7A33,#F5C77E);color:#1a120a;
-      padding:12px 26px;border-radius:999px;font-weight:800;font-size:.95rem;cursor:pointer}
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="logo">Ninoz</div>
-    <div class="msg">تعذّر الاتصال بالإنترنت. تأكّد من اتصالك ثم أعد المحاولة.<br/><span style="opacity:.7">No internet connection. Check your network and try again.</span></div>
-    <button class="btn" onclick="location.reload()">إعادة المحاولة · Retry</button>
-  </div>
-  <script>
-    // If we land on this offline page, the native splash won't get its hide()
-    // from the web app — so hide it here via the injected Capacitor bridge.
-    try { window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen
-      && window.Capacitor.Plugins.SplashScreen.hide(); } catch (e) {}
-  </script>
-</body>
-</html>
+import type { CapacitorConfig } from '@capacitor/cli'
+
+// Ninoz native shell (Option A): the app loads the live hosted site, so any web
+// deploy updates the app instantly — no store resubmission for content/logic.
+// `capacitor-webroot` is only the offline fallback shown when there's no network.
+const config: CapacitorConfig = {
+  appId: 'app.ninoz',
+  appName: 'Ninoz',
+  webDir: 'capacitor-webroot',
+  server: {
+    url: 'https://ninoz.app',
+    cleartext: false,
+    // Keep every ninoz.app address inside the app's WebView instead of
+    // bouncing to the system browser (e.g. an apex -> www redirect).
+    allowNavigation: ['ninoz.app', 'www.ninoz.app', '*.ninoz.app'],
+  },
+  backgroundColor: '#0C1A15',
+  plugins: {
+    SplashScreen: {
+      // The web app calls SplashScreen.hide() as soon as it's mounted, so the
+      // splash stays up through the load (no dark gap) and then hands straight
+      // to the site. launchShowDuration is only a safety cap so the splash can
+      // never get stuck if the site is slow or hasn't been redeployed yet.
+      launchShowDuration: 4000,
+      launchAutoHide: true,
+      backgroundColor: '#0C1A15',
+      showSpinner: true,
+      spinnerColor: '#FF7A33',
+      androidScaleType: 'CENTER_CROP',
+    },
+  },
+}
+
+export default config

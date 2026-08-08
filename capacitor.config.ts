@@ -10,17 +10,17 @@ const config: CapacitorConfig = {
   server: {
     url: 'https://ninoz.app',
     cleartext: false,
+    // Keep every ninoz.app address inside the app's WebView instead of
+    // bouncing to the system browser (e.g. an apex -> www redirect).
     allowNavigation: ['ninoz.app', 'www.ninoz.app', '*.ninoz.app'],
   },
   backgroundColor: '#0C1A15',
   plugins: {
+    // Splash disabled — hide immediately on launch (dark background only).
     SplashScreen: {
-      launchShowDuration: 4000,
+      launchShowDuration: 0,
       launchAutoHide: true,
       backgroundColor: '#0C1A15',
-      showSpinner: true,
-      spinnerColor: '#FF7A33',
-      androidScaleType: 'CENTER_CROP',
     },
   },
 }

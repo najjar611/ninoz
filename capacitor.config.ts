@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Ninoz</title>
+  <style>
+    html,body{margin:0;height:100%;background:radial-gradient(120% 90% at 50% -10%,#122A22,#0C1A15);
+      font-family:'Baloo Bhaijaan 2','Tajawal',-apple-system,system-ui,sans-serif;color:#EAF3EE}
+    .wrap{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:28px}
+    .logo{font-size:2.4rem;font-weight:800;color:#FF7A33;letter-spacing:.5px}
+    .msg{color:#9DB4A8;max-width:300px;line-height:1.7;font-size:.95rem}
+    .btn{margin-top:8px;border:none;background:linear-gradient(90deg,#FF7A33,#F5C77E);color:#1a120a;
+      padding:12px 26px;border-radius:999px;font-weight:800;font-size:.95rem;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo">Ninoz</div>
+    <div class="msg">تعذّر الاتصال بالإنترنت. تأكّد من اتصالك ثم أعد المحاولة.<br/><span style="opacity:.7">No internet connection. Check your network and try again.</span></div>
+    <button class="btn" onclick="location.reload()">إعادة المحاولة · Retry</button>
+  </div>
+  <script>
+    // If we land on this offline page, the native splash won't get its hide()
+    // from the web app — so hide it here via the injected Capacitor bridge.
+    try { window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen
+      && window.Capacitor.Plugins.SplashScreen.hide(); } catch (e) {}
+  </script>
+</body>
+</html>

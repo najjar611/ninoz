@@ -3,6 +3,7 @@ import './globals.css'
 import { Analytics } from '@vercel/analytics/next'
 import { createClient } from '@/lib/supabase/server'
 import AppLogoFlash from './AppLogoFlash'
+import CapacitorInit from './CapacitorInit'
 
 export const metadata: Metadata = {
   title: 'Ninoz',
@@ -20,6 +21,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <body>
+        <CapacitorInit />
         <AppLogoFlash logoUrl={logoUrl} />
         {children}
         <Analytics />

@@ -2,54 +2,57 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getAccountLang, setAccountLang } from '@/lib/accountLang'
 
-export default function PrivacyAdmin() {
-  const supabase = createClient()
+// Public privacy policy page (used as the Play Store / App Store privacy URL).
+// Content is fully admin-editable via Admin → Website → Privacy. Arabic shows in
+// Arabic, English in English, with a language toggle.
+export default function PrivacyPage() {
+  const [lang, setLang] = useState<'en' | 'ar'>('ar')
+  const isAR = lang === 'ar'
   const [en, setEn] = useState('')
   const [ar, setAr] = useState('')
+  const [logo, setLogo] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [msg, setMsg] = useState('')
 
+  useEffect(() => { setLang(getAccountLang()) }, [])
   useEffect(() => {
-    supabase.from('site_content').select('key, value').in('key', ['privacy_content', 'privacy_content_ar']).then(({ data }) => {
+    const sb = createClient()
+    sb.from('site_content').select('key, value').in('key', ['privacy_content', 'privacy_content_ar', 'logo_url']).then(({ data }) => {
       const m: Record<string, string> = {}
       ;((data as any[]) || []).forEach(r => { m[r.key] = r.value })
-      setEn(m.privacy_content || '')
-      setAr(m.privacy_content_ar || '')
+      setEn(m.privacy_content || ''); setAr(m.privacy_content_ar || ''); setLogo(m.logo_url || null)
       setLoading(false)
     })
   }, [])
+  function toggle() { setLang(l => { const nl = l === 'ar' ? 'en' : 'ar'; setAccountLang(nl); return nl }) }
 
-  async function save() {
-    setMsg('Saving…')
-    await supabase.from('site_content').upsert({ key: 'privacy_content', value: en, label: 'Privacy Policy', section: 'privacy' }, { onConflict: 'key' })
-    await supabase.from('site_content').upsert({ key: 'privacy_content_ar', value: ar, label: 'Privacy Policy (Arabic)', section: 'privacy' }, { onConflict: 'key' })
-    setMsg('Saved!'); setTimeout(() => setMsg(''), 1800)
-  }
-
-  const card: React.CSSProperties = { background: '#fff', borderRadius: 14, border: '1px solid #EDEBE8', padding: '18px 20px', marginBottom: 16 }
-  const lbl: React.CSSProperties = { display: 'block', fontSize: 11, fontWeight: 800, color: '#7A7068', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }
-  const ta: React.CSSProperties = { width: '100%', minHeight: 300, padding: '12px 14px', borderRadius: 10, border: '1.5px solid #EDE8E0', fontSize: 13.5, fontFamily: 'inherit', boxSizing: 'border-box', lineHeight: 1.7, resize: 'vertical' }
-  const btn: React.CSSProperties = { padding: '10px 18px', background: '#C84B0F', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }
-
-  if (loading) return <div style={{ padding: 40, color: '#B0A098', fontFamily: 'Nunito, sans-serif' }}>Loading…</div>
+  const body = (isAR ? ar : en).trim()
+  const fallback = isAR ? 'سياسة الخصوصية غير متوفرة بعد.' : 'Privacy policy is not available yet.'
 
   return (
-    <div style={{ fontFamily: 'Nunito, sans-serif', maxWidth: 820 }}>
-      <h1 style={{ fontSize: 24, fontWeight: 900, color: '#1C1C1A', margin: '0 0 4px' }}>Privacy Policy</h1>
-      <p style={{ fontSize: 13, color: '#7A7068', marginBottom: 20 }}>Published publicly at <strong>/privacy</strong> (use this URL for the App Store / Play Store). Arabic is shown to Arabic users, English to English users.</p>
-      <div style={card}>
-        <label style={lbl}>Arabic (العربية)</label>
-        <textarea style={{ ...ta, direction: 'rtl', textAlign: 'right' }} value={ar} onChange={e => setAr(e.target.value)} placeholder="اكتب سياسة الخصوصية هنا…" />
-      </div>
-      <div style={card}>
-        <label style={lbl}>English</label>
-        <textarea style={ta} value={en} onChange={e => setEn(e.target.value)} placeholder="Write the privacy policy here…" />
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button style={btn} onClick={save}>Save Privacy Policy</button>
-        {msg && <span style={{ color: '#2D6A4F', fontWeight: 700, fontSize: 13 }}>{msg}</span>}
-      </div>
+    <div dir={isAR ? 'rtl' : 'ltr'} style={{ minHeight: '100vh', background: 'radial-gradient(120% 90% at 50% -10%, #122A22, #0C1A15)', fontFamily: "'Baloo Bhaijaan 2','Tajawal',-apple-system,system-ui,sans-serif", color: '#EAF3EE', padding: '0 0 60px' }}>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@400;500;600;700;800&display=swap" />
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" />
+
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', maxWidth: 780, margin: '0 auto', direction: 'ltr' }}>
+        <a href="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+          {logo ? <img src={logo} alt="Ninoz" style={{ height: 54, objectFit: 'contain' }} /> : <span style={{ fontSize: 26, fontWeight: 800, color: '#FF7A33' }}>Ninoz</span>}
+        </a>
+        <button onClick={toggle} style={{ border: '1px solid rgba(255,255,255,.14)', background: 'rgba(255,255,255,.06)', color: '#EAF3EE', borderRadius: 999, padding: '7px 16px', fontWeight: 800, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+          {isAR ? 'English' : 'عربي'}
+        </button>
+      </header>
+
+      <main style={{ maxWidth: 780, margin: '0 auto', padding: '10px 22px' }}>
+        <h1 style={{ fontSize: 'clamp(1.7rem,5vw,2.3rem)', fontWeight: 800, margin: '10px 0 6px' }}>{isAR ? 'سياسة الخصوصية' : 'Privacy Policy'}</h1>
+        <div style={{ height: 3, width: 54, background: 'linear-gradient(90deg,#FF7A33,#F5C77E)', borderRadius: 3, marginBottom: 22 }} />
+        {loading ? (
+          <p style={{ color: '#9DB4A8' }}>{isAR ? 'جارٍ التحميل…' : 'Loading…'}</p>
+        ) : (
+          <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.9, fontSize: '1rem', color: '#D7E5DC' }}>{body || fallback}</div>
+        )}
+      </main>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import Sections from '../sections/page'
 import Faq from '../faq/page'
 import News from '../news/page'
 import Terms from '../terms/page'
+import Privacy from '../privacy/page'
 
 const TABS = [
   { key: 'text', label: 'Edit Text', C: Content },
@@ -13,6 +14,7 @@ const TABS = [
   { key: 'faq', label: 'FAQ', C: Faq },
   { key: 'news', label: 'News', C: News },
   { key: 'terms', label: 'Terms', C: Terms },
+  { key: 'privacy', label: 'Privacy', C: Privacy },
 ]
 
 export default function WebsiteHub() {

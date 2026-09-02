@@ -14,27 +14,28 @@ Config lives in `capacitor.config.ts` (appId `app.ninoz`, name `Ninoz`,
 
 ## One-time setup (on YOUR machine)
 
-You need the platform tools locally — this can't be done in the cloud:
+Both `android/` and `ios/` are already checked into this repo — `npx cap add`
+has been run and doesn't need to be repeated. You still need the platform
+tools locally to actually build/run, since that can't be done in the cloud:
 - **Android:** [Android Studio](https://developer.android.com/studio) + a Google Play account ($25 one-time).
-- **iOS:** a **Mac** with **Xcode** + an Apple Developer account ($99/yr) + CocoaPods (`sudo gem install cocoapods`).
+- **iOS:** a **Mac** with **Xcode** + an Apple Developer account ($99/yr).
+  No CocoaPods needed — the iOS project uses Swift Package Manager
+  (`ios/App/CapApp-SPM`), which Xcode resolves automatically on open.
 
 ```bash
 # in the project root
 npm install                 # installs Capacitor (already in package.json)
 
-# add the native projects (creates android/ and ios/ folders)
-npx cap add android
-npx cap add ios             # Mac only
-
-# pull config + plugins into the native projects
+# pull config + plugins into the native projects after any Capacitor
+# config/plugin change (only needed again if you add/remove a plugin)
 npx cap sync
 ```
 
 ---
 
-## Permissions (do once, after `cap add`)
+## Permissions (already set)
 
-The location picker uses GPS, so declare it:
+The location picker uses GPS, so it's declared in both native projects:
 
 **Android** — `android/app/src/main/AndroidManifest.xml`, inside `<manifest>`:
 ```xml
@@ -43,7 +44,7 @@ The location picker uses GPS, so declare it:
 <uses-permission android:name="android.permission.INTERNET" />
 ```
 
-**iOS** — `ios/App/App/Info.plist`, add:
+**iOS** — `ios/App/App/Info.plist`:
 ```xml
 <key>NSLocationWhenInUseUsageDescription</key>
 <string>نستخدم موقعك لتحديد عنوان التوصيل. / Used to set your delivery address.</string>
@@ -53,13 +54,18 @@ The location picker uses GPS, so declare it:
 
 ## App icon & splash screen
 
-1. Put a 1024×1024 PNG icon at `resources/icon.png` and a 2732×2732 splash at `resources/splash.png`.
+`resources/icon.png` (1024×1024) and `resources/splash.png` (2732×2732) are
+already in the repo, generated from `assets/Logo.png` on the brand background.
+To regenerate after changing the logo:
+
+1. Overwrite `resources/icon.png` / `resources/splash.png`.
 2. Generate all sizes:
 ```bash
-npm install --save-dev @capacitor/assets
-npx capacitor-assets generate --iconBackgroundColor '#0C1A15' --splashBackgroundColor '#0C1A15'
+npx capacitor-assets generate --assetPath resources --iconBackgroundColor '#0C1A15' --splashBackgroundColor '#0C1A15'
 npx cap sync
 ```
+(`--assetPath resources` is needed because the repo also has an unrelated
+`assets/` folder that `capacitor-assets` would otherwise pick up first.)
 
 ---
 

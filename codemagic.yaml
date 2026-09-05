@@ -1,0 +1,80 @@
+# Codemagic CI — iOS build + TestFlight upload for Ninoz.
+#
+# Why this is so short: Ninoz uses Capacitor "Option A" — the native app is a
+# thin shell whose WebView loads the LIVE site (https://ninoz.app). The web app
+# is NOT bundled into the binary, so there is no `npm run build` step here.
+# `capacitor-webroot/` (the offline fallback page) is the only web asset copied.
+#
+# Consequence: content/UI/logic changes ship by deploying the website, NOT by
+# rebuilding here. Only *native* changes (icon, splash, permissions, plugins,
+# capacitor.config.ts) need a build from this workflow.
+#
+# There is deliberately no `triggering:` block — pushing to master must NOT burn
+# build minutes on an iOS rebuild that ships nothing. Start builds manually from
+# the Codemagic UI when a native change actually needs to go out.
+
+workflows:
+  ios-release:
+    name: Ninoz iOS — TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+
+    integrations:
+      # Name of the App Store Connect API key as saved in
+      # Codemagic → Teams/Personal Account → Integrations → App Store Connect.
+      # Must match EXACTLY. Created in step 5.
+      app_store_connect: Ninoz App Store Connect
+
+    environment:
+      node: 22
+      xcode: latest
+      # NOTE: no `cocoapods:` key — Capacitor 8 generates a Swift Package Manager
+      # project (ios/App/CapApp-SPM), not a Podfile. Xcode resolves the packages
+      # itself during the build. Adding a `pod install` step here would fail.
+      ios_signing:
+        # Automatic signing: Codemagic creates/fetches the distribution
+        # certificate and provisioning profile through the API key above.
+        distribution_type: app_store
+        bundle_identifier: app.ninoz
+      vars:
+        XCODE_PROJECT: "ios/App/App.xcodeproj"
+        XCODE_SCHEME: "App"
+
+    scripts:
+      - name: Install npm dependencies
+        script: npm ci
+
+      - name: Sync Capacitor config and plugins into the iOS project
+        script: npx cap sync ios
+
+      - name: Apply code signing settings to the Xcode project
+        script: xcode-project use-profiles
+
+      - name: Set build number
+        # PROJECT_BUILD_NUMBER is Codemagic's own per-app counter, so this works
+        # on the very first build — before any build exists in App Store Connect.
+        # (The `app-store-connect get-latest-app-store-build-number` approach used
+        # in many examples fails on a brand-new app that has no builds yet.)
+        script: |
+          cd "$CM_BUILD_DIR/ios/App"
+          agvtool new-version -all "$PROJECT_BUILD_NUMBER"
+
+      - name: Build signed IPA
+        # --project, not --workspace: SPM project has no .xcworkspace of its own.
+        script: |
+          xcode-project build-ipa \
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Uploads to TestFlight only. Flip submit_to_app_store to true (or submit
+        # from App Store Connect by hand) once TestFlight testing looks good.
+        submit_to_testflight: true
+        submit_to_app_store: false

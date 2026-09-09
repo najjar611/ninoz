@@ -26,6 +26,16 @@ workflows:
       app_store_connect: Ninoz App Store Connect
 
     environment:
+      groups:
+        # Must contain CERTIFICATE_PRIVATE_KEY: an RSA private key, marked
+        # secure, added in Codemagic → Environment variables. Signing
+        # certificates cannot be saved without it — `fetch-signing-files`
+        # then creates a certificate on the Apple account but keeps nothing
+        # locally, and signing fails with "Did not find any certificates".
+        # The same key must persist across builds: the certificate on Apple's
+        # side is bound to it, and a key that only exists inside one build
+        # machine is lost when that machine is destroyed.
+        - appstore_credentials
       node: 22
       xcode: latest
       # NOTE: no `cocoapods:` key — Capacitor 8 generates a Swift Package Manager
@@ -49,22 +59,12 @@ workflows:
       - name: Sync Capacitor config and plugins into the iOS project
         script: npx cap sync ios
 
-      - name: Set up code signing
-        # `--create` is the important part: on the first run no distribution
-        # certificate or provisioning profile exists on the Apple account yet,
-        # so they have to be generated rather than looked up. Subsequent builds
-        # reuse whatever this created.
-        script: |
-          keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
-          keychain add-certificates
-          xcode-project use-profiles \
-            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
-            --code-signing-setup-verbose-logging
-
       - name: Set build number
+        # Runs BEFORE code signing on purpose: `agvtool` rewrites
+        # project.pbxproj, and the signing step patches that same file with the
+        # team, profile and identity. Signing must therefore be the last thing
+        # to touch it.
+        #
         # PROJECT_BUILD_NUMBER is Codemagic's own per-app counter, so this works
         # on the very first build — before any build exists in App Store Connect.
         # (The `app-store-connect get-latest-app-store-build-number` approach used
@@ -72,6 +72,22 @@ workflows:
         script: |
           cd "$CM_BUILD_DIR/ios/App"
           agvtool new-version -all "$PROJECT_BUILD_NUMBER"
+
+      - name: Set up code signing
+        # `--create` generates the distribution certificate and provisioning
+        # profile when the Apple account has none yet, and `--certificate-key`
+        # is what lets the certificate actually be saved to this machine.
+        # Later builds reuse the certificate bound to that same private key.
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles \
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            --code-signing-setup-verbose-logging
 
       - name: Build signed IPA
         # --project, not --workspace: SPM project has no .xcworkspace of its own.

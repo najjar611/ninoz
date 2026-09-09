@@ -60,7 +60,9 @@ workflows:
             --type IOS_APP_STORE \
             --create
           keychain add-certificates
-          xcode-project use-profiles
+          xcode-project use-profiles \
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            --code-signing-setup-verbose-logging
 
       - name: Set build number
         # PROJECT_BUILD_NUMBER is Codemagic's own per-app counter, so this works
@@ -73,10 +75,18 @@ workflows:
 
       - name: Build signed IPA
         # --project, not --workspace: SPM project has no .xcworkspace of its own.
+        #
+        # --archive-flags pins the destination to iOS. Without it, xcodebuild can
+        # resolve the archive to a Mac destination (TARGETED_DEVICE_FAMILY "1,2"
+        # means the app is eligible to run on Apple Silicon as "Designed for
+        # iPad"), and the iOS App Store provisioning profile does not match a Mac
+        # destination — which surfaces as the misleading error
+        # `"App" requires a provisioning profile`.
         script: |
           xcode-project build-ipa \
             --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
-            --scheme "$XCODE_SCHEME"
+            --scheme "$XCODE_SCHEME" \
+            --archive-flags="-destination 'generic/platform=iOS'"
 
     artifacts:
       - build/ios/ipa/*.ipa

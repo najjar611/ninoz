@@ -95,21 +95,46 @@ workflows:
           fi
           echo "CERTIFICATE_PRIVATE_KEY is present (${#CERTIFICATE_PRIVATE_KEY} characters)."
 
-          case "$CERTIFICATE_PRIVATE_KEY" in
-            *"PRIVATE KEY"*)
-              echo "Value looks like a PEM private key." ;;
-            *)
-              echo "FAILED: CERTIFICATE_PRIVATE_KEY does not contain a PEM header."
-              echo "It should start with -----BEGIN RSA PRIVATE KEY----- (or BEGIN PRIVATE KEY)."
-              echo "A truncated or single-line paste is the usual cause."
-              exit 1 ;;
-          esac
+          # Accept the key either as a plain PEM or base64-encoded. Codemagic's
+          # environment variable page says binaries must be base64-encoded, which
+          # is easy to apply to a PEM too, so both forms show up in practice.
+          KEY_FILE="$CM_BUILD_DIR/signing_key.pem"
+          printf '%s' "$CERTIFICATE_PRIVATE_KEY" > "$KEY_FILE.raw"
+
+          if grep -q 'PRIVATE KEY' "$KEY_FILE.raw"; then
+            echo "Value is a PEM private key."
+            cp "$KEY_FILE.raw" "$KEY_FILE"
+          else
+            tr -d '\n\r ' < "$KEY_FILE.raw" > "$KEY_FILE.stripped"
+            if openssl base64 -d -A -in "$KEY_FILE.stripped" -out "$KEY_FILE.decoded" 2>/dev/null \
+               && grep -q 'PRIVATE KEY' "$KEY_FILE.decoded"; then
+              echo "Value is base64-encoded; decoded it to a PEM."
+              cp "$KEY_FILE.decoded" "$KEY_FILE"
+            else
+              echo "FAILED: CERTIFICATE_PRIVATE_KEY is neither a PEM nor base64-encoded PEM."
+              echo "Diagnostics (no key material shown):"
+              echo "  length:            ${#CERTIFICATE_PRIVATE_KEY}"
+              echo "  starts with '-':   $(case "$CERTIFICATE_PRIVATE_KEY" in -*) echo yes;; *) echo no;; esac)"
+              echo "  contains newlines: $(if printf '%s' "$CERTIFICATE_PRIVATE_KEY" | grep -q '^.*$' && [ "$(printf '%s' "$CERTIFICATE_PRIVATE_KEY" | wc -l | tr -d ' ')" != "0" ]; then echo yes; else echo no; fi)"
+              echo "  base64 charset:    $(if printf '%s' "$CERTIFICATE_PRIVATE_KEY" | tr -d '\n\r ' | grep -qE '^[A-Za-z0-9+/=]+$'; then echo yes; else echo no; fi)"
+              echo
+              echo "Regenerate with:  openssl genrsa -out codemagic_private_key.pem 2048"
+              echo "and paste the file's entire contents, including the BEGIN and END lines."
+              exit 1
+            fi
+          fi
+
+          if ! openssl pkey -in "$KEY_FILE" -noout 2>/dev/null; then
+            echo "FAILED: the value decoded to something that is not a usable private key."
+            exit 1
+          fi
+          echo "Private key parsed successfully."
 
           keychain initialize
 
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
-            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
+            --certificate-key=@file:"$KEY_FILE" \
             --create
 
           keychain add-certificates

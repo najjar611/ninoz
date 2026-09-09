@@ -85,8 +85,6 @@ workflows:
         # missing provisioning profile. Each check fails at the actual broken
         # link and says which one it is.
         script: |
-          PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
-
           if [ -z "${CERTIFICATE_PRIVATE_KEY:-}" ]; then
             echo "FAILED: CERTIFICATE_PRIVATE_KEY is empty or not visible to this workflow."
             echo "The variable must be in the 'appstore_credentials' group, and that"
@@ -161,13 +159,22 @@ workflows:
           keychain list-certificates \
             | grep -E '"(name|common_name|serial_number)"' || echo "(none listed)"
 
+          # Profiles land in either location depending on the CLI version, and
+          # use-profiles reads both. Checking only one of them fails a build
+          # whose signing actually succeeded.
           echo "--- provisioning profiles on disk ---"
-          ls -la "$PROFILE_DIR" 2>/dev/null || echo "(directory does not exist)"
-
           PROFILE_COUNT=0
-          if [ -d "$PROFILE_DIR" ]; then
-            PROFILE_COUNT=$(find "$PROFILE_DIR" -name '*.mobileprovision' | wc -l | tr -d ' ')
-          fi
+          for DIR in "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" \
+                     "$HOME/Library/MobileDevice/Provisioning Profiles"; do
+            if [ -d "$DIR" ]; then
+              echo "  $DIR:"
+              ls -1 "$DIR" | sed 's/^/    /'
+              FOUND=$(find "$DIR" \( -name '*.mobileprovision' -o -name '*.provisionprofile' \) | wc -l | tr -d ' ')
+              PROFILE_COUNT=$((PROFILE_COUNT + FOUND))
+            else
+              echo "  $DIR: (does not exist)"
+            fi
+          done
 
           if [ "$PROFILE_COUNT" -eq 0 ]; then
             echo "FAILED: no provisioning profile was saved for $BUNDLE_ID."

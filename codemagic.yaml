@@ -78,16 +78,83 @@ workflows:
         # profile when the Apple account has none yet, and `--certificate-key`
         # is what lets the certificate actually be saved to this machine.
         # Later builds reuse the certificate bound to that same private key.
+        #
+        # The checks below exist because `fetch-signing-files` exits 0 even when
+        # it saves nothing (it only warns), so a green step proved nothing and
+        # the failure surfaced much later as a misleading Xcode error about a
+        # missing provisioning profile. Each check fails at the actual broken
+        # link and says which one it is.
         script: |
+          PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+
+          if [ -z "${CERTIFICATE_PRIVATE_KEY:-}" ]; then
+            echo "FAILED: CERTIFICATE_PRIVATE_KEY is empty or not visible to this workflow."
+            echo "The variable must be in the 'appstore_credentials' group, and that"
+            echo "group must be listed under environment.groups in codemagic.yaml."
+            exit 1
+          fi
+          echo "CERTIFICATE_PRIVATE_KEY is present (${#CERTIFICATE_PRIVATE_KEY} characters)."
+
+          case "$CERTIFICATE_PRIVATE_KEY" in
+            *"PRIVATE KEY"*)
+              echo "Value looks like a PEM private key." ;;
+            *)
+              echo "FAILED: CERTIFICATE_PRIVATE_KEY does not contain a PEM header."
+              echo "It should start with -----BEGIN RSA PRIVATE KEY----- (or BEGIN PRIVATE KEY)."
+              echo "A truncated or single-line paste is the usual cause."
+              exit 1 ;;
+          esac
+
           keychain initialize
+
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --certificate-key=@env:CERTIFICATE_PRIVATE_KEY \
             --create
+
           keychain add-certificates
+
+          echo "--- signing certificates in keychain ---"
+          keychain list-certificates \
+            | grep -E '"(name|common_name|serial_number)"' || echo "(none listed)"
+
+          echo "--- provisioning profiles on disk ---"
+          ls -la "$PROFILE_DIR" 2>/dev/null || echo "(directory does not exist)"
+
+          PROFILE_COUNT=0
+          if [ -d "$PROFILE_DIR" ]; then
+            PROFILE_COUNT=$(find "$PROFILE_DIR" -name '*.mobileprovision' | wc -l | tr -d ' ')
+          fi
+
+          if [ "$PROFILE_COUNT" -eq 0 ]; then
+            echo "FAILED: no provisioning profile was saved for $BUNDLE_ID."
+            echo "The certificate could not be created or matched, so there is nothing"
+            echo "to sign the archive with. Check the fetch-signing-files output above:"
+            echo "  - 'Cannot save Signing Certificates without certificate private key'"
+            echo "    means the private key was not accepted."
+            echo "  - a certificate limit error means the orphaned distribution"
+            echo "    certificate from an earlier build must be revoked at"
+            echo "    developer.apple.com > Certificates."
+            exit 1
+          fi
+          echo "Saved $PROFILE_COUNT provisioning profile(s)."
+
           xcode-project use-profiles \
             --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
             --code-signing-setup-verbose-logging
+
+          echo "--- signing settings written into the project ---"
+          grep -E 'DEVELOPMENT_TEAM|PROVISIONING_PROFILE|CODE_SIGN_STYLE|CODE_SIGN_IDENTITY' \
+            "$CM_BUILD_DIR/$XCODE_PROJECT/project.pbxproj" || true
+
+          if ! grep -q 'PROVISIONING_PROFILE_SPECIFIER' \
+               "$CM_BUILD_DIR/$XCODE_PROJECT/project.pbxproj"; then
+            echo "FAILED: use-profiles did not write a provisioning profile into the project."
+            echo "A profile exists on disk but was not matched to the App target —"
+            echo "compare the bundle id in the profile above with $BUNDLE_ID."
+            exit 1
+          fi
+          echo "Code signing settings applied to the project."
 
       - name: Build signed IPA
         # --project, not --workspace: SPM project has no .xcworkspace of its own.

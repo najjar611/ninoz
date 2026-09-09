@@ -31,12 +31,14 @@ workflows:
       # NOTE: no `cocoapods:` key — Capacitor 8 generates a Swift Package Manager
       # project (ios/App/CapApp-SPM), not a Podfile. Xcode resolves the packages
       # itself during the build. Adding a `pod install` step here would fail.
-      ios_signing:
-        # Automatic signing: Codemagic creates/fetches the distribution
-        # certificate and provisioning profile through the API key above.
-        distribution_type: app_store
-        bundle_identifier: app.ninoz
+      #
+      # NOTE: no `ios_signing:` block. That block makes Codemagic look for an
+      # ALREADY-EXISTING provisioning profile and fail with "No matching profiles
+      # found" when there isn't one. Signing is done explicitly in the scripts
+      # below instead, where `--create` generates the certificate and profile on
+      # first run. Do not add `ios_signing` back — mixing the two breaks signing.
       vars:
+        BUNDLE_ID: "app.ninoz"
         XCODE_PROJECT: "ios/App/App.xcodeproj"
         XCODE_SCHEME: "App"
 
@@ -47,8 +49,18 @@ workflows:
       - name: Sync Capacitor config and plugins into the iOS project
         script: npx cap sync ios
 
-      - name: Apply code signing settings to the Xcode project
-        script: xcode-project use-profiles
+      - name: Set up code signing
+        # `--create` is the important part: on the first run no distribution
+        # certificate or provisioning profile exists on the Apple account yet,
+        # so they have to be generated rather than looked up. Subsequent builds
+        # reuse whatever this created.
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
 
       - name: Set build number
         # PROJECT_BUILD_NUMBER is Codemagic's own per-app counter, so this works

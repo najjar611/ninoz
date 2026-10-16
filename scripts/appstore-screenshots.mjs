@@ -97,6 +97,27 @@ for (const key of selected) {
   })
   const page = await context.newPage()
 
+  // ninoz.app shows a full-screen welcome gate to logged-out visitors, so
+  // without getting past it every capture is the same sign-in screen. Guest
+  // entry reaches the real app without credentials in a screenshot run.
+  async function passWelcomeGate() {
+    const labels = ['المتابعة كضيف', 'المتابعة كضيفة', 'Continue as guest']
+    for (const label of labels) {
+      const button = page.locator(`text=${label}`).first()
+      if ((await button.count()) === 0) continue
+      try {
+        await button.click({ timeout: 5000 })
+        await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {})
+        await page.waitForTimeout(2000)
+        console.log(`  passed welcome gate via "${label}"`)
+        return true
+      } catch {
+        // fall through and try the next label
+      }
+    }
+    return false
+  }
+
   let currentPath = null
   for (const shot of SHOTS) {
     // Navigate only when the path changes. Re-visiting the same URL triggers
@@ -113,7 +134,21 @@ for (const key of selected) {
       await page.evaluate(() => {
         if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
       })
+      if (currentPath === null) await passWelcomeGate()
       currentPath = shot.path
+
+      const info = await page.evaluate(() => ({
+        title: document.title,
+        height: document.body.scrollHeight,
+        viewport: window.innerHeight,
+      }))
+      console.log(
+        `  ${shot.path} — "${info.title}", page height ${info.height}px, viewport ${info.viewport}px`
+      )
+      if (info.height <= info.viewport * 1.2) {
+        console.warn('  ! This page barely scrolls — every shot of it will look the same.')
+        console.warn('    You are probably still on a full-screen gate rather than the app.')
+      }
     }
 
     const scrolledTo = await page.evaluate((fraction) => {

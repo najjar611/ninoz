@@ -18,8 +18,8 @@
  *   --devices=iphone,ipad       which sizes to produce (default: both)
  *
  * Output sizes match what App Store Connect accepts:
- *   iPhone 6.9"  1290 x 2796
- *   iPad   13"   2048 x 2732   (only needed while the app supports iPad)
+ *   iPhone (Dynamic Island, medium display)  1206 x 2622
+ *   iPad 13"                                  2048 x 2732  (not needed: iPhone-only)
  */
 
 import { chromium } from 'playwright'
@@ -37,10 +37,20 @@ const SITE = args.url || 'https://ninoz.app'
 const OUT = args.out || 'appstore-screenshots'
 
 const DEVICES = {
+  // App Store Connect's "iPhone with Dynamic Island (medium display)" slot is
+  // the only iPhone size required now. It accepts 1179x2556 or 1206x2622 — the
+  // older 6.9" 1290x2796 is rejected there with "File dimensions are invalid".
   iphone: {
-    label: 'iphone-6.9',
-    viewport: { width: 430, height: 932 },
-    deviceScaleFactor: 3, // -> 1290 x 2796
+    label: 'iphone-dynamic-island',
+    viewport: { width: 402, height: 874 },
+    deviceScaleFactor: 3, // -> 1206 x 2622
+    isMobile: true,
+  },
+  // Kept for the alternative accepted size, in case the slot wants it.
+  iphone61: {
+    label: 'iphone-6.1',
+    viewport: { width: 393, height: 852 },
+    deviceScaleFactor: 3, // -> 1179 x 2556
     isMobile: true,
   },
   ipad: {

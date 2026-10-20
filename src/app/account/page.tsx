@@ -63,6 +63,9 @@ export default function Account() {
   useEffect(() => { setMounted(true) }, [])
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   const [parentName, setParentName] = useState('')
   const [kidName, setKidName] = useState('')
@@ -190,6 +193,42 @@ export default function Account() {
   }
 
   function logout() { clearMockSession(); router.push('/account/signin') }
+
+  // Permanent account deletion, required by App Store guideline 5.1.1(v) for any
+  // app that lets people create an account. Children are removed before parents:
+  // payments and freeze requests hang off subscriptions, the rest off the
+  // subscriber, and subscribers goes last.
+  async function deleteAccount() {
+    const id = getMockSubscriberId()
+    if (!id) { clearMockSession(); router.push('/account/signin'); return }
+    setDeleting(true); setDeleteError('')
+
+    const { data: subs } = await supabase.from('subscriptions').select('id').eq('subscriber_id', id)
+    const subIds = (subs ?? []).map(s => s.id)
+    if (subIds.length) {
+      await supabase.from('payments').delete().in('subscription_id', subIds)
+      await supabase.from('freeze_requests').delete().in('subscription_id', subIds)
+    }
+    await supabase.from('meal_reviews').delete().eq('subscriber_id', id)
+    await supabase.from('address_change_requests').delete().eq('subscriber_id', id)
+    await supabase.from('subscriber_allergens').delete().eq('subscriber_id', id)
+    await supabase.from('subscriptions').delete().eq('subscriber_id', id)
+
+    // `.select()` matters: a row blocked by a policy deletes nothing and still
+    // reports no error, so an empty result is the only way to catch that.
+    const { data: removed, error } = await supabase.from('subscribers').delete().eq('id', id).select('id')
+    setDeleting(false)
+
+    if (error) { setDeleteError(error.message); return }
+    if (!removed || removed.length === 0) {
+      setDeleteError(isAR
+        ? 'تعذّر حذف الحساب. يرجى التواصل معنا عبر واتساب.'
+        : 'The account could not be deleted. Please contact us on WhatsApp.')
+      return
+    }
+    clearMockSession()
+    router.push('/account/signin')
+  }
   function showToast(m: string) { setToast(m); setTimeout(() => setToast(''), 2600) }
 
   async function saveProfile() {
@@ -274,6 +313,41 @@ export default function Account() {
           </button>
         ))}
       </div>
+
+      <button onClick={() => { setDeleteError(''); setConfirmDelete(true) }} style={{
+        display: 'block', width: '100%', marginTop: 22, padding: '14px 18px',
+        background: 'none', border: '1.5px solid #F0D5CC', borderRadius: 12,
+        color: '#C0392B', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
+      }}>
+        {isAR ? 'حذف الحساب' : 'Delete account'}
+      </button>
+
+      {confirmDelete && mounted && createPortal(
+        <div onClick={() => !deleting && setConfirmDelete(false)} style={{ position: 'fixed', inset: 0, zIndex: 4100, background: 'rgba(8,18,14,0.62)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: "'Baloo Bhaijaan 2','Tajawal',sans-serif" }}>
+          <div onClick={e => e.stopPropagation()} dir={isAR ? 'rtl' : 'ltr'} style={{ background: '#FBF8F2', width: '100%', maxWidth: 420, borderRadius: 18, padding: '22px 24px 24px', boxShadow: '0 18px 60px rgba(0,0,0,0.45)' }}>
+            <h2 style={{ fontSize: 18, fontWeight: 900, color: '#1C1C1A', margin: '0 0 10px' }}>
+              {isAR ? 'حذف الحساب نهائياً؟' : 'Delete your account permanently?'}
+            </h2>
+            <p style={{ fontSize: 13.5, color: '#5A5048', lineHeight: 1.8, margin: '0 0 8px' }}>
+              {isAR
+                ? 'سيتم حذف حسابك وبياناتك نهائياً: اسمك واسم طفلك وتاريخ ميلاده، بريدك الإلكتروني، عنوان التوصيل، اشتراكاتك وطلباتك، وتقييماتك.'
+                : 'Your account and data will be permanently deleted: your name, your baby\'s name and birth date, your email, your delivery address, your subscriptions and orders, and your reviews.'}
+            </p>
+            <p style={{ fontSize: 13.5, color: '#5A5048', lineHeight: 1.8, margin: '0 0 18px' }}>
+              {isAR ? 'لا يمكن التراجع عن هذا الإجراء.' : 'This cannot be undone.'}
+            </p>
+            {deleteError && <div style={{ color: '#DC2626', fontSize: 12.5, marginBottom: 12 }}>{deleteError}</div>}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setConfirmDelete(false)} disabled={deleting} style={{ flex: 1, padding: '12px', background: '#F2EDE8', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, color: '#5A5048', cursor: deleting ? 'default' : 'pointer', fontFamily: 'inherit', opacity: deleting ? 0.5 : 1 }}>
+                {isAR ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button onClick={deleteAccount} disabled={deleting} style={{ flex: 1, padding: '12px', background: '#C0392B', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 800, color: '#fff', cursor: deleting ? 'default' : 'pointer', fontFamily: 'inherit', opacity: deleting ? 0.6 : 1 }}>
+                {deleting ? (isAR ? 'جار الحذف…' : 'Deleting…') : (isAR ? 'حذف نهائياً' : 'Delete permanently')}
+              </button>
+            </div>
+          </div>
+        </div>
+      , document.body)}
 
       {tab && mounted && createPortal(
         <div onClick={() => setTab(null)} style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(8,18,14,0.62)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', fontFamily: "'Baloo Bhaijaan 2','Tajawal',sans-serif" }}>

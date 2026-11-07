@@ -7,6 +7,11 @@ import AppLogoFlash from './AppLogoFlash'
 export const metadata: Metadata = {
   title: 'Ninoz',
   description: 'Delicious, healthy meals for your little one',
+  verification: {
+    other: {
+      'domain-verification': '631a28eee4325d93f3226e6862897d0ea8a663f2180855b857fdc157b6122124',
+    },
+  },
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

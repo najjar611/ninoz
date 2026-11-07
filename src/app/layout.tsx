@@ -24,6 +24,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en">
+      <head>
+        <script
+          type="text/plain"
+          id="domain-verification"
+          dangerouslySetInnerHTML={{
+            __html:
+              '<meta name="domain-verification" content="631a28eee4325d93f3226e6862897d0ea8a663f2180855b857fdc157b6122124">',
+          }}
+        />
+      </head>
       <body>
         <AppLogoFlash logoUrl={logoUrl} />
         {children}
